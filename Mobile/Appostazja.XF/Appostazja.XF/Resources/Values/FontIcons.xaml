@@ -1,0 +1,5 @@
+﻿<ResourceDictionary xmlns="http://xamarin.com/schemas/2014/forms" xmlns:x="http://schemas.microsoft.com/winfx/2009/xaml">
+    <!--  Updating Font file with icons may require project clean and uninstalling app  -->
+    <!--  https://github.com/xamarin/Xamarin.Forms/pull/13554  -->
+    <x:String x:Key="AcceptedIcon">&#xE900;</x:String>
+</ResourceDictionary>

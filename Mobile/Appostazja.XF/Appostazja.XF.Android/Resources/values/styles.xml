@@ -1,0 +1,20 @@
+<?xml version="1.0" encoding="utf-8" ?>
+<resources>
+
+  <style name="SplashTheme" parent="MainTheme">
+    <item name="android:windowBackground">@drawable/splash_screen</item>
+    <item name="android:statusBarColor">@color/appIcon_background</item>
+    <item name="android:windowLightStatusBar">true</item>
+    <item name="android:navigationBarColor" >@color/appIcon_background</item>
+    <item name="android:windowLightNavigationBar">true</item>
+  </style>
+
+  <style name="MainTheme" parent="MainTheme.Base">
+    <item name="android:windowBackground">@color/appIcon_background</item>
+    <item name="android:forceDarkAllowed">false</item>
+    <item name="android:colorEdgeEffect">#696969</item>
+    <item name="colorPrimary">@color/colorPrimary</item>
+    <item name="colorPrimaryDark">@color/colorPrimaryDark</item>
+    <item name="colorAccent">@color/colorAccent</item>
+  </style>
+</resources>

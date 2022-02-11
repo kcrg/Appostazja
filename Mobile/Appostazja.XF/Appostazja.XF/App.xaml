@@ -1,0 +1,66 @@
+﻿<Application
+    x:Class="Appostazja.XF.App"
+    xmlns="http://xamarin.com/schemas/2014/forms"
+    xmlns:x="http://schemas.microsoft.com/winfx/2009/xaml">
+    <Application.Resources>
+        <ResourceDictionary>
+            <ResourceDictionary.MergedDictionaries>
+                <ResourceDictionary Source="Resources/Values/Colors.xaml" />
+                <ResourceDictionary Source="Resources/Values/FontIcons.xaml" />
+                <!--<styles:PageStyle />-->
+            </ResourceDictionary.MergedDictionaries>
+
+            <Style x:Key="BasicContentPageStyle" TargetType="ContentPage">
+                <Setter Property="BackgroundColor" Value="{AppThemeBinding Light={StaticResource BackgroundColorLight}, Dark={StaticResource BackgroundColorDark}}" />
+                <Setter Property="Shell.NavBarHasShadow" Value="False" />
+                <Setter Property="Shell.NavBarIsVisible" Value="False" />
+                <Setter Property="Shell.TabBarIsVisible" Value="False" />
+            </Style>
+
+            <Style x:Key="BookingProcessViewsStyle" TargetType="ContentPage">
+                <Setter Property="BackgroundColor" Value="{AppThemeBinding Light={StaticResource BackgroundColorLight}, Dark={StaticResource BackgroundColorDark}}" />
+                <Setter Property="Shell.NavBarHasShadow" Value="True" />
+                <Setter Property="Shell.NavBarIsVisible" Value="True" />
+                <Setter Property="Shell.TabBarIsVisible" Value="False" />
+            </Style>
+
+            <Style x:Key="TabbedViewsStyle" TargetType="ContentPage">
+                <Setter Property="BackgroundColor" Value="{AppThemeBinding Light={StaticResource BackgroundColorLight}, Dark={StaticResource BackgroundColorDark}}" />
+                <Setter Property="Shell.NavBarHasShadow" Value="False" />
+                <Setter Property="Shell.NavBarIsVisible" Value="False" />
+                <Setter Property="Shell.TabBarIsVisible" Value="True" />
+            </Style>
+
+            <Style ApplyToDerivedTypes="True" TargetType="Label">
+                <Setter Property="TextColor" Value="{AppThemeBinding Light={StaticResource ContrastColorLight}, Dark={StaticResource ContrastColorDark}}" />
+                <Setter Property="FontFamily" Value="OpenSansRegular" />
+            </Style>
+
+            <Style ApplyToDerivedTypes="True" TargetType="Span">
+                <Setter Property="TextColor" Value="{AppThemeBinding Light={StaticResource ContrastColorLight}, Dark={StaticResource ContrastColorDark}}" />
+                <Setter Property="FontFamily" Value="OpenSansRegular" />
+            </Style>
+
+            <!--  https://github.com/xamarin/Xamarin.Forms/issues/14601  -->
+            <Style ApplyToDerivedTypes="True" TargetType="Button">
+                <Setter Property="BackgroundColor" Value="{AppThemeBinding Light={StaticResource AccentColorLight}, Dark={StaticResource AccentColorDark}}" />
+                <Setter Property="FontFamily" Value="OpenSansBold" />
+                <Setter Property="FontSize" Value="16" />
+                <Setter Property="CornerRadius" Value="4" />
+                <Setter Property="TextTransform" Value="None" />
+                <Setter Property="HeightRequest" Value="48" />
+                <Setter Property="CharacterSpacing" Value="0" />
+                <Setter Property="Visual" Value="Material" />
+            </Style>
+
+            <Style ApplyToDerivedTypes="True" TargetType="Frame">
+                <Setter Property="BackgroundColor" Value="{AppThemeBinding Light={StaticResource CellBackgroundColorLight}, Dark={StaticResource CellBackgroundColorDark}}" />
+                <Setter Property="HasShadow" Value="False" />
+                <Setter Property="Padding" Value="0" />
+                <Setter Property="CornerRadius" Value="0" />
+            </Style>
+
+            <!--  Other Resources like Page Templates  -->
+        </ResourceDictionary>
+    </Application.Resources>
+</Application>

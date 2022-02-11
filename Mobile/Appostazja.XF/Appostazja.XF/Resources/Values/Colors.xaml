@@ -1,0 +1,49 @@
+﻿<ResourceDictionary xmlns="http://xamarin.com/schemas/2014/forms" xmlns:x="http://schemas.microsoft.com/winfx/2009/xaml">
+
+    <!--  Light Colors  -->
+    <Color x:Key="BackgroundColorLight">#F9FAFC</Color>
+    <Color x:Key="CellBackgroundColorLight">#FFFFFF</Color>
+    <Color x:Key="ContrastColorLight">#000000</Color>
+    <Color x:Key="MediumContrastColorLight">#969696</Color>
+    <Color x:Key="LowContrastColorLight">#EBEBED</Color>
+
+    <Color x:Key="TabBackgroundColorLight">#2D3746</Color>
+    <Color x:Key="TabSelectedColorLight">#FFFFFF</Color>
+    <Color x:Key="TabUnselectedColorLight">#9BA5AF</Color>
+
+    <Color x:Key="FuelGreenColorLight">#54C732</Color>
+    <Color x:Key="FuelRedLight">#FF0032</Color>
+    <Color x:Key="FuelEmptyLight">#EBEBED</Color>
+
+    <Color x:Key="AcceptColorLight">#40C734</Color>
+    <Color x:Key="RejectColorLight">#FF0032</Color>
+    <Color x:Key="PendingColorLight">#F5BE23</Color>
+    <Color x:Key="AccentColorLight">#2D78FF</Color>
+    <Color x:Key="AccentBackgroundColorLight">#a7c6fd</Color>
+    <Color x:Key="AccentLightBackgroundColorLight">#e5edfc</Color>
+    <Color x:Key="ColorfulContrastColorLight">#FFFFFF</Color>
+
+    <!--  Dark Colors  -->
+    <Color x:Key="BackgroundColorDark">#F9FAFC</Color>
+    <Color x:Key="CellBackgroundColorDark">#FFFFFF</Color>
+    <Color x:Key="ContrastColorDark">#000000</Color>
+    <Color x:Key="MediumContrastColorDark">#969696</Color>
+    <Color x:Key="LowContrastColorDark">#EBEBED</Color>
+
+    <Color x:Key="TabBackgroundColorDark">#2D3746</Color>
+    <Color x:Key="TabSelectedColorDark">#FFFFFF</Color>
+    <Color x:Key="TabUnselectedColorDark">#9BA5AF</Color>
+
+    <Color x:Key="FuelGreenColorDark">#54C732</Color>
+    <Color x:Key="FuelRedDark">#FF0032</Color>
+    <Color x:Key="FuelEmptyDark">#EBEBED</Color>
+
+    <Color x:Key="AcceptColorDark">#40C734</Color>
+    <Color x:Key="RejectColorDark">#FF0032</Color>
+    <Color x:Key="PendingColorDark">#F5BE23</Color>
+    <Color x:Key="AccentColorDark">#2D78FF</Color>
+    <Color x:Key="AccentBackgroundColorDark">#a7c6fd</Color>
+    <Color x:Key="AccentLightBackgroundColorDark">#e5edfc</Color>
+    <Color x:Key="ColorfulContrastColorDark">#FFFFFF</Color>
+
+</ResourceDictionary>

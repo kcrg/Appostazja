@@ -1,0 +1,38 @@
+﻿<Shell
+    x:Class="Appostazja.XF.AppShell"
+    xmlns="http://xamarin.com/schemas/2014/forms"
+    xmlns:x="http://schemas.microsoft.com/winfx/2009/xaml"
+    xmlns:views="clr-namespace:Appostazja.XF.Views"
+    NavBarHasShadow="True"
+    Shell.BackgroundColor="{AppThemeBinding Light={StaticResource CellBackgroundColorLight},
+                                            Dark={StaticResource CellBackgroundColorDark}}"
+    Shell.FlyoutBehavior="Disabled"
+    Shell.ForegroundColor="{AppThemeBinding Light={StaticResource AccentColorLight},
+                                            Dark={StaticResource AccentColorDark}}"
+    Shell.TitleColor="{AppThemeBinding Light={StaticResource ContrastColorLight},
+                                       Dark={StaticResource ContrastColorDark}}"
+    Visual="Material">
+
+    <Shell.Resources>
+        <Style TargetType="TabBar">
+            <Setter Property="Shell.TabBarBackgroundColor" Value="{AppThemeBinding Light={StaticResource TabBackgroundColorLight}, Dark={StaticResource TabBackgroundColorDark}}" />
+            <Setter Property="Shell.TabBarTitleColor" Value="{AppThemeBinding Light={StaticResource TabSelectedColorLight}, Dark={StaticResource TabSelectedColorDark}}" />
+            <Setter Property="Shell.TabBarUnselectedColor" Value="{AppThemeBinding Light={StaticResource TabUnselectedColorLight}, Dark={StaticResource TabUnselectedColorDark}}" />
+        </Style>
+    </Shell.Resources>
+
+    <TabBar Route="AppShell">
+        <Tab Title="Deklaracja" Route="DeclarationForm">
+            <ShellContent ContentTemplate="{DataTemplate views:DeclarationFormView}" />
+        </Tab>
+
+        <!--
+            Icon="{FontImage FontFamily={StaticResource MyFontFamily},
+            Glyph={StaticResource SmileFace},
+            Color={StaticResource White}}"
+        -->
+        <Tab Title="Mapa" Route="Map">
+            <ShellContent ContentTemplate="{DataTemplate views:DeclarationFormView}" />
+        </Tab>
+    </TabBar>
+</Shell>
