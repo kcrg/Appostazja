@@ -348,3 +348,4 @@ MigrationBackup/
 
 # Ionide (cross platform F# VS Code tools) working folder
 .ionide/
+Mobile/Appostazja.XF/Appostazja.XF.Android/Resources/Resource.designer.cs
