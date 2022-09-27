@@ -1,0 +1,40 @@
+﻿<ContentPage
+    x:Class="Appostazja.Maui.Views.MainView"
+    xmlns="http://schemas.microsoft.com/dotnet/2021/maui"
+    xmlns:x="http://schemas.microsoft.com/winfx/2009/xaml"
+    xmlns:controls="clr-namespace:Appostazja.Maui.Controls"
+    xmlns:toolkit="http://schemas.microsoft.com/dotnet/2022/maui/toolkit"
+    xmlns:vm="clr-namespace:Appostazja.Maui.ViewModels"
+    x:DataType="vm:MainViewModel">
+    <ContentPage.Behaviors>
+        <toolkit:StatusBarBehavior StatusBarColor="{AppThemeBinding Light={StaticResource BackgroundLight}, Dark={StaticResource BackgroundDark}}" StatusBarStyle="{AppThemeBinding Light=DarkContent, Dark=LightContent}" />
+    </ContentPage.Behaviors>
+
+    <ContentPage.ToolbarItems>
+        <controls:BaseToolbarItem
+            Command="{Binding NavigateToSettingsCommand, Mode=OneTime}"
+            Glyph="{StaticResource IconSettings}"
+            GlyphColor="{AppThemeBinding Light={StaticResource ContrastLight},
+                                         Dark={StaticResource ContrastDark}}"
+            Text="Ustawienia" />
+    </ContentPage.ToolbarItems>
+
+    <ScrollView>
+        <VerticalStackLayout
+            Padding="30"
+            Spacing="25"
+            VerticalOptions="Center">
+
+            <Label
+                FontSize="32"
+                HorizontalOptions="Center"
+                Text="Hello, World!" />
+
+            <Button
+                Command="{Binding NavigateToFormCommand, Mode=OneTime}"
+                HorizontalOptions="Center"
+                Text="Nowy wiosek" />
+            <Button HorizontalOptions="Center" Text="O apostazji" />
+        </VerticalStackLayout>
+    </ScrollView>
+</ContentPage>

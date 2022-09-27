@@ -1,0 +1,31 @@
+<ContentPage
+    x:Class="Appostazja.Maui.Views.FormView"
+    xmlns="http://schemas.microsoft.com/dotnet/2021/maui"
+    xmlns:x="http://schemas.microsoft.com/winfx/2009/xaml"
+    xmlns:controls="clr-namespace:Appostazja.Maui.Controls"
+    Title="Nowy wniosek">
+    <VerticalStackLayout Padding="32" Spacing="12">
+        <controls:BorderlessEntry Placeholder="Imię i nazwisko" />
+
+        <DatePicker />
+
+        <Border
+            Padding="12,0"
+            BackgroundColor="White"
+            Stroke="{StaticResource ContrastDark}"
+            StrokeThickness="1">
+            <Border.StrokeShape>
+                <RoundRectangle CornerRadius="8" />
+            </Border.StrokeShape>
+            <controls:BorderlessEntry Placeholder="Nazwa parafii chrztu i adres" />
+        </Border>
+
+        <controls:BorderlessEntry Placeholder="Miejsce zamieszkania" />
+
+        <controls:BorderlessEditor
+            AutoSize="TextChanges"
+            HeightRequest="64"
+            IsSpellCheckEnabled="True"
+            Placeholder="Powód rezygnacji" />
+    </VerticalStackLayout>
+</ContentPage>
