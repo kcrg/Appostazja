@@ -1,0 +1,40 @@
+<base:BasePage
+    x:Class="Appostazja.Maui.Views.MapView"
+    xmlns="http://schemas.microsoft.com/dotnet/2021/maui"
+    xmlns:x="http://schemas.microsoft.com/winfx/2009/xaml"
+    xmlns:base="clr-namespace:Appostazja.Maui.Views.Base"
+    xmlns:controls="clr-namespace:Appostazja.Maui.Controls"
+    xmlns:mapControls="clr-namespace:Appostazja.Maui.Controls.Map"
+    xmlns:maps="clr-namespace:Microsoft.Maui.Controls.Maps;assembly=Microsoft.Maui.Controls.Maps"
+    xmlns:models="clr-namespace:Appostazja.Maui.Models"
+    xmlns:toolkit="http://schemas.microsoft.com/dotnet/2022/maui/toolkit"
+    xmlns:vm="clr-namespace:Appostazja.Maui.ViewModels"
+    x:DataType="vm:MapViewModel"
+    Shell.NavBarIsVisible="False">
+    <Grid toolkit:StateContainer.CurrentState="{Binding CurrentState}">
+        <toolkit:StateContainer.StateViews>
+            <ActivityIndicator
+                toolkit:StateView.StateKey="Loading"
+                HorizontalOptions="Center"
+                IsRunning="True"
+                VerticalOptions="Center"
+                Color="{AppThemeBinding Light={StaticResource Gray200},
+                                        Dark={StaticResource Gray600}}" />
+        </toolkit:StateContainer.StateViews>
+
+        <controls:ApostasyMap
+            HorizontalOptions="Fill"
+            IsZoomEnabled="True"
+            ItemsSource="{Binding ChurchPinList}"
+            VerticalOptions="Fill">
+            <controls:ApostasyMap.ItemTemplate>
+                <DataTemplate x:DataType="mapControls:ChurchPin">
+                    <mapControls:ChurchPin
+                        ImageSource="drawing.png"
+                        Label="{Binding Data.ChurchAddress}"
+                        Location="{Binding Location}" />
+                </DataTemplate>
+            </controls:ApostasyMap.ItemTemplate>
+        </controls:ApostasyMap>
+    </Grid>
+</base:BasePage>

@@ -1,8 +1,8 @@
 ﻿<Project Sdk="Microsoft.NET.Sdk">
 
 	<PropertyGroup>
-		<TargetFrameworks>net7.0-maccatalyst;net7.0-android33.0;net7.0-ios15.4</TargetFrameworks>
-		<TargetFrameworks Condition="$([MSBuild]::IsOSPlatform('windows'))">$(TargetFrameworks);net7.0-windows10.0.19041.0</TargetFrameworks>
+		<TargetFrameworks>net9.0-android;net9.0-ios</TargetFrameworks>
+		<TargetFrameworks Condition="$([MSBuild]::IsOSPlatform('windows'))">$(TargetFrameworks);net9.0-windows10.0.19041.0</TargetFrameworks>
 		<OutputType>Exe</OutputType>
 		<RootNamespace>Appostazja.Maui</RootNamespace>
 		<UseMaui>true</UseMaui>
@@ -17,10 +17,14 @@
 		<ApplicationIdGuid>aa00049f-af3a-4ec7-9a05-253c223b95d4</ApplicationIdGuid>
 
 		<!-- Versions -->
-		<ApplicationDisplayVersion>1.0</ApplicationDisplayVersion>
+		<ApplicationDisplayVersion>1.0.0</ApplicationDisplayVersion>
 		<ApplicationVersion>1</ApplicationVersion>
 
-		<SupportedOSPlatformVersion Condition="$([MSBuild]::GetTargetPlatformIdentifier('$(TargetFramework)')) == 'ios'">15.0</SupportedOSPlatformVersion>
+    <MauiVersion>9.0.50</MauiVersion>
+
+    <UseInterpreter>False</UseInterpreter>
+
+		<SupportedOSPlatformVersion Condition="$([MSBuild]::GetTargetPlatformIdentifier('$(TargetFramework)')) == 'ios'">14.5</SupportedOSPlatformVersion>
 		<SupportedOSPlatformVersion Condition="$([MSBuild]::GetTargetPlatformIdentifier('$(TargetFramework)')) == 'maccatalyst'">14.0</SupportedOSPlatformVersion>
 		<SupportedOSPlatformVersion Condition="$([MSBuild]::GetTargetPlatformIdentifier('$(TargetFramework)')) == 'android'">21.0</SupportedOSPlatformVersion>
 		<SupportedOSPlatformVersion Condition="$([MSBuild]::GetTargetPlatformIdentifier('$(TargetFramework)')) == 'windows'">10.0.17763.0</SupportedOSPlatformVersion>
@@ -29,15 +33,35 @@
     <WarningsAsErrors>nullable</WarningsAsErrors>
 	</PropertyGroup>
 
+	<PropertyGroup Condition="'$(TargetFramework)'=='net8.0-ios'">
+	  <ProvisioningType>manual</ProvisioningType>
+	  <CodesignKey>Apple Distribution: Kacper Tryniecki (4M4XKKUYT3)</CodesignKey>
+	  <CodesignProvision>Appostazja</CodesignProvision>
+	</PropertyGroup>
+
+  <PropertyGroup Condition="$(TargetFramework.Contains('-android')) and '$(Configuration)' == 'Release'">
+    <AndroidKeyStore>True</AndroidKeyStore>
+    <AndroidSigningKeyStore>appostazja.keystore</AndroidSigningKeyStore>
+    <AndroidSigningKeyAlias>appostazja</AndroidSigningKeyAlias>
+    <AndroidSigningKeyPass>Sqgkvvd123321</AndroidSigningKeyPass>
+    <AndroidSigningStorePass>Sqgkvvd123321</AndroidSigningStorePass>
+  </PropertyGroup>
+
+  <PropertyGroup Condition="'$(Configuration)|$(TargetFramework)|$(Platform)'=='Release|net8.0-android|AnyCPU'">
+    <EnableLLVM>false</EnableLLVM>
+    <RunAOTCompilation>True</RunAOTCompilation>
+  </PropertyGroup>
+
 	<ItemGroup>
 		<!-- App Icon -->
 		<MauiIcon Include="Resources\AppIcon\appostazja_background.svg" ForegroundFile="Resources\AppIcon\appostazja_icon.svg" Color="#363636" />
 
 		<!-- Splash Screen -->
-        <MauiSplashScreen Include="Resources\Splash\appostazja_splash.svg" Color="#363636" BaseSize="128,128" />
+    <MauiSplashScreen Include="Resources\Splash\appostazja_splash.svg" Color="#363636" BaseSize="128,128" />
 
-        <!-- Images -->
-		<MauiImage Include="Resources\Images\*" />
+    <!-- Images -->
+		<!--<MauiImage Include="Resources\Images\*" />-->
+    <MauiImage Include="Resources\Images\drawing.svg" BaseSize="48,48" />
 
 		<!-- Custom Fonts -->
 		<MauiFont Include="Resources\Fonts\*" />
@@ -46,37 +70,36 @@
 		<MauiAsset Include="Resources\Raw\**" LogicalName="%(RecursiveDir)%(Filename)%(Extension)" />
 	</ItemGroup>
 
-	<ItemGroup>
-		<PackageReference Include="CommunityToolkit.Maui" Version="1.3.0" />
-		<PackageReference Include="CommunityToolkit.Mvvm" Version="8.0.0" />
-		<PackageReference Include="Microsoft.Extensions.Logging.Debug" Version="7.0.0-rc.1.22426.10" />
-		<PackageReference Include="Select.HtmlToPdf.NetCore" Version="22.1.0" />
-		<PackageReference Include="Sentry.Maui" Version="3.21.0-preview.3" />
+  <ItemGroup>
+    <PackageReference Include="Microsoft.Maui.Controls" Version="9.0.50" />
+    <PackageReference Include="Microsoft.Maui.Controls.Compatibility" Version="9.0.50" />
+		<PackageReference Include="CommunityToolkit.Maui" Version="11.1.0" />
+		<PackageReference Include="CommunityToolkit.Mvvm" Version="8.4.0" />
+		<PackageReference Include="M.BindableProperty.Generator" Version="0.11.1" />
+		<PackageReference Include="mavvm" Version="1.0.6" />
+		<PackageReference Include="Microsoft.Extensions.Logging.Debug" Version="9.0.3" />
+		<PackageReference Include="Microsoft.Maui.Controls.Maps" Version="9.0.50" />
+		<PackageReference Include="Plainer.Maui" Version="1.7.1" />
+		<PackageReference Include="QuestPDF" Version="2025.1.7" />
+		<PackageReference Include="RestSharp" Version="112.1.0" />
+		<PackageReference Include="Sentry.Maui" Version="5.4.0" />
+		<PackageReference Include="Sharpnado.TaskMonitor" Version="1.0.2" />
+		<PackageReference Include="SkiaSharp" Version="3.116.1" />
+		<PackageReference Include="SkiaSharp.HarfBuzz" Version="3.116.1" />
+		<PackageReference Include="SkiaSharp.Views" Version="3.116.1" />
 	</ItemGroup>
 
 	<ItemGroup>
+	  <Folder Include="Platforms\Android\Services\" />
 	  <Folder Include="Resources\Fonts\" />
-	  <Folder Include="Resources\Images\" />
 	  <Folder Include="Resources\Raw\" />
 	  <Folder Include="Resources\Splash\" />
 	</ItemGroup>
 
-	<ItemGroup>
-	  <Compile Update="Views\MainView.xaml.cs">
-	    <DependentUpon>MainView.xaml</DependentUpon>
-	  </Compile>
+	<ItemGroup Condition="$(TargetFramework.Contains('-android'))">
+	  <ProjectReference Include="..\Google.Maps.Utils.Android\Google.Maps.Utils.Android.csproj" />
 	</ItemGroup>
 
-	<ItemGroup>
-	  <MauiXaml Update="Resources\Styles\Icons.xaml">
-	    <Generator>MSBuild:Compile</Generator>
-	  </MauiXaml>
-	  <MauiXaml Update="Views\FormView.xaml">
-	    <Generator>MSBuild:Compile</Generator>
-	  </MauiXaml>
-	  <MauiXaml Update="Views\SettingsView.xaml">
-	    <Generator>MSBuild:Compile</Generator>
-	  </MauiXaml>
-	</ItemGroup>
+	<ProjectExtensions><VisualStudio><UserProperties XamarinHotReloadDebuggerTimeoutExceptionAppostazjaMauiHideInfoBar="True" /></VisualStudio></ProjectExtensions>
 
 </Project>

@@ -1,0 +1,14 @@
+﻿global using Appostazja.Maui.Controls;
+global using Appostazja.Maui.ViewModels;
+global using Appostazja.Maui.ViewModels.Base;
+global using Appostazja.Maui.Views;
+global using CommunityToolkit.Maui;
+global using CommunityToolkit.Mvvm.ComponentModel;
+global using CommunityToolkit.Mvvm.Input;
+global using Maui.BindableProperty.Generator.Core;
+global using mavvm;
+global using mavvm.Attibutes;
+global using Appostazja.Maui.Views.Base;
+global using System.Text.Json.Serialization;
+global using Appostazja.Maui.Services.Implementations;
+global using Appostazja.Maui.Services;

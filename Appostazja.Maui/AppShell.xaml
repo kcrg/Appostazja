@@ -2,12 +2,13 @@
     x:Class="Appostazja.Maui.AppShell"
     xmlns="http://schemas.microsoft.com/dotnet/2021/maui"
     xmlns:x="http://schemas.microsoft.com/winfx/2009/xaml"
+    xmlns:mavvm="clr-namespace:mavvm;assembly=mavvm"
     xmlns:views="clr-namespace:Appostazja.Maui.Views"
+    xmlns:vm="clr-namespace:Appostazja.Maui.ViewModels"
     Shell.FlyoutBehavior="Disabled">
 
-    <ShellContent
-        Title="Główna"
-        ContentTemplate="{DataTemplate views:MainView}"
-        Route="Main" />
+    <ShellItem Route="start">
+        <mavvm:MavvmShellContent ViewModel="{x:Type vm:MainViewModel}" />
+    </ShellItem>
 
 </Shell>

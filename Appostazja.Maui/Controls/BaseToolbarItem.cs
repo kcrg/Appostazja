@@ -1,30 +1,24 @@
-﻿using Microsoft.Maui.Controls;
+﻿namespace Appostazja.Maui.Controls;
 
-namespace Appostazja.Maui.Controls;
-
-public class BaseToolbarItem : ToolbarItem
+public partial class BaseToolbarItem : ToolbarItem
 {
     private readonly FontImageSource fontImageSource = new();
+
+#pragma warning disable CS0169
+
+    [AutoBindable(DefaultBindingMode = nameof(BindingMode.OneTime))]
+    private readonly string? glyph;
+
+    [AutoBindable(DefaultBindingMode = nameof(BindingMode.OneTime))]
+    private readonly Color? glyphColor;
+
+#pragma warning restore CS0169
 
     public BaseToolbarItem()
     {
         fontImageSource.FontFamily = "FontIcons";
         fontImageSource.Size = 28;
         IconImageSource = fontImageSource;
-    }
-
-    public static readonly BindableProperty GlyphProperty = BindableProperty.Create(nameof(Glyph), typeof(string), typeof(BaseToolbarItem), default(string), BindingMode.OneTime);
-    public string Glyph
-    {
-        get => (string)GetValue(GlyphProperty);
-        set => SetValue(GlyphProperty, value);
-    }
-
-    public static readonly BindableProperty GlyphColorProperty = BindableProperty.Create(nameof(GlyphColor), typeof(Color), typeof(BaseToolbarItem), default(Color), BindingMode.OneTime);
-    public Color GlyphColor
-    {
-        get => (Color)GetValue(GlyphColorProperty);
-        set => SetValue(GlyphColorProperty, value);
     }
 
     protected override void OnPropertyChanged(string? propertyName = null)
@@ -41,4 +35,3 @@ public class BaseToolbarItem : ToolbarItem
         }
     }
 }
-

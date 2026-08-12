@@ -1,21 +1,24 @@
-﻿using Appostazja.Maui.Controls;
-using Appostazja.Maui.ViewModels;
-using Appostazja.Maui.Views;
-using CommunityToolkit.Maui;
+﻿#if ANDROID
+using Appostazja.Maui.Platforms.Android.Handlers.Map;
+#endif
 using Microsoft.Extensions.Logging;
+using Plainer.Maui;
+using QuestPDF.Infrastructure;
+using RestSharp;
 
 namespace Appostazja.Maui;
 
 public static class MauiProgram
 {
-	public static MauiApp CreateMauiApp()
-	{
-		var builder = MauiApp.CreateBuilder();
-		builder
-			.UseMauiApp<App>()
-			.UseSentry(options =>
-			{
-				options.Dsn = "https://23629d2cfec54e50ac8b5acd39a6188a@o866902.ingest.sentry.io/6779536";
+    public static MauiApp CreateMauiApp()
+    {
+        var builder = MauiApp.CreateBuilder();
+        builder
+            .UseMauiApp<App>()
+            .UseMauiMaps()
+            .UseSentry(options =>
+            {
+                options.Dsn = "https://23629d2cfec54e50ac8b5acd39a6188a@o866902.ingest.sentry.io/6779536";
 #if DEBUG
                 options.Debug = true;
 #endif
@@ -23,69 +26,63 @@ public static class MauiProgram
                 // Set TracesSampleRate to 1.0 to capture 100% of transactions for performance monitoring.
                 // We recommend adjusting this value in production.
                 options.TracesSampleRate = 1.0;
-			})
-			.ConfigureFonts(fonts =>
-			{
-				fonts.AddFont("tabler-icons.ttf", "FontIcons");
-			})
-			.UseMauiCommunityToolkit()
-			.Services
-			.AddTransient<MainView>()
-			.AddTransient<MainViewModel>();
-
-		Microsoft.Maui.Handlers.EntryHandler.Mapper.AppendToMapping("Borderless", (handler, view) =>
-		{
-			if (view is BorderlessEntry)
-			{
-#if ANDROID
-				handler.PlatformView.Background = null;
-				handler.PlatformView.SetBackgroundColor(Android.Graphics.Color.Transparent);
-#elif IOS || MACCATALYST
-				handler.PlatformView.BackgroundColor = UIKit.UIColor.Clear;
-				handler.PlatformView.Layer.BorderWidth = 0;
-				handler.PlatformView.BorderStyle = UIKit.UITextBorderStyle.None;
-#elif WINDOWS
-				handler.PlatformView.BorderThickness = new Microsoft.UI.Xaml.Thickness(0);
-#endif
-			}
-		});
-
-        Microsoft.Maui.Handlers.EditorHandler.Mapper.AppendToMapping("Borderless", (handler, view) =>
-        {
-            if (view is BorderlessEditor)
+            })
+            .ConfigureFonts(fonts =>
             {
-#if ANDROID
-				handler.PlatformView.Background = null;
-				handler.PlatformView.SetBackgroundColor(Android.Graphics.Color.Transparent);
-#elif IOS || MACCATALYST
-                handler.PlatformView.BackgroundColor = UIKit.UIColor.Clear;
-                handler.PlatformView.Layer.BorderWidth = 0;
-#elif WINDOWS
-				handler.PlatformView.BorderThickness = new Microsoft.UI.Xaml.Thickness(0);
-#endif
-            }
-        });
-
-        Microsoft.Maui.Handlers.DatePickerHandler.Mapper.AppendToMapping("Borderless", (handler, view) =>
-        {
-            if (view is BorderlessDatePicker)
+                fonts.AddFont("tabler-icons.ttf", "FontIcons");
+                fonts.AddFont("Nunito-Bold.ttf", "NunitoBold");
+                fonts.AddFont("Nunito-Light.ttf", "NunitoLight");
+                fonts.AddFont("Nunito-Medium.ttf", "NunitoMedium");
+                fonts.AddFont("Nunito-Regular.ttf", "NunitoRegular");
+                fonts.AddFont("Nunito-SemiBold.ttf", "NunitoSemiBold");
+            })
+            .ConfigureMauiHandlers(handlers =>
             {
+                handlers.AddPlainer();
+
 #if ANDROID
-				handler.PlatformView.Background = null;
-				handler.PlatformView.SetBackgroundColor(Android.Graphics.Color.Transparent);
-#elif IOS || MACCATALYST
-                handler.PlatformView.BackgroundColor = UIKit.UIColor.Clear;
-                handler.PlatformView.Layer.BorderWidth = 0;
-#elif WINDOWS
-				handler.PlatformView.BorderThickness = new Microsoft.UI.Xaml.Thickness(0);
+                handlers.AddHandler<ApostasyMap, ApostasyMapHandler>();
 #endif
-            }
-        });
+            })
+            .UseMauiCommunityToolkit()
+            .RegisterViewsAndViewModels()
+            .Services
+            .RegisterServices()
+            .RegisterEssentials();
+            //.AddSingleton<GeoJsonMap>();
 
 #if DEBUG
         builder.Logging.AddDebug();
 #endif
 
-		return builder.Build();
-	}
+        QuestPDF.Settings.License = LicenseType.Community;
+
+        return builder.BuildWithMavvm();
+    }
+
+    private static IServiceCollection RegisterServices(this IServiceCollection services)
+    {
+        services.AddSingleton<IRestClient, RestClient>();
+        services.AddSingleton<IDataService, DataService>();
+
+        return services;
+    }
+
+    private static IServiceCollection RegisterEssentials(this IServiceCollection services)
+    {
+        services.AddSingleton<IAppInfo>(AppInfo.Current);
+
+        return services;
+    }
+
+    private static MauiAppBuilder RegisterViewsAndViewModels(this MauiAppBuilder builder)
+    {
+        builder.AddRoute<MainView, MainViewModel>();
+        builder.AddRoute<AboutView, AboutViewModel>();
+        builder.AddRoute<SettingsView, SettingsViewModel>();
+        builder.AddRoute<FormView, FormViewModel>();
+        builder.AddRoute<MapView, MapViewModel>();
+
+        return builder;
+    }
 }

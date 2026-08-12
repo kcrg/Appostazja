@@ -1,14 +1,9 @@
-﻿using Appostazja.Maui.Views;
-
-namespace Appostazja.Maui;
+﻿namespace Appostazja.Maui;
 
 public partial class AppShell : Shell
 {
-	public AppShell()
-	{
-		InitializeComponent();
-
-        Routing.RegisterRoute("Main/Settings", typeof(SettingsView));
-        Routing.RegisterRoute("Main/Form", typeof(FormView));
+    public AppShell()
+    {
+        InitializeComponent();
     }
 }

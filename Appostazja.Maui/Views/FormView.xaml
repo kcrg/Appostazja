@@ -3,29 +3,73 @@
     xmlns="http://schemas.microsoft.com/dotnet/2021/maui"
     xmlns:x="http://schemas.microsoft.com/winfx/2009/xaml"
     xmlns:controls="clr-namespace:Appostazja.Maui.Controls"
-    Title="Nowy wniosek">
-    <VerticalStackLayout Padding="32" Spacing="12">
-        <controls:BorderlessEntry Placeholder="Imię i nazwisko" />
+    xmlns:ios="clr-namespace:Microsoft.Maui.Controls.PlatformConfiguration.iOSSpecific;assembly=Microsoft.Maui.Controls"
+    xmlns:plainer="clr-namespace:Plainer.Maui.Controls;assembly=Plainer.Maui"
+    xmlns:vm="clr-namespace:Appostazja.Maui.ViewModels"
+    Title="Nowy wniosek"
+    Padding="32"
+    x:DataType="vm:FormViewModel"
+    Shell.NavBarHasShadow="True">
 
-        <DatePicker />
+    <Grid RowDefinitions="*,64">
+        <ScrollView>
+            <VerticalStackLayout Spacing="12">
+                <Border HeightRequest="48">
+                    <Border.StrokeShape>
+                        <RoundRectangle CornerRadius="12" />
+                    </Border.StrokeShape>
+                    <plainer:EntryView
+                        Placeholder="Imię i nazwisko"
+                        ReturnType="Next"
+                        Text="{Binding Name, Mode=OneWayToSource}" />
+                </Border>
 
-        <Border
-            Padding="12,0"
-            BackgroundColor="White"
-            Stroke="{StaticResource ContrastDark}"
-            StrokeThickness="1">
-            <Border.StrokeShape>
-                <RoundRectangle CornerRadius="8" />
-            </Border.StrokeShape>
-            <controls:BorderlessEntry Placeholder="Nazwa parafii chrztu i adres" />
-        </Border>
+                <Border HeightRequest="48">
+                    <Border.StrokeShape>
+                        <RoundRectangle CornerRadius="5" />
+                    </Border.StrokeShape>
+                    <plainer:DatePickerView Date="{Binding BaptismDate, Mode=OneWayToSource}" />
+                </Border>
 
-        <controls:BorderlessEntry Placeholder="Miejsce zamieszkania" />
+                <Border HeightRequest="48">
+                    <Border.StrokeShape>
+                        <RoundRectangle CornerRadius="5" />
+                    </Border.StrokeShape>
+                    <plainer:EntryView
+                        Placeholder="Nazwa parafii chrztu i adres"
+                        ReturnType="Next"
+                        Text="{Binding BaptismParish, Mode=OneWayToSource}"
+                        VerticalOptions="Center" />
+                </Border>
 
-        <controls:BorderlessEditor
-            AutoSize="TextChanges"
-            HeightRequest="64"
-            IsSpellCheckEnabled="True"
-            Placeholder="Powód rezygnacji" />
-    </VerticalStackLayout>
+                <Border HeightRequest="48">
+                    <Border.StrokeShape>
+                        <RoundRectangle CornerRadius="5" />
+                    </Border.StrokeShape>
+                    <plainer:EntryView
+                        Placeholder="Miejsce zamieszkania"
+                        ReturnType="Next"
+                        Text="{Binding HomeAddress, Mode=OneWayToSource}" />
+                </Border>
+                <Border HeightRequest="256">
+                    <Border.StrokeShape>
+                        <RoundRectangle CornerRadius="5" />
+                    </Border.StrokeShape>
+                    <plainer:EditorView
+                        AutoSize="TextChanges"
+                        IsSpellCheckEnabled="True"
+                        Placeholder="Powód rezygnacji"
+                        Text="{Binding Reason, Mode=OneWayToSource}" />
+                </Border>
+            </VerticalStackLayout>
+        </ScrollView>
+
+        <Button
+            Grid.Row="1"
+            Command="{Binding ExportDocumentCommand, Mode=OneTime}"
+            HorizontalOptions="Center"
+            Text="Generuj"
+            VerticalOptions="End" />
+    </Grid>
+
 </ContentPage>

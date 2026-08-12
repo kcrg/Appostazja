@@ -3,8 +3,10 @@
     xmlns="http://schemas.microsoft.com/dotnet/2021/maui"
     xmlns:x="http://schemas.microsoft.com/winfx/2009/xaml"
     xmlns:controls="clr-namespace:Appostazja.Maui.Controls"
+    xmlns:maps="clr-namespace:Microsoft.Maui.Controls.Maps;assembly=Microsoft.Maui.Controls.Maps"
     xmlns:toolkit="http://schemas.microsoft.com/dotnet/2022/maui/toolkit"
     xmlns:vm="clr-namespace:Appostazja.Maui.ViewModels"
+    Title="Appostazja"
     x:DataType="vm:MainViewModel">
     <ContentPage.Behaviors>
         <toolkit:StatusBarBehavior StatusBarColor="{AppThemeBinding Light={StaticResource BackgroundLight}, Dark={StaticResource BackgroundDark}}" StatusBarStyle="{AppThemeBinding Light=DarkContent, Dark=LightContent}" />
@@ -20,21 +22,65 @@
     </ContentPage.ToolbarItems>
 
     <ScrollView>
-        <VerticalStackLayout
-            Padding="30"
-            Spacing="25"
-            VerticalOptions="Center">
+        <VerticalStackLayout Padding="30" Spacing="25">
 
-            <Label
-                FontSize="32"
-                HorizontalOptions="Center"
-                Text="Hello, World!" />
+            <Border
+                Padding="0"
+                HeightRequest="128"
+                WidthRequest="256">
+                <Border.StrokeShape>
+                    <RoundRectangle CornerRadius="5" />
+                </Border.StrokeShape>
+                <Border.Shadow>
+                    <Shadow />
+                </Border.Shadow>
+                <Border.GestureRecognizers>
+                    <TapGestureRecognizer Command="{Binding NavigateToMapCommand, Mode=OneTime}" />
+                </Border.GestureRecognizers>
+                <Grid>
+                    <maps:Map
+                        Margin="-1"
+                        InputTransparent="True"
+                        IsZoomEnabled="False" />
+
+                    <BoxView Opacity="0.7" />
+                    <Label
+                        FontFamily="{StaticResource NunitoBold}"
+                        FontSize="28"
+                        HorizontalOptions="Center"
+                        Text="Mapa apostazji"
+                        TextColor="{StaticResource TextOnDark}"
+                        VerticalOptions="Center" />
+                </Grid>
+            </Border>
 
             <Button
                 Command="{Binding NavigateToFormCommand, Mode=OneTime}"
+                FontFamily="{StaticResource NunitoBold}"
                 HorizontalOptions="Center"
-                Text="Nowy wiosek" />
-            <Button HorizontalOptions="Center" Text="O apostazji" />
+                Text="Nowy wniosek">
+                <Button.Shadow>
+                    <Shadow />
+                </Button.Shadow>
+            </Button>
+
+            <Button
+                Command="{Binding NavigateToAboutCommand, Mode=OneTime}"
+                FontFamily="{StaticResource NunitoBold}"
+                HorizontalOptions="Center"
+                Text="O apostazji">
+                <Button.Shadow>
+                    <Shadow />
+                </Button.Shadow>
+            </Button>
+
+            <Image
+                Aspect="Center"
+                BackgroundColor="Pink"
+                HeightRequest="240"
+                HorizontalOptions="Fill"
+                Source="drawing.png"
+                VerticalOptions="Fill" />
         </VerticalStackLayout>
     </ScrollView>
 </ContentPage>
