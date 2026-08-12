@@ -3,13 +3,25 @@
     x:Class="Appostazja.Maui.Views.MapView"
     xmlns="http://schemas.microsoft.com/dotnet/2021/maui"
     xmlns:x="http://schemas.microsoft.com/winfx/2009/xaml"
+    xmlns:android="clr-namespace:CommunityToolkit.Maui.PlatformConfiguration.AndroidSpecific;assembly=CommunityToolkit.Maui"
     xmlns:base="clr-namespace:Appostazja.Maui.Views.Base"
     xmlns:maps="clr-namespace:Microsoft.Maui.Controls.Maps;assembly=Microsoft.Maui.Controls.Maps"
     xmlns:models="clr-namespace:Appostazja.Maui.Models"
     xmlns:toolkit="http://schemas.microsoft.com/dotnet/2022/maui/toolkit"
     xmlns:vm="clr-namespace:Appostazja.Maui.ViewModels"
+    SafeAreaEdges="None"
     Title="Mapa"
+    Shell.NavBarIsVisible="False"
+    android:NavigationBar.Color="{AppThemeBinding Light={StaticResource SurfaceContainerLight}, Dark={StaticResource SurfaceContainerDark}}"
+    android:NavigationBar.Style="{AppThemeBinding Light=DarkContent, Dark=LightContent}"
     x:DataType="vm:MapViewModel">
+
+    <base:BasePage.Behaviors>
+        <toolkit:StatusBarBehavior
+            ApplyOn="OnPageNavigatedTo"
+            StatusBarColor="Transparent"
+            StatusBarStyle="{AppThemeBinding Light=DarkContent, Dark=LightContent}" />
+    </base:BasePage.Behaviors>
 
     <Grid toolkit:StateContainer.CurrentState="{Binding CurrentState}">
         <toolkit:StateContainer.StateViews>
@@ -61,21 +73,25 @@
 
         <maps:Map
             x:Name="ApostasyMap"
+            IsClusteringEnabled="True"
             IsScrollEnabled="True"
             IsZoomEnabled="True"
-            ItemsSource="{Binding ChurchPins}">
+            ItemsSource="{Binding ChurchPins}"
+            MapClicked="OnMapClicked">
             <maps:Map.ItemTemplate>
                 <DataTemplate x:DataType="models:ChurchMapPin">
                     <maps:Pin
                         Address="{Binding Address}"
+                        ClusteringIdentifier="churches"
                         Label="{Binding Label}"
-                        Location="{Binding Location}" />
+                        Location="{Binding Location}"
+                        MarkerClicked="OnMarkerClicked" />
                 </DataTemplate>
             </maps:Map.ItemTemplate>
         </maps:Map>
 
         <Border
-            Margin="16"
+            Margin="16,48,16,0"
             Padding="14,10"
             HorizontalOptions="Fill"
             VerticalOptions="Start"
@@ -99,6 +115,81 @@
                         Text="{Binding ChurchPins.Count, StringFormat='Załadowano {0} punktów'}" />
                 </VerticalStackLayout>
             </Grid>
+        </Border>
+
+        <Border
+            Margin="16,0,16,16"
+            Padding="18"
+            HorizontalOptions="Fill"
+            IsVisible="{Binding HasSelectedChurch}"
+            Style="{StaticResource ElevatedCardStyle}"
+            VerticalOptions="End"
+            ZIndex="4">
+            <VerticalStackLayout Spacing="14">
+                <Grid ColumnDefinitions="*,Auto" ColumnSpacing="12">
+                    <VerticalStackLayout Spacing="3">
+                        <Label
+                            LineBreakMode="TailTruncation"
+                            MaxLines="2"
+                            Style="{StaticResource TitleLargeStyle}"
+                            Text="{Binding SelectedChurch.Label}" />
+                        <Label
+                            LineBreakMode="TailTruncation"
+                            MaxLines="2"
+                            Style="{StaticResource BodyMediumStyle}"
+                            Text="{Binding SelectedChurch.Address}" />
+                        <HorizontalStackLayout Spacing="6">
+                            <Image HeightRequest="18" WidthRequest="18">
+                                <Image.Source>
+                                    <FontImageSource
+                                        Color="{AppThemeBinding Light={StaticResource PrimaryLight}, Dark={StaticResource PrimaryDark}}"
+                                        FontFamily="{StaticResource FontIcons}"
+                                        Glyph="{StaticResource IconStar}"
+                                        Size="17" />
+                                </Image.Source>
+                            </Image>
+                            <Label
+                                Style="{StaticResource SupportingTextStyle}"
+                                Text="{Binding SelectedChurch.RatingText}"
+                                VerticalTextAlignment="Center" />
+                        </HorizontalStackLayout>
+                    </VerticalStackLayout>
+
+                    <Button
+                        Grid.Column="1"
+                        Command="{Binding ClearSelectionCommand}"
+                        HeightRequest="44"
+                        Padding="8"
+                        Style="{StaticResource TextButtonStyle}"
+                        Text="Zamknij" />
+                </Grid>
+
+                <Grid ColumnDefinitions="*,*" ColumnSpacing="10">
+                    <Button
+                        Command="{Binding OpenReviewsCommand}"
+                        FontSize="13"
+                        HorizontalOptions="Fill"
+                        Style="{StaticResource TonalButtonStyle}"
+                        Text="Oceny i komentarze" />
+                    <Button
+                        Grid.Column="1"
+                        Command="{Binding NavigateCommand}"
+                        FontSize="13"
+                        HorizontalOptions="Fill"
+                        Text="Nawiguj" />
+                </Grid>
+
+                <Button
+                    Command="{Binding AddFeedbackCommand}"
+                    HorizontalOptions="Fill"
+                    Style="{StaticResource TextButtonStyle}"
+                    Text="Dodaj opinię o procesie w tej parafii" />
+
+                <Label
+                    IsVisible="{Binding HasExternalActionError}"
+                    Style="{StaticResource ErrorLabelStyle}"
+                    Text="{Binding ExternalActionError}" />
+            </VerticalStackLayout>
         </Border>
     </Grid>
 </base:BasePage>

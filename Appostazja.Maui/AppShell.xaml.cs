@@ -12,6 +12,7 @@ public partial class AppShell : Shell
     public AppShell(IServiceProvider services)
     {
         InitializeComponent();
+        Shell.SetNavBarIsVisible(this, false);
 
         var tabBar = new TabBar { Route = "main" };
         tabBar.Items.Add(CreateTab<MainView>(services, HomeRoute, "Start", "IconHome"));
@@ -41,14 +42,16 @@ public partial class AppShell : Shell
             },
         };
 
-        tab.Items.Add(
-            new ShellContent
-            {
-                Route = $"{route}Page",
-                Title = title,
-                ContentTemplate = new DataTemplate(
-                    () => services.GetRequiredService<TPage>()),
-            });
+        var shellContent = new ShellContent
+        {
+            Route = $"{route}Page",
+            Title = title,
+            ContentTemplate = new DataTemplate(
+                () => services.GetRequiredService<TPage>()),
+        };
+
+        Shell.SetNavBarIsVisible(shellContent, false);
+        tab.Items.Add(shellContent);
 
         return tab;
     }

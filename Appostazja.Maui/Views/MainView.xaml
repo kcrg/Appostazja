@@ -3,9 +3,22 @@
     x:Class="Appostazja.Maui.Views.MainView"
     xmlns="http://schemas.microsoft.com/dotnet/2021/maui"
     xmlns:x="http://schemas.microsoft.com/winfx/2009/xaml"
+    xmlns:android="clr-namespace:CommunityToolkit.Maui.PlatformConfiguration.AndroidSpecific;assembly=CommunityToolkit.Maui"
+    xmlns:toolkit="http://schemas.microsoft.com/dotnet/2022/maui/toolkit"
     xmlns:vm="clr-namespace:Appostazja.Maui.ViewModels"
+    SafeAreaEdges="Container"
+    Shell.NavBarIsVisible="False"
+    android:NavigationBar.Color="{AppThemeBinding Light={StaticResource SurfaceContainerLight}, Dark={StaticResource SurfaceContainerDark}}"
+    android:NavigationBar.Style="{AppThemeBinding Light=DarkContent, Dark=LightContent}"
     Title="Start"
     x:DataType="vm:MainViewModel">
+
+    <ContentPage.Behaviors>
+        <toolkit:StatusBarBehavior
+            ApplyOn="OnPageNavigatedTo"
+            StatusBarColor="{AppThemeBinding Light={StaticResource SurfaceLight}, Dark={StaticResource SurfaceDark}}"
+            StatusBarStyle="{AppThemeBinding Light=DarkContent, Dark=LightContent}" />
+    </ContentPage.Behaviors>
 
     <ScrollView>
         <VerticalStackLayout Padding="20,16,20,32" Spacing="20">

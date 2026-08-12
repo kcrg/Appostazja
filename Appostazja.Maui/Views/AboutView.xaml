@@ -3,9 +3,22 @@
     x:Class="Appostazja.Maui.Views.AboutView"
     xmlns="http://schemas.microsoft.com/dotnet/2021/maui"
     xmlns:x="http://schemas.microsoft.com/winfx/2009/xaml"
+    xmlns:android="clr-namespace:CommunityToolkit.Maui.PlatformConfiguration.AndroidSpecific;assembly=CommunityToolkit.Maui"
+    xmlns:toolkit="http://schemas.microsoft.com/dotnet/2022/maui/toolkit"
     xmlns:vm="clr-namespace:Appostazja.Maui.ViewModels"
+    SafeAreaEdges="Container"
+    Shell.NavBarIsVisible="False"
+    android:NavigationBar.Color="{AppThemeBinding Light={StaticResource SurfaceContainerLight}, Dark={StaticResource SurfaceContainerDark}}"
+    android:NavigationBar.Style="{AppThemeBinding Light=DarkContent, Dark=LightContent}"
     Title="Info"
     x:DataType="vm:AboutViewModel">
+
+    <ContentPage.Behaviors>
+        <toolkit:StatusBarBehavior
+            ApplyOn="OnPageNavigatedTo"
+            StatusBarColor="{AppThemeBinding Light={StaticResource SurfaceLight}, Dark={StaticResource SurfaceDark}}"
+            StatusBarStyle="{AppThemeBinding Light=DarkContent, Dark=LightContent}" />
+    </ContentPage.Behaviors>
 
     <ScrollView>
         <VerticalStackLayout Padding="20,16,20,32" Spacing="20">
@@ -92,6 +105,40 @@
                     <Label Style="{StaticResource TitleMediumStyle}" Text="Prywatność" />
                     <Label Style="{StaticResource BodyMediumStyle}"
                            Text="Dane formularza nie są wysyłane do serwera. PDF powstaje lokalnie i jest przekazywany wyłącznie do systemowego arkusza udostępniania." />
+                </VerticalStackLayout>
+            </Border>
+
+            <Border
+                BackgroundColor="{AppThemeBinding Light={StaticResource SecondaryContainerLight}, Dark={StaticResource SecondaryContainerDark}}"
+                StrokeThickness="0">
+                <VerticalStackLayout Spacing="12">
+                    <Grid ColumnDefinitions="Auto,*" ColumnSpacing="12">
+                        <Image HeightRequest="32" WidthRequest="32">
+                            <Image.Source>
+                                <FontImageSource
+                                    Color="{AppThemeBinding Light={StaticResource SecondaryLight}, Dark={StaticResource SecondaryDark}}"
+                                    FontFamily="{StaticResource FontIcons}"
+                                    Glyph="{StaticResource IconMessagePlus}"
+                                    Size="30" />
+                            </Image.Source>
+                        </Image>
+                        <VerticalStackLayout Grid.Column="1" Spacing="3">
+                            <Label
+                                Style="{StaticResource TitleMediumStyle}"
+                                Text="Podziel się przebiegiem apostazji" />
+                            <Label
+                                Style="{StaticResource BodyMediumStyle}"
+                                Text="Twoja opinia może pomóc innym osobom przygotować się do wizyty w parafii."
+                                TextColor="{AppThemeBinding Light={StaticResource OnSecondaryContainerLight}, Dark={StaticResource OnSecondaryContainerDark}}" />
+                        </VerticalStackLayout>
+                    </Grid>
+                    <Button
+                        Command="{Binding AddFeedbackCommand}"
+                        HorizontalOptions="Fill"
+                        Text="Dodaj opinię o procesie" />
+                    <Label
+                        Style="{StaticResource ErrorLabelStyle}"
+                        Text="{Binding FeedbackError}" />
                 </VerticalStackLayout>
             </Border>
 
