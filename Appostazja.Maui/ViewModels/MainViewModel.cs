@@ -1,33 +1,16 @@
-﻿namespace Appostazja.Maui.ViewModels;
+namespace Appostazja.Maui.ViewModels;
 
-[SectionRoute("start")]
-public partial class MainViewModel : ObservableObject
+public sealed partial class MainViewModel(INavigationService navigationService) : ObservableObject
 {
-    public MainViewModel()
-    {
-    }
+    [RelayCommand]
+    private Task NavigateToAboutAsync() =>
+        navigationService.NavigateToAsync(AppShell.AboutRoute);
 
     [RelayCommand]
-    public async Task NavigateToSettings()
-    {
-        await BaseMethods.GoToViewModel<SettingsViewModel>();
-    }
+    private Task NavigateToFormAsync() =>
+        navigationService.NavigateToAsync(AppShell.FormRoute);
 
     [RelayCommand]
-    public async Task NavigateToAbout()
-    {
-        await BaseMethods.GoToViewModel<AboutViewModel>();
-    }
-
-    [RelayCommand]
-    public async Task NavigateToForm()
-    {
-        await BaseMethods.GoToViewModel<FormViewModel>();
-    }
-
-    [RelayCommand]
-    public async Task NavigateToMap()
-    {
-        await BaseMethods.GoToViewModel<MapViewModel>();
-    }
+    private Task NavigateToMapAsync() =>
+        navigationService.NavigateToAsync(AppShell.MapRoute);
 }

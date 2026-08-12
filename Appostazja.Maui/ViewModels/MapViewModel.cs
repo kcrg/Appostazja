@@ -1,63 +1,65 @@
-﻿using Appostazja.Maui.Controls.Map;
+using Appostazja.Core.Services;
 using Appostazja.Maui.Models;
-using Appostazja.Maui.Models.Map;
-using System.Collections.ObjectModel;
+using Microsoft.Extensions.Logging;
 
 namespace Appostazja.Maui.ViewModels;
 
-public partial class MapViewModel : BaseViewModel
+public sealed partial class MapViewModel(
+    IMapDataService dataService,
+    ILogger<MapViewModel> logger) : BaseViewModel
 {
-    private readonly IDataService dataService;
+    [ObservableProperty]
+    public partial IReadOnlyList<ChurchMapPin> ChurchPins { get; set; } = [];
 
     [ObservableProperty]
-    private RangeObservableCollection<PinData>? churchPins;
-
-    [ObservableProperty]
-    private RangeObservableCollection<ChurchPin>? churchPinList;
-
-    public MapViewModel(IDataService dataService)
-    {
-        this.dataService = dataService;
-
-        ChurchPinList = new RangeObservableCollection<ChurchPin>();
-    }
+    public partial string? ErrorMessage { get; set; }
 
     public override async Task OnNavigatedToAsync()
     {
-        await Task.Delay(100);
-
-        await AddPinsAsync();
-
-        await base.OnNavigatedToAsync();
+        if (ChurchPins.Count == 0)
+        {
+            await LoadAsync(false);
+        }
     }
 
-    private async Task AddPinsAsync()
+    [RelayCommand]
+    private Task RetryAsync(CancellationToken cancellationToken) =>
+        LoadAsync(true, cancellationToken);
+
+    private async Task LoadAsync(
+        bool forceRefresh,
+        CancellationToken cancellationToken = default)
     {
-        var response = await dataService.GetGeoJsonAsync();
+        CurrentState = States.Loading;
+        ErrorMessage = null;
 
-        if (response is null)
+        try
         {
-            return;
+            var features = await dataService
+                .GetChurchesAsync(forceRefresh, cancellationToken);
+
+            ChurchPins = [.. features
+                .Select(feature =>
+                {
+                    double longitude = feature.Geometry.Coordinates[0];
+                    double latitude = feature.Geometry.Coordinates[1];
+                    return new ChurchMapPin(
+                        feature.Properties.Name,
+                        feature.Properties.Address,
+                        new Location(latitude, longitude));
+                })];
+
+            CurrentState = null;
         }
-
-        Image asdasds;
-
-        IEnumerable<ChurchPin> pinList;
-
-        foreach (FeatureModel item in response.Features)
+        catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
         {
-            if (item is null)
-            {
-                continue;
-            }
-
-            ChurchPinList?.Add(new ChurchPin()
-            {
-                ImageSource = ImageSource.FromFile("drawing.png"),
-                Location = new Location(item?.Geometry?.Coordinates?.First() ?? 0, item?.Geometry?.Coordinates?.Last() ?? 0),
-                Data = item?.Properties ?? new PropertiesModel(),
-                Label = item?.Properties?.ChurchName ?? string.Empty,
-            });
+            CurrentState = null;
+        }
+        catch (Exception exception)
+        {
+            logger.LogError(exception, "Downloading map data failed.");
+            ErrorMessage = "Nie udało się pobrać danych mapy. Sprawdź połączenie i spróbuj ponownie.";
+            CurrentState = States.Error;
         }
     }
 }

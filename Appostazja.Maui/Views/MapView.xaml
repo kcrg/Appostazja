@@ -1,40 +1,104 @@
+<?xml version="1.0" encoding="UTF-8" ?>
 <base:BasePage
     x:Class="Appostazja.Maui.Views.MapView"
     xmlns="http://schemas.microsoft.com/dotnet/2021/maui"
     xmlns:x="http://schemas.microsoft.com/winfx/2009/xaml"
     xmlns:base="clr-namespace:Appostazja.Maui.Views.Base"
-    xmlns:controls="clr-namespace:Appostazja.Maui.Controls"
-    xmlns:mapControls="clr-namespace:Appostazja.Maui.Controls.Map"
     xmlns:maps="clr-namespace:Microsoft.Maui.Controls.Maps;assembly=Microsoft.Maui.Controls.Maps"
     xmlns:models="clr-namespace:Appostazja.Maui.Models"
     xmlns:toolkit="http://schemas.microsoft.com/dotnet/2022/maui/toolkit"
     xmlns:vm="clr-namespace:Appostazja.Maui.ViewModels"
-    x:DataType="vm:MapViewModel"
-    Shell.NavBarIsVisible="False">
+    Title="Mapa"
+    x:DataType="vm:MapViewModel">
+
     <Grid toolkit:StateContainer.CurrentState="{Binding CurrentState}">
         <toolkit:StateContainer.StateViews>
-            <ActivityIndicator
+            <Border
+                Margin="32"
                 toolkit:StateView.StateKey="Loading"
                 HorizontalOptions="Center"
-                IsRunning="True"
-                VerticalOptions="Center"
-                Color="{AppThemeBinding Light={StaticResource Gray200},
-                                        Dark={StaticResource Gray600}}" />
+                Style="{StaticResource ElevatedCardStyle}"
+                VerticalOptions="Center">
+                <HorizontalStackLayout Spacing="12">
+                    <ActivityIndicator IsRunning="True" />
+                    <Label
+                        Style="{StaticResource TitleMediumStyle}"
+                        Text="Pobieram dane mapy…"
+                        VerticalTextAlignment="Center" />
+                </HorizontalStackLayout>
+            </Border>
+
+            <Border
+                Margin="24"
+                toolkit:StateView.StateKey="Error"
+                Style="{StaticResource ElevatedCardStyle}"
+                VerticalOptions="Center">
+                <VerticalStackLayout Spacing="16">
+                    <Image HeightRequest="44" HorizontalOptions="Center" WidthRequest="44">
+                        <Image.Source>
+                            <FontImageSource
+                                Color="{AppThemeBinding Light={StaticResource ErrorLight}, Dark={StaticResource ErrorDark}}"
+                                FontFamily="{StaticResource FontIcons}"
+                                Glyph="{StaticResource IconAlertCircle}"
+                                Size="42" />
+                        </Image.Source>
+                    </Image>
+                    <Label
+                        HorizontalTextAlignment="Center"
+                        Style="{StaticResource TitleLargeStyle}"
+                        Text="Nie udało się wczytać mapy" />
+                    <Label
+                        HorizontalTextAlignment="Center"
+                        Style="{StaticResource BodyMediumStyle}"
+                        Text="{Binding ErrorMessage}" />
+                    <Button
+                        Command="{Binding RetryCommand}"
+                        HorizontalOptions="Fill"
+                        Text="Spróbuj ponownie" />
+                </VerticalStackLayout>
+            </Border>
         </toolkit:StateContainer.StateViews>
 
-        <controls:ApostasyMap
-            HorizontalOptions="Fill"
+        <maps:Map
+            x:Name="ApostasyMap"
+            IsScrollEnabled="True"
             IsZoomEnabled="True"
-            ItemsSource="{Binding ChurchPinList}"
-            VerticalOptions="Fill">
-            <controls:ApostasyMap.ItemTemplate>
-                <DataTemplate x:DataType="mapControls:ChurchPin">
-                    <mapControls:ChurchPin
-                        ImageSource="drawing.png"
-                        Label="{Binding Data.ChurchAddress}"
+            ItemsSource="{Binding ChurchPins}">
+            <maps:Map.ItemTemplate>
+                <DataTemplate x:DataType="models:ChurchMapPin">
+                    <maps:Pin
+                        Address="{Binding Address}"
+                        Label="{Binding Label}"
                         Location="{Binding Location}" />
                 </DataTemplate>
-            </controls:ApostasyMap.ItemTemplate>
-        </controls:ApostasyMap>
+            </maps:Map.ItemTemplate>
+        </maps:Map>
+
+        <Border
+            Margin="16"
+            Padding="14,10"
+            HorizontalOptions="Fill"
+            VerticalOptions="Start"
+            StrokeThickness="0"
+            StrokeShape="RoundRectangle 18"
+            ZIndex="2">
+            <Grid ColumnDefinitions="Auto,*" ColumnSpacing="12">
+                <Image HeightRequest="28" WidthRequest="28">
+                    <Image.Source>
+                        <FontImageSource
+                            Color="{AppThemeBinding Light={StaticResource PrimaryLight}, Dark={StaticResource PrimaryDark}}"
+                            FontFamily="{StaticResource FontIcons}"
+                            Glyph="{StaticResource IconMapPins}"
+                            Size="26" />
+                    </Image.Source>
+                </Image>
+                <VerticalStackLayout Grid.Column="1" Spacing="0">
+                    <Label Style="{StaticResource TitleMediumStyle}" Text="Parafie na mapie" />
+                    <Label
+                        Style="{StaticResource SupportingTextStyle}"
+                        Text="{Binding ChurchPins.Count, StringFormat='Załadowano {0} punktów'}" />
+                </VerticalStackLayout>
+            </Grid>
+        </Border>
     </Grid>
 </base:BasePage>

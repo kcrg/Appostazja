@@ -1,75 +1,120 @@
+<?xml version="1.0" encoding="UTF-8" ?>
 <ContentPage
     x:Class="Appostazja.Maui.Views.FormView"
     xmlns="http://schemas.microsoft.com/dotnet/2021/maui"
     xmlns:x="http://schemas.microsoft.com/winfx/2009/xaml"
-    xmlns:controls="clr-namespace:Appostazja.Maui.Controls"
-    xmlns:ios="clr-namespace:Microsoft.Maui.Controls.PlatformConfiguration.iOSSpecific;assembly=Microsoft.Maui.Controls"
-    xmlns:plainer="clr-namespace:Plainer.Maui.Controls;assembly=Plainer.Maui"
+    xmlns:sys="clr-namespace:System;assembly=System.Runtime"
     xmlns:vm="clr-namespace:Appostazja.Maui.ViewModels"
-    Title="Nowy wniosek"
-    Padding="32"
-    x:DataType="vm:FormViewModel"
-    Shell.NavBarHasShadow="True">
+    Title="Wniosek"
+    x:DataType="vm:FormViewModel">
 
-    <Grid RowDefinitions="*,64">
+    <Grid RowDefinitions="*,Auto">
         <ScrollView>
-            <VerticalStackLayout Spacing="12">
-                <Border HeightRequest="48">
-                    <Border.StrokeShape>
-                        <RoundRectangle CornerRadius="12" />
-                    </Border.StrokeShape>
-                    <plainer:EntryView
-                        Placeholder="Imię i nazwisko"
-                        ReturnType="Next"
-                        Text="{Binding Name, Mode=OneWayToSource}" />
+            <VerticalStackLayout Padding="20,16,20,28" Spacing="20">
+                <Border Style="{StaticResource PrimaryContainerCardStyle}">
+                    <Grid ColumnDefinitions="*,Auto" ColumnSpacing="16">
+                        <VerticalStackLayout Spacing="6">
+                            <Label Style="{StaticResource HeadlineSmallStyle}" Text="Deklaracja apostazji"
+                                   TextColor="{AppThemeBinding Light={StaticResource OnPrimaryContainerLight}, Dark={StaticResource OnPrimaryContainerDark}}" />
+                            <Label Style="{StaticResource BodyMediumStyle}"
+                                   Text="Uzupełnij pola, a aplikacja przygotuje dokument PDF lokalnie na urządzeniu."
+                                   TextColor="{AppThemeBinding Light={StaticResource OnPrimaryContainerLight}, Dark={StaticResource OnPrimaryContainerDark}}" />
+                        </VerticalStackLayout>
+                        <Image Grid.Column="1" HeightRequest="52" WidthRequest="52">
+                            <Image.Source>
+                                <FontImageSource
+                                    Color="{AppThemeBinding Light={StaticResource PrimaryLight}, Dark={StaticResource PrimaryDark}}"
+                                    FontFamily="{StaticResource FontIcons}"
+                                    Glyph="{StaticResource IconFileText}"
+                                    Size="48" />
+                            </Image.Source>
+                        </Image>
+                    </Grid>
                 </Border>
 
-                <Border HeightRequest="48">
-                    <Border.StrokeShape>
-                        <RoundRectangle CornerRadius="5" />
-                    </Border.StrokeShape>
-                    <plainer:DatePickerView Date="{Binding BaptismDate, Mode=OneWayToSource}" />
+                <VerticalStackLayout Spacing="12">
+                    <Label Style="{StaticResource TitleLargeStyle}" Text="Twoje dane" />
+                    <Entry ClearButtonVisibility="WhileEditing" MaxLength="200" Placeholder="Imię i nazwisko"
+                           ReturnType="Next" Text="{Binding FullName}" />
+                    <Entry ClearButtonVisibility="WhileEditing" MaxLength="300" Placeholder="Adres zamieszkania"
+                           ReturnType="Next" Text="{Binding HomeAddress}" />
+                </VerticalStackLayout>
+
+                <VerticalStackLayout Spacing="12">
+                    <Label Style="{StaticResource TitleLargeStyle}" Text="Dane chrztu" />
+                    <Border Padding="16,6" StrokeShape="RoundRectangle 16">
+                        <Grid ColumnDefinitions="Auto,*" ColumnSpacing="12">
+                            <Image HeightRequest="26" WidthRequest="26">
+                                <Image.Source>
+                                    <FontImageSource
+                                        Color="{AppThemeBinding Light={StaticResource PrimaryLight}, Dark={StaticResource PrimaryDark}}"
+                                        FontFamily="{StaticResource FontIcons}"
+                                        Glyph="{StaticResource IconCalendar}"
+                                        Size="24" />
+                                </Image.Source>
+                            </Image>
+                            <VerticalStackLayout Grid.Column="1" Spacing="0">
+                                <Label Style="{StaticResource SupportingTextStyle}" Text="Data chrztu" />
+                                <DatePicker Date="{Binding BaptismDate}" MaximumDate="{x:Static sys:DateTime.Today}" />
+                            </VerticalStackLayout>
+                        </Grid>
+                    </Border>
+                    <Entry ClearButtonVisibility="WhileEditing" MaxLength="300"
+                           Placeholder="Parafia chrztu i jej adres" ReturnType="Next"
+                           Text="{Binding BaptismParish}" />
+                </VerticalStackLayout>
+
+                <VerticalStackLayout Spacing="12">
+                    <Label Style="{StaticResource TitleLargeStyle}" Text="Miejsce złożenia" />
+                    <Entry ClearButtonVisibility="WhileEditing" MaxLength="300"
+                           Placeholder="Parafia właściwa dla miejsca zamieszkania" ReturnType="Next"
+                           Text="{Binding ResidenceParish}" />
+                </VerticalStackLayout>
+
+                <VerticalStackLayout Spacing="12">
+                    <Label Style="{StaticResource TitleLargeStyle}" Text="Uzasadnienie decyzji" />
+                    <Border Padding="12,4" StrokeShape="RoundRectangle 16">
+                        <Editor AutoSize="TextChanges" IsSpellCheckEnabled="True" MaxLength="2000"
+                                Placeholder="Krótko opisz swoją świadomą i dobrowolną decyzję"
+                                Text="{Binding Motivation}" />
+                    </Border>
+                    <Label Style="{StaticResource SupportingTextStyle}"
+                           Text="Treść trafi bezpośrednio do dokumentu. Przeczytaj ją ponownie przed wydrukiem." />
+                </VerticalStackLayout>
+
+                <Border
+                    BackgroundColor="{AppThemeBinding Light={StaticResource SecondaryContainerLight}, Dark={StaticResource SecondaryContainerDark}}"
+                    StrokeThickness="0">
+                    <Grid ColumnDefinitions="Auto,*" ColumnSpacing="12">
+                        <Image HeightRequest="28" WidthRequest="28">
+                            <Image.Source>
+                                <FontImageSource
+                                    Color="{AppThemeBinding Light={StaticResource SecondaryLight}, Dark={StaticResource SecondaryDark}}"
+                                    FontFamily="{StaticResource FontIcons}"
+                                    Glyph="{StaticResource IconInfoCircle}"
+                                    Size="26" />
+                            </Image.Source>
+                        </Image>
+                        <Label Grid.Column="1" Style="{StaticResource BodyMediumStyle}"
+                               Text="Dokument należy wydrukować, podpisać odręcznie i złożyć osobiście proboszczowi parafii miejsca zamieszkania."
+                               TextColor="{AppThemeBinding Light={StaticResource OnSecondaryContainerLight}, Dark={StaticResource OnSecondaryContainerDark}}" />
+                    </Grid>
                 </Border>
 
-                <Border HeightRequest="48">
-                    <Border.StrokeShape>
-                        <RoundRectangle CornerRadius="5" />
-                    </Border.StrokeShape>
-                    <plainer:EntryView
-                        Placeholder="Nazwa parafii chrztu i adres"
-                        ReturnType="Next"
-                        Text="{Binding BaptismParish, Mode=OneWayToSource}"
-                        VerticalOptions="Center" />
-                </Border>
-
-                <Border HeightRequest="48">
-                    <Border.StrokeShape>
-                        <RoundRectangle CornerRadius="5" />
-                    </Border.StrokeShape>
-                    <plainer:EntryView
-                        Placeholder="Miejsce zamieszkania"
-                        ReturnType="Next"
-                        Text="{Binding HomeAddress, Mode=OneWayToSource}" />
-                </Border>
-                <Border HeightRequest="256">
-                    <Border.StrokeShape>
-                        <RoundRectangle CornerRadius="5" />
-                    </Border.StrokeShape>
-                    <plainer:EditorView
-                        AutoSize="TextChanges"
-                        IsSpellCheckEnabled="True"
-                        Placeholder="Powód rezygnacji"
-                        Text="{Binding Reason, Mode=OneWayToSource}" />
-                </Border>
+                <Label Style="{StaticResource ErrorLabelStyle}" Text="{Binding ErrorMessage}" />
             </VerticalStackLayout>
         </ScrollView>
 
-        <Button
-            Grid.Row="1"
-            Command="{Binding ExportDocumentCommand, Mode=OneTime}"
-            HorizontalOptions="Center"
-            Text="Generuj"
-            VerticalOptions="End" />
+        <Border Grid.Row="1" Padding="20,12" StrokeThickness="0" StrokeShape="Rectangle"
+                BackgroundColor="{AppThemeBinding Light={StaticResource SurfaceContainerLight}, Dark={StaticResource SurfaceContainerDark}}">
+            <Grid>
+                <Button Command="{Binding ExportDocumentCommand}" HorizontalOptions="Fill"
+                        Text="Generuj i udostępnij PDF" />
+                <ActivityIndicator Margin="0,0,18,0" HorizontalOptions="End"
+                                   IsRunning="{Binding IsBusy}" IsVisible="{Binding IsBusy}"
+                                   Color="{AppThemeBinding Light={StaticResource OnPrimaryLight}, Dark={StaticResource OnPrimaryDark}}"
+                                   VerticalOptions="Center" />
+            </Grid>
+        </Border>
     </Grid>
-
 </ContentPage>

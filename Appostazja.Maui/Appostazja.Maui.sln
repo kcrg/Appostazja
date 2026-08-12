@@ -5,7 +5,9 @@ VisualStudioVersion = 17.0.31611.283
 MinimumVisualStudioVersion = 10.0.40219.1
 Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "Appostazja.Maui", "Appostazja.Maui.csproj", "{529103E5-3353-4495-8658-10BE04E55516}"
 EndProject
-Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "Google.Maps.Utils.Android", "..\Google.Maps.Utils.Android\Google.Maps.Utils.Android.csproj", "{4C9DC45A-6999-42AC-8F0B-2B54B98BF848}"
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Appostazja.Core", "..\Appostazja.Core\Appostazja.Core.csproj", "{F2E8DC4D-423E-4DD7-8147-0B3D95E62DF8}"
+EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Appostazja.Core.Tests", "..\Appostazja.Core.Tests\Appostazja.Core.Tests.csproj", "{08330DF9-0060-4DD9-9DB9-AE60ED44095B}"
 EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
@@ -19,10 +21,14 @@ Global
 		{529103E5-3353-4495-8658-10BE04E55516}.Release|Any CPU.ActiveCfg = Release|Any CPU
 		{529103E5-3353-4495-8658-10BE04E55516}.Release|Any CPU.Build.0 = Release|Any CPU
 		{529103E5-3353-4495-8658-10BE04E55516}.Release|Any CPU.Deploy.0 = Release|Any CPU
-		{4C9DC45A-6999-42AC-8F0B-2B54B98BF848}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
-		{4C9DC45A-6999-42AC-8F0B-2B54B98BF848}.Debug|Any CPU.Build.0 = Debug|Any CPU
-		{4C9DC45A-6999-42AC-8F0B-2B54B98BF848}.Release|Any CPU.ActiveCfg = Release|Any CPU
-		{4C9DC45A-6999-42AC-8F0B-2B54B98BF848}.Release|Any CPU.Build.0 = Release|Any CPU
+		{F2E8DC4D-423E-4DD7-8147-0B3D95E62DF8}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{F2E8DC4D-423E-4DD7-8147-0B3D95E62DF8}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{F2E8DC4D-423E-4DD7-8147-0B3D95E62DF8}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{F2E8DC4D-423E-4DD7-8147-0B3D95E62DF8}.Release|Any CPU.Build.0 = Release|Any CPU
+		{08330DF9-0060-4DD9-9DB9-AE60ED44095B}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{08330DF9-0060-4DD9-9DB9-AE60ED44095B}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{08330DF9-0060-4DD9-9DB9-AE60ED44095B}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{08330DF9-0060-4DD9-9DB9-AE60ED44095B}.Release|Any CPU.Build.0 = Release|Any CPU
 	EndGlobalSection
 	GlobalSection(SolutionProperties) = preSolution
 		HideSolutionNode = FALSE

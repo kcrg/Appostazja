@@ -1,10 +1,5 @@
-﻿#if ANDROID
-using Appostazja.Maui.Platforms.Android.Handlers.Map;
-#endif
-using Microsoft.Extensions.Logging;
-using Plainer.Maui;
-using QuestPDF.Infrastructure;
-using RestSharp;
+using Appostazja.Core.Pdf;
+using Appostazja.Core.Services;
 
 namespace Appostazja.Maui;
 
@@ -16,17 +11,6 @@ public static class MauiProgram
         builder
             .UseMauiApp<App>()
             .UseMauiMaps()
-            .UseSentry(options =>
-            {
-                options.Dsn = "https://23629d2cfec54e50ac8b5acd39a6188a@o866902.ingest.sentry.io/6779536";
-#if DEBUG
-                options.Debug = true;
-#endif
-
-                // Set TracesSampleRate to 1.0 to capture 100% of transactions for performance monitoring.
-                // We recommend adjusting this value in production.
-                options.TracesSampleRate = 1.0;
-            })
             .ConfigureFonts(fonts =>
             {
                 fonts.AddFont("tabler-icons.ttf", "FontIcons");
@@ -36,34 +20,22 @@ public static class MauiProgram
                 fonts.AddFont("Nunito-Regular.ttf", "NunitoRegular");
                 fonts.AddFont("Nunito-SemiBold.ttf", "NunitoSemiBold");
             })
-            .ConfigureMauiHandlers(handlers =>
-            {
-                handlers.AddPlainer();
-
-#if ANDROID
-                handlers.AddHandler<ApostasyMap, ApostasyMapHandler>();
-#endif
-            })
             .UseMauiCommunityToolkit()
             .RegisterViewsAndViewModels()
             .Services
             .RegisterServices()
             .RegisterEssentials();
-            //.AddSingleton<GeoJsonMap>();
 
-#if DEBUG
-        builder.Logging.AddDebug();
-#endif
-
-        QuestPDF.Settings.License = LicenseType.Community;
-
-        return builder.BuildWithMavvm();
+        return builder.Build();
     }
 
     private static IServiceCollection RegisterServices(this IServiceCollection services)
     {
-        services.AddSingleton<IRestClient, RestClient>();
-        services.AddSingleton<IDataService, DataService>();
+        services.AddSingleton(new HttpClient { Timeout = TimeSpan.FromSeconds(20) });
+        services.AddSingleton<IMapDataService, MapDataService>();
+        services.AddSingleton<IPdfDeclarationGenerator, PdfDeclarationGenerator>();
+        services.AddSingleton<IPdfExportService, PdfExportService>();
+        services.AddSingleton<INavigationService, ShellNavigationService>();
 
         return services;
     }
@@ -77,11 +49,16 @@ public static class MauiProgram
 
     private static MauiAppBuilder RegisterViewsAndViewModels(this MauiAppBuilder builder)
     {
-        builder.AddRoute<MainView, MainViewModel>();
-        builder.AddRoute<AboutView, AboutViewModel>();
-        builder.AddRoute<SettingsView, SettingsViewModel>();
-        builder.AddRoute<FormView, FormViewModel>();
-        builder.AddRoute<MapView, MapViewModel>();
+        builder.Services.AddSingleton<AppShell>();
+        builder.Services.AddTransient<MainViewModel>();
+        builder.Services.AddTransient<MainView>();
+
+        builder.Services.AddTransient<AboutView>();
+        builder.Services.AddTransient<AboutViewModel>();
+        builder.Services.AddTransient<FormViewModel>();
+        builder.Services.AddTransient<FormView>();
+        builder.Services.AddTransient<MapViewModel>();
+        builder.Services.AddTransient<MapView>();
 
         return builder;
     }

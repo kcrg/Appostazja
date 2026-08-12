@@ -1,5 +1,16 @@
-﻿namespace Appostazja.Maui.ViewModels;
+using System.Runtime.InteropServices;
 
-public class AboutViewModel : ObservableObject
+namespace Appostazja.Maui.ViewModels;
+
+public sealed class AboutViewModel : ObservableObject
 {
+    public AboutViewModel(IAppInfo appInfo)
+    {
+        MauiVersion = $"{RuntimeInformation.FrameworkDescription} / MAUI 11 Preview 7";
+        AppVersion = $"Appostazja {appInfo.VersionString} ({appInfo.BuildString})";
+    }
+
+    public string MauiVersion { get; }
+
+    public string AppVersion { get; }
 }

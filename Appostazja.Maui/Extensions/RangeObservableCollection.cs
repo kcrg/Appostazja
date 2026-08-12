@@ -74,11 +74,10 @@ namespace System.Collections.ObjectModel
         //------------------------------------------------------
 
         #region Public Properties
-        private EqualityComparer<T>? _Comparer;
         public EqualityComparer<T> Comparer
         {
-            get => _Comparer ??= EqualityComparer<T>.Default;
-            private set => _Comparer = value;
+            get => field ??= EqualityComparer<T>.Default;
+            private set;
         }
 
         /// <summary>
@@ -121,28 +120,18 @@ namespace System.Collections.ObjectModel
         /// <exception cref="ArgumentOutOfRangeException"><paramref name="index"/> is not in the collection range.</exception>
         public void InsertRange(int index, IEnumerable<T> collection)
         {
-            if (collection == null)
-            {
-                throw new ArgumentNullException(nameof(collection));
-            }
+            ArgumentNullException.ThrowIfNull(collection);
 
-            if (index < 0)
-            {
-                throw new ArgumentOutOfRangeException(nameof(index));
-            }
+            ArgumentOutOfRangeException.ThrowIfNegative(index);
 
-            if (index > Count)
-            {
-                throw new ArgumentOutOfRangeException(nameof(index));
-            }
+            ArgumentOutOfRangeException.ThrowIfGreaterThan(index, Count);
 
             if (!AllowDuplicates)
             {
                 collection =
-                  collection
+                  [.. collection
                   .Distinct(Comparer)
-                  .Where(item => !Items.Contains(item, Comparer))
-                  .ToList();
+                  .Where(item => !Items.Contains(item, Comparer))];
             }
 
             if (collection is ICollection<T> countable)
@@ -180,10 +169,7 @@ namespace System.Collections.ObjectModel
         /// <exception cref="ArgumentNullException"><paramref name="collection"/> is null.</exception>
         public void RemoveRange(IEnumerable<T> collection)
         {
-            if (collection == null)
-            {
-                throw new ArgumentNullException(nameof(collection));
-            }
+            ArgumentNullException.ThrowIfNull(collection);
 
             if (Count == 0)
             {
@@ -210,7 +196,7 @@ namespace System.Collections.ObjectModel
 
             CheckReentrancy();
 
-            Dictionary<int, List<T>> clusters = new();
+            Dictionary<int, List<T>> clusters = [];
             int lastIndex = -1;
             List<T>? lastCluster = null;
             foreach (T item in collection)
@@ -229,7 +215,7 @@ namespace System.Collections.ObjectModel
                 }
                 else
                 {
-                    clusters[lastIndex = index] = lastCluster = new List<T> { item };
+                    clusters[lastIndex = index] = lastCluster = [item];
                 }
             }
 
@@ -273,25 +259,16 @@ namespace System.Collections.ObjectModel
         /// <exception cref="ArgumentNullException"><paramref name="match"/> is null.</exception>
         public int RemoveAll(int index, int count, Predicate<T> match)
         {
-            if (index < 0)
-            {
-                throw new ArgumentOutOfRangeException(nameof(index));
-            }
+            ArgumentOutOfRangeException.ThrowIfNegative(index);
 
-            if (count < 0)
-            {
-                throw new ArgumentOutOfRangeException(nameof(count));
-            }
+            ArgumentOutOfRangeException.ThrowIfNegative(count);
 
             if (index + count > Count)
             {
                 throw new ArgumentOutOfRangeException(nameof(index));
             }
 
-            if (match == null)
-            {
-                throw new ArgumentNullException(nameof(match));
-            }
+            ArgumentNullException.ThrowIfNull(match);
 
             if (Count == 0)
             {
@@ -320,7 +297,7 @@ namespace System.Collections.ObjectModel
                         }
                         else
                         {
-                            cluster = new List<T> { item };
+                            cluster = [item];
                             clusterIndex = index;
                         }
 
@@ -356,15 +333,9 @@ namespace System.Collections.ObjectModel
         /// <exception cref="ArgumentOutOfRangeException">The specified range is exceeding the collection.</exception>
         public void RemoveRange(int index, int count)
         {
-            if (index < 0)
-            {
-                throw new ArgumentOutOfRangeException(nameof(index));
-            }
+            ArgumentOutOfRangeException.ThrowIfNegative(index);
 
-            if (count < 0)
-            {
-                throw new ArgumentOutOfRangeException(nameof(count));
-            }
+            ArgumentOutOfRangeException.ThrowIfNegative(count);
 
             if (index + count > Count)
             {
@@ -424,32 +395,21 @@ namespace System.Collections.ObjectModel
         /// <exception cref="ArgumentNullException"><paramref name="collection"/> is null.</exception>
         public void ReplaceRange(int index, int count, IEnumerable<T> collection)
         {
-            if (index < 0)
-            {
-                throw new ArgumentOutOfRangeException(nameof(index));
-            }
+            ArgumentOutOfRangeException.ThrowIfNegative(index);
 
-            if (count < 0)
-            {
-                throw new ArgumentOutOfRangeException(nameof(count));
-            }
+            ArgumentOutOfRangeException.ThrowIfNegative(count);
 
             if (index + count > Count)
             {
                 throw new ArgumentOutOfRangeException(nameof(index));
             }
 
-            if (collection == null)
-            {
-                throw new ArgumentNullException(nameof(collection));
-            }
+            ArgumentNullException.ThrowIfNull(collection);
 
             if (!AllowDuplicates)
             {
                 collection =
-                  collection
-                  .Distinct(Comparer)
-                  .ToList();
+                  [.. collection.Distinct(Comparer)];
             }
 
             if (collection is ICollection<T> countable)
@@ -474,7 +434,7 @@ namespace System.Collections.ObjectModel
 
             if (collection is not IList<T> list)
             {
-                list = new List<T>(collection);
+                list = [.. collection];
             }
 
             using (BlockReentrancy())
@@ -505,8 +465,8 @@ namespace System.Collections.ObjectModel
                         if (newCluster == null)
                         {
                             Debug.Assert(oldCluster == null);
-                            newCluster = new List<T> { @new };
-                            oldCluster = new List<T> { old };
+                            newCluster = [@new];
+                            oldCluster = [old];
                         }
                         else
                         {
@@ -687,7 +647,7 @@ namespace System.Collections.ObjectModel
         /// <param name="oldCluster"></param>
         //TODO should have really been a local method inside ReplaceRange(int index, int count, IEnumerable<T> collection, IEqualityComparer<T> comparer),
         //move when supported language version updated.
-        private void OnRangeReplaced(int followingItemIndex, ICollection<T> newCluster, ICollection<T> oldCluster)
+        private void OnRangeReplaced(int followingItemIndex, List<T> newCluster, List<T> oldCluster)
         {
             if (oldCluster == null || oldCluster.Count == 0)
             {
@@ -715,7 +675,7 @@ namespace System.Collections.ObjectModel
         //------------------------------------------------------
 
         #region Private Types
-        private sealed class DeferredEventsCollection : List<NotifyCollectionChangedEventArgs>, IDisposable
+        private sealed partial class DeferredEventsCollection : List<NotifyCollectionChangedEventArgs>, IDisposable
         {
             private readonly RangeObservableCollection<T> _collection;
             public DeferredEventsCollection(RangeObservableCollection<T> collection)

@@ -948,7 +948,6 @@
     <x:String x:Key="IconBrandPatreon">&#xedd2;</x:String>
     <x:String x:Key="IconBrandProducthunt">&#xedd3;</x:String>
     <x:String x:Key="IconBrandSass">&#xedd4;</x:String>
-    <x:String x:Key="IconBrandSentry">&#xedd5;</x:String>
     <x:String x:Key="IconBrandShazam">&#xedd6;</x:String>
     <x:String x:Key="IconBrandStripe">&#xedd7;</x:String>
     <x:String x:Key="IconBrandUnsplash">&#xedd8;</x:String>

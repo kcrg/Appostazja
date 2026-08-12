@@ -5,7 +5,7 @@ namespace Appostazja.Maui.ViewModels.Base;
 public partial class BaseViewModel : ObservableObject
 {
     [ObservableProperty]
-    string? currentState = States.Loading;
+    public partial string? CurrentState { get; set; } = States.Loading;
 
     public BaseViewModel()
     {
