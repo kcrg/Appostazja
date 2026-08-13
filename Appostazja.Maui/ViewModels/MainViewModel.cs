@@ -32,7 +32,7 @@ public sealed partial class MainViewModel(
 
         try
         {
-            if (!await Launcher.Default.OpenAsync(AppLinks.FeedbackForm))
+            if (!await Browser.Default.OpenAsync(AppLinks.FeedbackForm, BrowserLaunchMode.SystemPreferred))
             {
                 FeedbackError = "Nie udało się otworzyć formularza opinii.";
             }

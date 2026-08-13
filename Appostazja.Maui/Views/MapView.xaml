@@ -5,8 +5,7 @@
     xmlns:x="http://schemas.microsoft.com/winfx/2009/xaml"
     xmlns:android="clr-namespace:CommunityToolkit.Maui.PlatformConfiguration.AndroidSpecific;assembly=CommunityToolkit.Maui"
     xmlns:base="clr-namespace:Appostazja.Maui.Views.Base"
-    xmlns:maps="clr-namespace:Microsoft.Maui.Controls.Maps;assembly=Microsoft.Maui.Controls.Maps"
-    xmlns:models="clr-namespace:Appostazja.Maui.Models"
+    xmlns:controls="clr-namespace:Appostazja.Maui.Controls"
     xmlns:toolkit="http://schemas.microsoft.com/dotnet/2022/maui/toolkit"
     xmlns:vm="clr-namespace:Appostazja.Maui.ViewModels"
     SafeAreaEdges="None"
@@ -71,23 +70,13 @@
             </Border>
         </toolkit:StateContainer.StateViews>
 
-        <maps:Map
+        <controls:ClusteredMap
             x:Name="ApostasyMap"
             IsScrollEnabled="True"
             IsZoomEnabled="True"
-            ItemsSource="{Binding ChurchPins}"
-            MapClicked="OnMapClicked">
-            <maps:Map.ItemTemplate>
-                <DataTemplate x:DataType="models:ChurchMapPin">
-                    <maps:Pin
-                        Address="{Binding Address}"
-                        Label="{Binding Label}"
-                        ImageSource="{Binding PinImageSource}"
-                        Location="{Binding Location}"
-                        MarkerClicked="OnMarkerClicked" />
-                </DataTemplate>
-            </maps:Map.ItemTemplate>
-        </maps:Map>
+            MarkerClicked="OnMarkerClicked"
+            Markers="{Binding ChurchPins}"
+            MapClicked="OnMapClicked" />
 
         <Border
             Margin="16,48,16,0"

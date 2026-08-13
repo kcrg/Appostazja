@@ -20,6 +20,8 @@ public class MainActivity : MauiAppCompatActivity
     protected override void OnCreate(Bundle? savedInstanceState)
     {
         WindowCompat.SetDecorFitsSystemWindows(Window, false);
-        base.OnCreate(savedInstanceState);
+        // Shell uses resource-backed fragments. After incremental deployment, restored
+        // fragments can point to obsolete view IDs and crash before MAUI starts.
+        base.OnCreate(null);
     }
 }

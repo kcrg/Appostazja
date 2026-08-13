@@ -4,7 +4,8 @@
 		<LangVersion>latest</LangVersion>
 		<Nullable>enable</Nullable>
 		<IsTrimmable>True</IsTrimmable>
-		<NoWarn>$(NoWarn);BG8401;CS8766;CS0618</NoWarn>
+		<!-- android-maps-utils contains Kotlin compiler-only members with '$' names; class-parse intentionally drops them. -->
+		<NoWarn>$(NoWarn);BG8401;BG8605;BG8606;CS8766;CS0618</NoWarn>
 	</PropertyGroup>
 
   <ItemGroup>

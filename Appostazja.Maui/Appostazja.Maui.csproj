@@ -9,8 +9,6 @@
 		<SingleProject>true</SingleProject>
 		<IsAotCompatible>true</IsAotCompatible>
 		<PublishAot Condition="'$(Configuration)' == 'Release' And $([MSBuild]::GetTargetPlatformIdentifier('$(TargetFramework)')) == 'ios'">true</PublishAot>
-		<PublishAot Condition="'$(Configuration)' == 'Release' And $([MSBuild]::GetTargetPlatformIdentifier('$(TargetFramework)')) == 'android'">true</PublishAot>
-		<EnablePreviewFeatures Condition="$([MSBuild]::GetTargetPlatformIdentifier('$(TargetFramework)')) == 'android'">true</EnablePreviewFeatures>
 		<!-- Display name -->
 		<ApplicationTitle>Appostazja</ApplicationTitle>
 
@@ -36,7 +34,6 @@
 	  <GoogleMapsApiKey Condition="'$(GoogleMapsApiKey)' == ''">AIzaSyCnGd0QpjRVUrwBQNS-_Xd0gMNRbCEgKJA</GoogleMapsApiKey>
 	  <AndroidManifestPlaceholders>GOOGLE_MAPS_API_KEY=$(GoogleMapsApiKey)</AndroidManifestPlaceholders>
 	</PropertyGroup>
-
 	<ItemGroup>
 		<!-- App Icon -->
 		<MauiIcon Include="Resources\AppIcon\appostazja_background.svg" ForegroundFile="Resources\AppIcon\appostazja_icon.svg" Color="#363636" />
@@ -47,9 +44,9 @@
     <!-- Images -->
 		<!--<MauiImage Include="Resources\Images\*" />-->
     <MauiImage Include="Resources\Images\drawing.svg" BaseSize="48,48" />
-    <MauiImage Include="Resources\Images\pin_bad.svg" BaseSize="48,56" />
-    <MauiImage Include="Resources\Images\pin_average.svg" BaseSize="48,56" />
-    <MauiImage Include="Resources\Images\pin_good.svg" BaseSize="48,56" />
+    <MauiImage Include="Resources\Images\pin_bad.svg" BaseSize="40,47" />
+    <MauiImage Include="Resources\Images\pin_average.svg" BaseSize="40,47" />
+    <MauiImage Include="Resources\Images\pin_good.svg" BaseSize="40,47" />
 
 		<!-- Custom Fonts -->
 		<MauiFont Include="Resources\Fonts\*" />
@@ -75,6 +72,7 @@
 
 	<ItemGroup>
 	  <ProjectReference Include="..\Appostazja.Core\Appostazja.Core.csproj" />
+	  <ProjectReference Include="..\Google.Maps.Utils.Android\Google.Maps.Utils.Android.csproj" Condition="'$(TargetFramework)' == 'net11.0-android'" />
 	</ItemGroup>
 
 	<ProjectExtensions><VisualStudio><UserProperties XamarinHotReloadDebuggerTimeoutExceptionAppostazjaMauiHideInfoBar="True" /></VisualStudio></ProjectExtensions>

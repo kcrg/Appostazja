@@ -11,7 +11,14 @@ public static class MauiProgram
         builder
             .UseMauiApp<App>()
             .UseMauiMaps()
-            .UseSharedRatingPinIcons()
+            .ConfigureMauiHandlers(handlers =>
+            {
+#if ANDROID
+                handlers.AddHandler<Controls.ClusteredMap, Platforms.Android.Handlers.ClusteredMapHandler>();
+#else
+                handlers.AddHandler<Controls.ClusteredMap, Microsoft.Maui.Maps.Handlers.MapHandler>();
+#endif
+            })
             .ConfigureFonts(fonts =>
             {
                 fonts.AddFont("tabler-icons.ttf", "FontIcons");
@@ -30,30 +37,6 @@ public static class MauiProgram
         return builder.Build();
     }
 
-    private static MauiAppBuilder UseSharedRatingPinIcons(this MauiAppBuilder builder)
-    {
-#if ANDROID
-        Microsoft.Maui.Maps.Handlers.MapPinHandler.Mapper.ModifyMapping(
-            nameof(Microsoft.Maui.Maps.IMapPin.ImageSource),
-            static (handler, pin, _) =>
-            {
-                string? fileName =
-                    (pin.ImageSource as Microsoft.Maui.IFileImageSource)?.File;
-
-                float hue = fileName switch
-                {
-                    "pin_bad.png" => Android.Gms.Maps.Model.BitmapDescriptorFactory.HueRed,
-                    "pin_average.png" => Android.Gms.Maps.Model.BitmapDescriptorFactory.HueYellow,
-                    _ => Android.Gms.Maps.Model.BitmapDescriptorFactory.HueGreen,
-                };
-
-                handler.PlatformView.SetIcon(
-                    Android.Gms.Maps.Model.BitmapDescriptorFactory.DefaultMarker(hue));
-            });
-#endif
-
-        return builder;
-    }
 
     private static IServiceCollection RegisterServices(this IServiceCollection services)
     {

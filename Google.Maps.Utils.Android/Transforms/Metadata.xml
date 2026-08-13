@@ -84,12 +84,19 @@
 	<remove-node path="/api/package[@name='com.google.maps.android.collections']/class/method[@name='newCollection' and (@bridge='true' or @synthetic='true')]" />
 	<remove-node path="/api/package[@name='com.google.maps.android.collections']/class/method[@name='getCollection' and (@bridge='true' or @synthetic='true')]" />
 
-	<!-- Fix CS0114 in GeoJsonFeature: force 'new' keyword (safe, no risk of override mismatch) -->
+	<!-- C# overrides must keep the same visibility; expose the Java base hooks publicly. -->
+	<attr path="/api/package[@name='com.google.maps.android.data']/class[@name='Feature']/method[@name='removeProperty' and count(parameter)=1]"
+		  name="visibility">public</attr>
+	<attr path="/api/package[@name='com.google.maps.android.data']/class[@name='Feature']/method[@name='setGeometry' and count(parameter)=1]"
+		  name="visibility">public</attr>
+	<attr path="/api/package[@name='com.google.maps.android.data']/class[@name='Feature']/method[@name='setProperty' and count(parameter)=2]"
+		  name="visibility">public</attr>
+
+	<!-- GeoJsonFeature widens the protected Java methods inherited from Feature to public. -->
 	<attr path="/api/package[@name='com.google.maps.android.data.geojson']/class[@name='GeoJsonFeature']/method[@name='removeProperty' and count(parameter)=1]"
-		  name="managedOverride">new</attr>
-	<attr path="/api/package[@name='com.google.maps.android.data.geojson']/class[@name='GeoJsonFeature']/method[@name='setGeometry' and count(parameter)=1]"
-		  name="managedOverride">new</attr>
+		  name="managedOverride">override</attr>
+	<remove-node path="/api/package[@name='com.google.maps.android.data.geojson']/class[@name='GeoJsonFeature']/method[@name='setGeometry' and count(parameter)=1]" />
 	<attr path="/api/package[@name='com.google.maps.android.data.geojson']/class[@name='GeoJsonFeature']/method[@name='setProperty' and count(parameter)=2]"
-		  name="managedOverride">new</attr>
+		  name="managedOverride">override</attr>
 
 </metadata>

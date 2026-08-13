@@ -1,3 +1,4 @@
+using Appostazja.Maui.Controls;
 using Appostazja.Maui.Models;
 using Microsoft.Maui.Controls.Maps;
 
@@ -6,13 +7,11 @@ namespace Appostazja.Maui.Views;
 public partial class MapView : BasePage
 {
     private bool hasSetInitialRegion;
-    private int visibleRegionUpdateVersion;
 
     public MapView(MapViewModel viewModel)
     {
         InitializeComponent();
         BindingContext = viewModel;
-        ApostasyMap.PropertyChanged += OnMapPropertyChanged;
     }
 
     protected override void OnAppearing()
@@ -31,40 +30,14 @@ public partial class MapView : BasePage
                 Microsoft.Maui.Maps.Distance.FromKilometers(430)));
     }
 
-    private void OnMapPropertyChanged(
-        object? sender,
-        System.ComponentModel.PropertyChangedEventArgs args)
+    private async void OnMarkerClicked(object? sender, ClusteredMapMarkerClickedEventArgs args)
     {
-        if (args.PropertyName != nameof(ApostasyMap.VisibleRegion) ||
-            ApostasyMap.VisibleRegion is null)
+        if (BindingContext is not MapViewModel viewModel)
         {
             return;
         }
 
-        int updateVersion = ++visibleRegionUpdateVersion;
-        Dispatcher.DispatchDelayed(
-            TimeSpan.FromMilliseconds(300),
-            () =>
-            {
-                if (updateVersion == visibleRegionUpdateVersion &&
-                    ApostasyMap.VisibleRegion is { } region &&
-                    BindingContext is MapViewModel viewModel)
-                {
-                    viewModel.UpdateVisibleRegion(region);
-                }
-            });
-    }
-
-
-    private async void OnMarkerClicked(object? sender, PinClickedEventArgs args)
-    {
-        args.HideInfoWindow = true;
-
-        if (sender is not Pin { BindingContext: ChurchMapPin church } ||
-            BindingContext is not MapViewModel viewModel)
-        {
-            return;
-        }
+        ChurchMapPin church = args.Marker;
 
         viewModel.SelectChurchCommand.Execute(church);
         ApostasyMap.MoveToRegion(
