@@ -21,7 +21,7 @@ public sealed class ClusteredMap : Microsoft.Maui.Controls.Maps.Map
     public IReadOnlyList<ChurchMapPin> Markers
     {
         get => (IReadOnlyList<ChurchMapPin>)GetValue(MarkersProperty);
-        set => SetValue(MarkersProperty, value ?? Array.Empty<ChurchMapPin>());
+        set => SetValue(MarkersProperty, value ?? []);
     }
 
     public event EventHandler<ClusteredMapMarkerClickedEventArgs>? MarkerClicked;
@@ -37,7 +37,7 @@ public sealed class ClusteredMap : Microsoft.Maui.Controls.Maps.Map
 #if !ANDROID
         var map = (ClusteredMap)bindable;
         map.SyncFallbackMarkers(
-            newValue as IReadOnlyList<ChurchMapPin> ?? Array.Empty<ChurchMapPin>());
+            newValue as IReadOnlyList<ChurchMapPin> ?? []);
 #endif
     }
 

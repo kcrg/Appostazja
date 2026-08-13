@@ -3,27 +3,21 @@ using Appostazja.Core.Models;
 
 namespace Appostazja.Core.Services;
 
-public sealed class MapDataService : IMapDataService
+public sealed class MapDataService(
+    HttpClient httpClient,
+    IMapDataCache? persistentCache = null,
+    TimeProvider? timeProvider = null) : IMapDataService
 {
     public static readonly Uri Endpoint = new("https://mapaapostazji.pl/api/map-data.php");
     public static readonly TimeSpan CacheLifetime = TimeSpan.FromDays(1);
 
     private readonly SemaphoreSlim cacheLock = new(1, 1);
-    private readonly HttpClient httpClient;
-    private readonly IMapDataCache? persistentCache;
-    private readonly TimeProvider timeProvider;
+    private readonly HttpClient httpClient = httpClient;
+    private readonly IMapDataCache? persistentCache = persistentCache;
+    private readonly TimeProvider timeProvider = timeProvider ?? TimeProvider.System;
     private MapDataCacheEntry? memoryCache;
 
     private MapDataSnapshot? memorySnapshot;
-    public MapDataService(
-        HttpClient httpClient,
-        IMapDataCache? persistentCache = null,
-        TimeProvider? timeProvider = null)
-    {
-        this.httpClient = httpClient;
-        this.persistentCache = persistentCache;
-        this.timeProvider = timeProvider ?? TimeProvider.System;
-    }
 
     public async Task<MapDataSnapshot> GetChurchesAsync(
         bool forceRefresh = false,
@@ -193,7 +187,7 @@ public sealed class MapDataService : IMapDataService
         longitude is >= -180 and <= 180 &&
         latitude is >= -90 and <= 90;
 
-    private static ulong ComputeContentVersion(IReadOnlyList<MapFeature> features)
+    private static ulong ComputeContentVersion(List<MapFeature> features)
     {
         const ulong aggregateSeed = 0x9E3779B97F4A7C15UL;
         ulong sum = (ulong)features.Count * aggregateSeed;

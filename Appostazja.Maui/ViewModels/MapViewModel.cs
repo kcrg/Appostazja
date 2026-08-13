@@ -1,8 +1,6 @@
-using System.Collections.ObjectModel;
 using Appostazja.Core.Services;
 using Appostazja.Maui.Models;
 using Microsoft.Extensions.Logging;
-using Microsoft.Maui.ApplicationModel;
 
 namespace Appostazja.Maui.ViewModels;
 
@@ -36,7 +34,7 @@ public sealed partial class MapViewModel(
     public partial bool IsRefreshing { get; set; }
 
     [ObservableProperty]
-    public partial string DataUpdatedText { get; set; } = "Data danych: —";
+    public partial string DataUpdatedText { get; set; } = "Data danych: -";
 
     [ObservableProperty]
     [NotifyPropertyChangedFor(nameof(HasDataStatusMessage))]

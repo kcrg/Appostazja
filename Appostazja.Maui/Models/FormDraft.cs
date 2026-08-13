@@ -1,5 +1,3 @@
-using System.Text.Json.Serialization;
-
 namespace Appostazja.Maui.Models;
 
 internal sealed class FormDraft

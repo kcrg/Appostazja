@@ -12,7 +12,7 @@ using RectF = Android.Graphics.RectF;
 
 namespace Appostazja.Maui.Platforms.Android.Maps;
 
-internal sealed class ChurchMarkerIconFactory : IDisposable
+internal sealed class ChurchMarkerIconFactory(global::Android.Content.Context context) : IDisposable
 {
     private const int MaximumCachedClusterIcons = 128;
     private const float ArcGapDegrees = 2;
@@ -25,25 +25,19 @@ internal sealed class ChurchMarkerIconFactory : IDisposable
     private static readonly Color ClusterBorderColor = Color.ParseColor("#6B5144");
     private static readonly Color ClusterTextColor = Color.ParseColor("#2D211C");
 
-    private readonly float density;
+    private readonly float density = Math.Max(context.Resources?.DisplayMetrics?.Density ?? 1, 1);
     private readonly Dictionary<ClusterIconKey, BitmapDescriptor> clusterIcons =
         new(MaximumCachedClusterIcons);
     private readonly Queue<ClusterIconKey> clusterIconOrder =
         new(MaximumCachedClusterIcons);
     private readonly Paint paint = new(PaintFlags.AntiAlias);
     private readonly RectF arcBounds = new();
-    private readonly Typeface boldTypeface;
+    private readonly Typeface boldTypeface = Typeface.Create(Typeface.Default, TypefaceStyle.Bold)!;
 
     private BitmapDescriptor? badPin;
     private BitmapDescriptor? averagePin;
     private BitmapDescriptor? goodPin;
     private bool disposed;
-
-    public ChurchMarkerIconFactory(global::Android.Content.Context context)
-    {
-        density = Math.Max(context.Resources?.DisplayMetrics?.Density ?? 1, 1);
-        boldTypeface = Typeface.Create(Typeface.Default, TypefaceStyle.Bold)!;
-    }
 
     public BitmapDescriptor GetPinIcon(ChurchRatingCategory category)
     {

@@ -1,7 +1,6 @@
 using Appostazja.Maui.Controls;
 using Appostazja.Maui.Platforms.Android.Maps;
 using Android.Gms.Maps;
-using Microsoft.Maui.Maps;
 using Microsoft.Maui.Maps.Handlers;
 using NativeMapView = Android.Gms.Maps.MapView;
 using MauiMap = Microsoft.Maui.Maps.IMap;

@@ -1,5 +1,3 @@
-using Microsoft.Extensions.DependencyInjection;
-
 namespace Appostazja.Maui;
 
 public partial class AppShell : Shell

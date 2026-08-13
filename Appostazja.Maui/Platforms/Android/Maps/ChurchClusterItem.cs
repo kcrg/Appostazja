@@ -4,19 +4,11 @@ using Android.Gms.Maps.Utils.Clustering;
 
 namespace Appostazja.Maui.Platforms.Android.Maps;
 
-internal sealed class ChurchClusterItem : Java.Lang.Object, IClusterItem
+internal sealed class ChurchClusterItem(ChurchMapPin marker) : Java.Lang.Object, IClusterItem
 {
-    private readonly LatLng position;
+    public ChurchMapPin Marker { get; private set; } = marker;
 
-    public ChurchClusterItem(ChurchMapPin marker)
-    {
-        Marker = marker;
-        position = CreatePosition(marker);
-    }
-
-    public ChurchMapPin Marker { get; private set; }
-
-    public LatLng Position => position;
+    public LatLng Position { get; } = CreatePosition(marker);
 
     public string? Title => Marker.Label;
 
@@ -49,7 +41,7 @@ internal sealed class ChurchClusterItem : Java.Lang.Object, IClusterItem
     {
         if (disposing)
         {
-            position.Dispose();
+            Position.Dispose();
         }
 
         base.Dispose(disposing);
