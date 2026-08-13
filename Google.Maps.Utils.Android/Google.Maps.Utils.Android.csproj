@@ -1,17 +1,22 @@
 ﻿<Project Sdk="Microsoft.NET.Sdk">
-  <PropertyGroup>
-    <TargetFramework>net11.0-android</TargetFramework>
-    <OutputType>Library</OutputType>
-    <GenerateAssemblyInfo>false</GenerateAssemblyInfo>
-    <ImplicitUsings>enable</ImplicitUsings>
-  </PropertyGroup>
+	<PropertyGroup>
+		<TargetFramework>net11.0-android</TargetFramework>
+		<LangVersion>latest</LangVersion>
+		<Nullable>enable</Nullable>
+		<IsTrimmable>True</IsTrimmable>
+		<NoWarn>$(NoWarn);BG8401;CS8766;CS0618</NoWarn>
+	</PropertyGroup>
 
   <ItemGroup>
-    <JavaDocJar Include="Jars\android-maps-utils-3.8.2-javadoc.jar" />
+	  <AndroidMavenLibrary Include="com.google.maps.android:android-maps-utils" Version="4.5.2" />
   </ItemGroup>
 
   <ItemGroup>
-    <PackageReference Include="Xamarin.AndroidX.Collection.Ktx" Version="1.4.5.2" />
-    <PackageReference Include="Xamarin.GooglePlayServices.Maps" Version="119.1.0" />
+	  <PackageReference Include="Xamarin.AndroidX.AppCompat" Version="1.7.1.4" />
+	  <PackageReference Include="Xamarin.AndroidX.Core.Core.Ktx" Version="1.19.0.1" />
+	  <PackageReference Include="Xamarin.AndroidX.Startup.StartupRuntime" Version="1.2.0.8" />
+	  <PackageReference Include="Xamarin.GooglePlayServices.Maps" Version="120.0.0.2" />
+	  <PackageReference Include="Xamarin.Kotlin.StdLib.Jdk8" Version="2.4.0.1" />
+	  <PackageReference Include="Xamarin.KotlinX.Coroutines.Android" Version="1.11.0.1" />
   </ItemGroup>
 </Project>

@@ -1,9 +1,10 @@
 <?xml version="1.0" encoding="UTF-8" ?>
-<ContentPage
+<base:BasePage
     x:Class="Appostazja.Maui.Views.FormView"
     xmlns="http://schemas.microsoft.com/dotnet/2021/maui"
     xmlns:x="http://schemas.microsoft.com/winfx/2009/xaml"
     xmlns:android="clr-namespace:CommunityToolkit.Maui.PlatformConfiguration.AndroidSpecific;assembly=CommunityToolkit.Maui"
+    xmlns:base="clr-namespace:Appostazja.Maui.Views.Base"
     xmlns:toolkit="http://schemas.microsoft.com/dotnet/2022/maui/toolkit"
     xmlns:sys="clr-namespace:System;assembly=System.Runtime"
     xmlns:vm="clr-namespace:Appostazja.Maui.ViewModels"
@@ -14,12 +15,12 @@
     Title="Wniosek"
     x:DataType="vm:FormViewModel">
 
-    <ContentPage.Behaviors>
+    <base:BasePage.Behaviors>
         <toolkit:StatusBarBehavior
             ApplyOn="OnPageNavigatedTo"
             StatusBarColor="{AppThemeBinding Light={StaticResource SurfaceLight}, Dark={StaticResource SurfaceDark}}"
             StatusBarStyle="{AppThemeBinding Light=DarkContent, Dark=LightContent}" />
-    </ContentPage.Behaviors>
+    </base:BasePage.Behaviors>
 
     <Grid RowDefinitions="*,Auto">
         <ScrollView>
@@ -130,4 +131,4 @@
             </Grid>
         </Border>
     </Grid>
-</ContentPage>
+</base:BasePage>

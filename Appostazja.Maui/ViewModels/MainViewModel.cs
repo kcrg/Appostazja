@@ -1,7 +1,18 @@
+using Microsoft.Extensions.Logging;
+using Microsoft.Maui.ApplicationModel;
+
 namespace Appostazja.Maui.ViewModels;
 
-public sealed partial class MainViewModel(INavigationService navigationService) : ObservableObject
+public sealed partial class MainViewModel(
+    INavigationService navigationService,
+    ILogger<MainViewModel> logger) : ObservableObject
 {
+    [ObservableProperty]
+    [NotifyPropertyChangedFor(nameof(HasFeedbackError))]
+    public partial string? FeedbackError { get; set; }
+
+    public bool HasFeedbackError => !string.IsNullOrWhiteSpace(FeedbackError);
+
     [RelayCommand]
     private Task NavigateToAboutAsync() =>
         navigationService.NavigateToAsync(AppShell.AboutRoute);
@@ -13,4 +24,23 @@ public sealed partial class MainViewModel(INavigationService navigationService) 
     [RelayCommand]
     private Task NavigateToMapAsync() =>
         navigationService.NavigateToAsync(AppShell.MapRoute);
+
+    [RelayCommand]
+    private async Task AddFeedbackAsync()
+    {
+        FeedbackError = null;
+
+        try
+        {
+            if (!await Launcher.Default.OpenAsync(AppLinks.FeedbackForm))
+            {
+                FeedbackError = "Nie udało się otworzyć formularza opinii.";
+            }
+        }
+        catch (Exception exception)
+        {
+            logger.LogWarning(exception, "Opening the feedback form failed.");
+            FeedbackError = "Nie udało się otworzyć formularza opinii.";
+        }
+    }
 }

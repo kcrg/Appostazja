@@ -46,6 +46,42 @@
                 </Grid>
             </Border>
 
+            <Border
+                BackgroundColor="{AppThemeBinding Light={StaticResource SecondaryContainerLight}, Dark={StaticResource SecondaryContainerDark}}"
+                StrokeThickness="0">
+                <VerticalStackLayout Spacing="14">
+                    <Grid ColumnDefinitions="Auto,*" ColumnSpacing="12">
+                        <Image HeightRequest="36" WidthRequest="36">
+                            <Image.Source>
+                                <FontImageSource
+                                    Color="{AppThemeBinding Light={StaticResource SecondaryLight}, Dark={StaticResource SecondaryDark}}"
+                                    FontFamily="{StaticResource FontIcons}"
+                                    Glyph="{StaticResource IconMessagePlus}"
+                                    Size="34" />
+                            </Image.Source>
+                        </Image>
+                        <VerticalStackLayout Grid.Column="1" Spacing="3">
+                            <Label
+                                Style="{StaticResource TitleLargeStyle}"
+                                Text="Jak przebiegła Twoja apostazja?"
+                                TextColor="{AppThemeBinding Light={StaticResource OnSecondaryContainerLight}, Dark={StaticResource OnSecondaryContainerDark}}" />
+                            <Label
+                                Style="{StaticResource BodyMediumStyle}"
+                                Text="Podziel się doświadczeniem i pomóż kolejnym osobom."
+                                TextColor="{AppThemeBinding Light={StaticResource OnSecondaryContainerLight}, Dark={StaticResource OnSecondaryContainerDark}}" />
+                        </VerticalStackLayout>
+                    </Grid>
+                    <Button
+                        Command="{Binding AddFeedbackCommand}"
+                        HorizontalOptions="Fill"
+                        Text="Dodaj opinię o przebiegu apostazji" />
+                    <Label
+                        IsVisible="{Binding HasFeedbackError}"
+                        Style="{StaticResource ErrorLabelStyle}"
+                        Text="{Binding FeedbackError}" />
+                </VerticalStackLayout>
+            </Border>
+
             <Label Style="{StaticResource TitleLargeStyle}" Text="Co chcesz zrobić?" />
 
             <Grid ColumnDefinitions="*,*" ColumnSpacing="12">

@@ -5,13 +5,15 @@ namespace Appostazja.Maui.ViewModels;
 
 public sealed partial class AboutViewModel : ObservableObject
 {
-    private const string FeedbackFormUrl =
-        "https://docs.google.com/forms/d/e/1FAIpQLSehJc7aLTbzapw-8H79rq8gZxNQWLQb5cqJR_lb7qcfQmb5fg/viewform";
-
     public AboutViewModel(IAppInfo appInfo)
     {
         MauiVersion = $"{RuntimeInformation.FrameworkDescription} / MAUI 11 Preview 7";
         AppVersion = $"Appostazja {appInfo.VersionString} ({appInfo.BuildString})";
+#if DEBUG
+        BuildConfiguration = "Konfiguracja: Debug";
+#else
+        BuildConfiguration = "Konfiguracja: Release";
+#endif
     }
 
     [ObservableProperty]
@@ -21,6 +23,8 @@ public sealed partial class AboutViewModel : ObservableObject
 
     public string AppVersion { get; }
 
+
+    public string BuildConfiguration { get; }
     [RelayCommand]
     private async Task AddFeedbackAsync()
     {
@@ -28,7 +32,7 @@ public sealed partial class AboutViewModel : ObservableObject
 
         try
         {
-            if (!await Launcher.Default.OpenAsync(new Uri(FeedbackFormUrl)))
+            if (!await Launcher.Default.OpenAsync(AppLinks.FeedbackForm))
             {
                 FeedbackError = "Nie udało się otworzyć formularza opinii.";
             }

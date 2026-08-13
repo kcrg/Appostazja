@@ -11,6 +11,7 @@ public static class MauiProgram
         builder
             .UseMauiApp<App>()
             .UseMauiMaps()
+            .UseSharedRatingPinIcons()
             .ConfigureFonts(fonts =>
             {
                 fonts.AddFont("tabler-icons.ttf", "FontIcons");
@@ -29,9 +30,38 @@ public static class MauiProgram
         return builder.Build();
     }
 
+    private static MauiAppBuilder UseSharedRatingPinIcons(this MauiAppBuilder builder)
+    {
+#if ANDROID
+        Microsoft.Maui.Maps.Handlers.MapPinHandler.Mapper.ModifyMapping(
+            nameof(Microsoft.Maui.Maps.IMapPin.ImageSource),
+            static (handler, pin, _) =>
+            {
+                string? fileName =
+                    (pin.ImageSource as Microsoft.Maui.IFileImageSource)?.File;
+
+                float hue = fileName switch
+                {
+                    "pin_bad.png" => Android.Gms.Maps.Model.BitmapDescriptorFactory.HueRed,
+                    "pin_average.png" => Android.Gms.Maps.Model.BitmapDescriptorFactory.HueYellow,
+                    _ => Android.Gms.Maps.Model.BitmapDescriptorFactory.HueGreen,
+                };
+
+                handler.PlatformView.SetIcon(
+                    Android.Gms.Maps.Model.BitmapDescriptorFactory.DefaultMarker(hue));
+            });
+#endif
+
+        return builder;
+    }
+
     private static IServiceCollection RegisterServices(this IServiceCollection services)
     {
         services.AddSingleton(new HttpClient { Timeout = TimeSpan.FromSeconds(20) });
+        services.AddSingleton(TimeProvider.System);
+        services.AddSingleton<IFileSystem>(FileSystem.Current);
+        services.AddSingleton<ISecureStorage>(SecureStorage.Default);
+        services.AddSingleton<IMapDataCache, FileMapDataCache>();
         services.AddSingleton<IMapDataService, MapDataService>();
         services.AddSingleton<IPdfDeclarationGenerator, PdfDeclarationGenerator>();
         services.AddSingleton<IPdfExportService, PdfExportService>();
@@ -57,8 +87,8 @@ public static class MauiProgram
         builder.Services.AddTransient<AboutViewModel>();
         builder.Services.AddTransient<FormViewModel>();
         builder.Services.AddTransient<FormView>();
-        builder.Services.AddTransient<MapViewModel>();
-        builder.Services.AddTransient<MapView>();
+        builder.Services.AddSingleton<MapViewModel>();
+        builder.Services.AddSingleton<MapView>();
 
         return builder;
     }

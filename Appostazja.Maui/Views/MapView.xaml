@@ -73,7 +73,6 @@
 
         <maps:Map
             x:Name="ApostasyMap"
-            IsClusteringEnabled="True"
             IsScrollEnabled="True"
             IsZoomEnabled="True"
             ItemsSource="{Binding ChurchPins}"
@@ -82,8 +81,8 @@
                 <DataTemplate x:DataType="models:ChurchMapPin">
                     <maps:Pin
                         Address="{Binding Address}"
-                        ClusteringIdentifier="churches"
                         Label="{Binding Label}"
+                        ImageSource="{Binding PinImageSource}"
                         Location="{Binding Location}"
                         MarkerClicked="OnMarkerClicked" />
                 </DataTemplate>
@@ -98,26 +97,62 @@
             StrokeThickness="0"
             StrokeShape="RoundRectangle 18"
             ZIndex="2">
-            <Grid ColumnDefinitions="Auto,*" ColumnSpacing="12">
-                <Image HeightRequest="28" WidthRequest="28">
-                    <Image.Source>
-                        <FontImageSource
-                            Color="{AppThemeBinding Light={StaticResource PrimaryLight}, Dark={StaticResource PrimaryDark}}"
-                            FontFamily="{StaticResource FontIcons}"
-                            Glyph="{StaticResource IconMapPins}"
-                            Size="26" />
-                    </Image.Source>
-                </Image>
-                <VerticalStackLayout Grid.Column="1" Spacing="0">
-                    <Label Style="{StaticResource TitleMediumStyle}" Text="Parafie na mapie" />
-                    <Label
-                        Style="{StaticResource SupportingTextStyle}"
-                        Text="{Binding ChurchPins.Count, StringFormat='Załadowano {0} punktów'}" />
-                </VerticalStackLayout>
-            </Grid>
+            <VerticalStackLayout Spacing="6">
+                <Grid ColumnDefinitions="Auto,*,Auto" ColumnSpacing="12">
+                    <Image HeightRequest="28" WidthRequest="28">
+                        <Image.Source>
+                            <FontImageSource
+                                Color="{AppThemeBinding Light={StaticResource PrimaryLight}, Dark={StaticResource PrimaryDark}}"
+                                FontFamily="{StaticResource FontIcons}"
+                                Glyph="{StaticResource IconMapPins}"
+                                Size="26" />
+                        </Image.Source>
+                    </Image>
+                    <VerticalStackLayout Grid.Column="1" Spacing="0">
+                        <Label Style="{StaticResource TitleMediumStyle}" Text="Parafie na mapie" />
+                        <Label
+                            Style="{StaticResource SupportingTextStyle}"
+                            Text="{Binding TotalChurchCount, StringFormat='Załadowano {0} punktów'}" />
+                        <Label
+                            Style="{StaticResource SupportingTextStyle}"
+                            Text="{Binding DataUpdatedText}" />
+                    </VerticalStackLayout>
+                    <Grid Grid.Column="2">
+                        <Button
+                            Command="{Binding RefreshDataCommand}"
+                            HeightRequest="52"
+                            Padding="6"
+                            SemanticProperties.Description="Aktualizuj dane mapy"
+                            Style="{StaticResource TextButtonStyle}"
+                            WidthRequest="52">
+                            <Button.ImageSource>
+                                <FontImageSource
+                                    Color="{AppThemeBinding Light={StaticResource PrimaryLight}, Dark={StaticResource PrimaryDark}}"
+                                    FontFamily="{StaticResource FontIcons}"
+                                    Glyph="{StaticResource IconRefresh}"
+                                    Size="30" />
+                            </Button.ImageSource>
+                        </Button>
+                        <ActivityIndicator
+                            HeightRequest="28"
+                            InputTransparent="True"
+                            IsRunning="{Binding IsRefreshing}"
+                            IsVisible="{Binding IsRefreshing}"
+                            WidthRequest="28" />
+                    </Grid>
+                </Grid>
+                <Label
+                    IsVisible="{Binding HasDataStatusMessage}"
+                    Style="{StaticResource ErrorLabelStyle}"
+                    Text="{Binding DataStatusMessage}" />
+            </VerticalStackLayout>
         </Border>
 
         <Border
+            x:Name="ChurchDetailsCard"
+            Opacity="0"
+            Scale="0.98"
+            TranslationY="48"
             Margin="16,0,16,16"
             Padding="18"
             HorizontalOptions="Fill"
@@ -138,16 +173,19 @@
                             MaxLines="2"
                             Style="{StaticResource BodyMediumStyle}"
                             Text="{Binding SelectedChurch.Address}" />
-                        <HorizontalStackLayout Spacing="6">
-                            <Image HeightRequest="18" WidthRequest="18">
-                                <Image.Source>
-                                    <FontImageSource
-                                        Color="{AppThemeBinding Light={StaticResource PrimaryLight}, Dark={StaticResource PrimaryDark}}"
-                                        FontFamily="{StaticResource FontIcons}"
-                                        Glyph="{StaticResource IconStar}"
-                                        Size="17" />
-                                </Image.Source>
-                            </Image>
+                        <HorizontalStackLayout Spacing="8">
+                            <toolkit:RatingView
+                                EmptyShapeColor="{AppThemeBinding Light={StaticResource OutlineVariantLight}, Dark={StaticResource OutlineVariantDark}}"
+                                FillColor="#F9A825"
+                                FillOption="Shape"
+                                IsReadOnly="True"
+                                MaximumRating="5"
+                                Rating="{Binding SelectedChurch.DisplayRating}"
+                                Shape="Star"
+                                ShapeBorderColor="#F9A825"
+                                ShapeBorderThickness="1"
+                                ShapeDiameter="18"
+                                Spacing="2" />
                             <Label
                                 Style="{StaticResource SupportingTextStyle}"
                                 Text="{Binding SelectedChurch.RatingText}"
@@ -157,11 +195,20 @@
 
                     <Button
                         Grid.Column="1"
-                        Command="{Binding ClearSelectionCommand}"
+                        Clicked="OnCloseDetailsClicked"
                         HeightRequest="44"
                         Padding="8"
+                        SemanticProperties.Description="Zamknij szczegóły parafii"
                         Style="{StaticResource TextButtonStyle}"
-                        Text="Zamknij" />
+                        WidthRequest="44">
+                        <Button.ImageSource>
+                            <FontImageSource
+                                Color="{AppThemeBinding Light={StaticResource OnSurfaceVariantLight}, Dark={StaticResource OnSurfaceVariantDark}}"
+                                FontFamily="{StaticResource FontIcons}"
+                                Glyph="{StaticResource IconCircleX}"
+                                Size="24" />
+                        </Button.ImageSource>
+                    </Button>
                 </Grid>
 
                 <Grid ColumnDefinitions="*,*" ColumnSpacing="10">

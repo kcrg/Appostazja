@@ -147,6 +147,8 @@
                        Text="{Binding AppVersion, Mode=OneTime}" />
                 <Label HorizontalTextAlignment="Center" Style="{StaticResource SupportingTextStyle}"
                        Text="{Binding MauiVersion, Mode=OneTime}" />
+                <Label HorizontalTextAlignment="Center" Style="{StaticResource SupportingTextStyle}"
+                       Text="{Binding BuildConfiguration, Mode=OneTime}" />
             </VerticalStackLayout>
         </VerticalStackLayout>
     </ScrollView>
