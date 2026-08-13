@@ -105,10 +105,15 @@ public sealed class MapDataService : IMapDataService
             {
                 throw;
             }
-            catch when (TryCreateSnapshot(cachedEntry, true, true, out _))
+            catch (Exception) when (cachedEntry is not null)
             {
-                TryCreateSnapshot(cachedEntry, true, true, out var staleSnapshot);
-                return staleSnapshot;
+                if (TryCreateSnapshot(cachedEntry, true, true, out var staleSnapshot))
+                {
+                    memorySnapshot = staleSnapshot;
+                    return staleSnapshot;
+                }
+
+                throw;
             }
         }
         finally
@@ -164,9 +169,8 @@ public sealed class MapDataService : IMapDataService
                 entry.GeoJson,
                 MapJsonContext.Default.MapDataResponse);
 
-            IReadOnlyList<MapFeature> features = payload?.Features
-                .Where(IsValidPoint)
-                .ToArray() ?? [];
+            List<MapFeature> features = payload?.Features ?? [];
+            features.RemoveAll(static feature => !IsValidPoint(feature));
 
             snapshot = new MapDataSnapshot(
                 features,

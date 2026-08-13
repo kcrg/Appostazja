@@ -10,6 +10,7 @@ public sealed partial class MapViewModel(
     IMapDataService dataService,
     ILogger<MapViewModel> logger) : BaseViewModel
 {
+    private readonly SemaphoreSlim loadLock = new(1, 1);
     private ulong currentContentVersion;
 
     public int TotalChurchCount => ChurchPins.Count;
@@ -126,21 +127,26 @@ public sealed partial class MapViewModel(
         bool forceRefresh,
         CancellationToken cancellationToken = default)
     {
-        bool hasExistingData = ChurchPins.Count > 0;
-        CurrentState = hasExistingData ? null : States.Loading;
-        IsRefreshing = hasExistingData;
-        ErrorMessage = null;
-        DataStatusMessage = null;
+        if (!await loadLock.WaitAsync(0, cancellationToken))
+        {
+            return;
+        }
 
         try
         {
+            bool hasExistingData = ChurchPins.Count > 0;
+            CurrentState = hasExistingData ? null : States.Loading;
+            IsRefreshing = true;
+            ErrorMessage = null;
+            DataStatusMessage = null;
+
             var snapshot = await dataService
                 .GetChurchesAsync(forceRefresh, cancellationToken);
 
             if (!hasExistingData || currentContentVersion != snapshot.ContentVersion)
             {
                 ChurchMapPin[] pins = await Task.Run(
-                    () => snapshot.Features.Select(CreatePin).ToArray(),
+                    () => CreatePins(snapshot.Features),
                     cancellationToken);
 
                 ChurchPins = pins;
@@ -163,6 +169,7 @@ public sealed partial class MapViewModel(
         catch (Exception exception)
         {
             logger.LogError(exception, "Downloading map data failed.");
+            bool hasExistingData = ChurchPins.Count > 0;
             if (hasExistingData)
             {
                 DataStatusMessage = "Nie udało się zaktualizować danych. Wyświetlam ostatnią kopię.";
@@ -176,7 +183,20 @@ public sealed partial class MapViewModel(
         finally
         {
             IsRefreshing = false;
+            loadLock.Release();
         }
+    }
+
+    private static ChurchMapPin[] CreatePins(
+        IReadOnlyList<Appostazja.Core.Models.MapFeature> features)
+    {
+        var pins = new ChurchMapPin[features.Count];
+        for (int index = 0; index < features.Count; index++)
+        {
+            pins[index] = CreatePin(features[index]);
+        }
+
+        return pins;
     }
 
     private static ChurchMapPin CreatePin(Appostazja.Core.Models.MapFeature feature)

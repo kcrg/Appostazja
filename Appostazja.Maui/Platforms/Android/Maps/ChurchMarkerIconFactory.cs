@@ -14,7 +14,7 @@ namespace Appostazja.Maui.Platforms.Android.Maps;
 
 internal sealed class ChurchMarkerIconFactory : IDisposable
 {
-    private const int MaximumCachedClusterIcons = 512;
+    private const int MaximumCachedClusterIcons = 128;
     private const float ArcGapDegrees = 2;
 
     private static readonly Color BadColor = Color.ParseColor("#C62828");
@@ -26,8 +26,13 @@ internal sealed class ChurchMarkerIconFactory : IDisposable
     private static readonly Color ClusterTextColor = Color.ParseColor("#2D211C");
 
     private readonly float density;
-    private readonly Dictionary<ClusterIconKey, BitmapDescriptor> clusterIcons = [];
-    private readonly Queue<ClusterIconKey> clusterIconOrder = [];
+    private readonly Dictionary<ClusterIconKey, BitmapDescriptor> clusterIcons =
+        new(MaximumCachedClusterIcons);
+    private readonly Queue<ClusterIconKey> clusterIconOrder =
+        new(MaximumCachedClusterIcons);
+    private readonly Paint paint = new(PaintFlags.AntiAlias);
+    private readonly RectF arcBounds = new();
+    private readonly Typeface boldTypeface;
 
     private BitmapDescriptor? badPin;
     private BitmapDescriptor? averagePin;
@@ -37,6 +42,7 @@ internal sealed class ChurchMarkerIconFactory : IDisposable
     public ChurchMarkerIconFactory(global::Android.Content.Context context)
     {
         density = Math.Max(context.Resources?.DisplayMetrics?.Density ?? 1, 1);
+        boldTypeface = Typeface.Create(Typeface.Default, TypefaceStyle.Bold)!;
     }
 
     public BitmapDescriptor GetPinIcon(ChurchRatingCategory category)
@@ -71,10 +77,7 @@ internal sealed class ChurchMarkerIconFactory : IDisposable
         }
 
         BitmapDescriptor descriptor = CreateClusterIcon(composition);
-        if (clusterIcons.Count < MaximumCachedClusterIcons)
-        {
-            clusterIcons.Add(key, descriptor);
-        }
+        AddClusterIconToCache(key, descriptor);
 
         return descriptor;
     }
@@ -99,6 +102,9 @@ internal sealed class ChurchMarkerIconFactory : IDisposable
 
         clusterIcons.Clear();
         clusterIconOrder.Clear();
+        arcBounds.Dispose();
+        paint.Dispose();
+        boldTypeface.Dispose();
     }
 
     private void AddClusterIconToCache(
@@ -117,6 +123,7 @@ internal sealed class ChurchMarkerIconFactory : IDisposable
         clusterIcons.Add(key, descriptor);
         clusterIconOrder.Enqueue(key);
     }
+
     private BitmapDescriptor CreateClusterIcon(ClusterComposition composition)
     {
         int diameter = Dp(composition.Total switch
@@ -137,7 +144,6 @@ internal sealed class ChurchMarkerIconFactory : IDisposable
             diameter,
             Bitmap.Config.Argb8888!);
         using var canvas = new Canvas(bitmap);
-        using var paint = new Paint(PaintFlags.AntiAlias);
 
         paint.SetStyle(Paint.Style.Fill);
         paint.Color = Color.White;
@@ -148,7 +154,7 @@ internal sealed class ChurchMarkerIconFactory : IDisposable
         paint.StrokeCap = Paint.Cap.Butt;
         paint.Color = RingTrackColor;
 
-        using var arcBounds = new RectF(
+        arcBounds.Set(
             center - ringRadius,
             center - ringRadius,
             center + ringRadius,
@@ -169,7 +175,7 @@ internal sealed class ChurchMarkerIconFactory : IDisposable
         paint.Color = ClusterTextColor;
         paint.TextAlign = Paint.Align.Center;
         paint.TextSize = Dp(composition.Total < 100 ? 15 : 14);
-        paint.SetTypeface(Typeface.Create(Typeface.Default, TypefaceStyle.Bold));
+        paint.SetTypeface(boldTypeface);
 
         Paint.FontMetrics? metrics = paint.GetFontMetrics();
         float baseline = metrics is null
@@ -190,34 +196,49 @@ internal sealed class ChurchMarkerIconFactory : IDisposable
         Paint paint,
         ClusterComposition composition)
     {
-        (int Count, Color Color)[] segments =
-        [
-            (composition.Bad, BadColor),
-            (composition.Average, AverageColor),
-            (composition.Good, GoodColor),
-        ];
-
-        int visibleSegments = segments.Count(segment => segment.Count > 0);
+        int visibleSegments =
+            (composition.Bad > 0 ? 1 : 0) +
+            (composition.Average > 0 ? 1 : 0) +
+            (composition.Good > 0 ? 1 : 0);
         float drawableDegrees = 360 - (visibleSegments * ArcGapDegrees);
         float angle = -90 + (ArcGapDegrees / 2);
 
-        foreach ((int count, Color color) in segments)
-        {
-            if (count <= 0)
-            {
-                continue;
-            }
+        angle = DrawRatingArc(
+            canvas, bounds, paint, composition.Bad, composition.Total,
+            drawableDegrees, angle, BadColor);
+        angle = DrawRatingArc(
+            canvas, bounds, paint, composition.Average, composition.Total,
+            drawableDegrees, angle, AverageColor);
+        DrawRatingArc(
+            canvas, bounds, paint, composition.Good, composition.Total,
+            drawableDegrees, angle, GoodColor);
+    }
 
-            float sweep = drawableDegrees * count / composition.Total;
-            paint.Color = color;
-            canvas.DrawArc(bounds, angle, sweep, false, paint);
-            angle += sweep + ArcGapDegrees;
+    private static float DrawRatingArc(
+        Canvas canvas,
+        RectF bounds,
+        Paint paint,
+        int count,
+        int total,
+        float drawableDegrees,
+        float angle,
+        Color color)
+    {
+        if (count <= 0)
+        {
+            return angle;
         }
+
+        float sweep = drawableDegrees * count / total;
+        paint.Color = color;
+        canvas.DrawArc(bounds, angle, sweep, false, paint);
+        return angle + sweep + ArcGapDegrees;
     }
 
     private static ClusterComposition CountRatings(ICluster cluster)
     {
         int bad = 0;
+        int total = cluster.Size;
         int average = 0;
         int good = 0;
 
@@ -246,9 +267,9 @@ internal sealed class ChurchMarkerIconFactory : IDisposable
         }
 
         int classified = bad + average + good;
-        average += Math.Max(cluster.Size - classified, 0);
+        average += Math.Max(total - classified, 0);
 
-        return new ClusterComposition(cluster.Size, bad, average, good);
+        return new ClusterComposition(total, bad, average, good);
     }
 
     private int Dp(float value) =>

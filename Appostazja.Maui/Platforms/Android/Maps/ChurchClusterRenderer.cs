@@ -45,8 +45,6 @@ internal sealed class ChurchClusterRenderer(
         }
 
         marker.Position = church.Position;
-        marker.Title = church.Title;
-        marker.Snippet = church.Snippet;
         marker.SetIcon(iconFactory.GetPinIcon(church.Marker.RatingCategory));
         marker.SetAnchor(0.5f, 1);
     }
@@ -79,8 +77,6 @@ internal sealed class ChurchClusterRenderer(
         MarkerOptions markerOptions)
     {
         markerOptions.SetIcon(iconFactory.GetPinIcon(church.Marker.RatingCategory));
-        markerOptions.SetTitle(church.Title);
-        markerOptions.SetSnippet(church.Snippet);
         markerOptions.Anchor(0.5f, 1);
     }
 }

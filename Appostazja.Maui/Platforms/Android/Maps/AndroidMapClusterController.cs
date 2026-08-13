@@ -67,6 +67,12 @@ internal sealed class AndroidMapClusterController : IDisposable
         additions.Clear();
         removals.Clear();
         bool changed = false;
+        itemsById.EnsureCapacity(markers.Count);
+        incomingIds.EnsureCapacity(markers.Count);
+        if (additions.Capacity < markers.Count)
+        {
+            additions.Capacity = markers.Count;
+        }
 
         foreach (ChurchMapPin marker in markers)
         {
@@ -77,11 +83,17 @@ internal sealed class AndroidMapClusterController : IDisposable
 
             if (itemsById.TryGetValue(marker.Id, out ChurchClusterItem? existing))
             {
-                if (existing.UpdateFrom(marker))
+                if (existing.HasSamePosition(marker))
                 {
-                    changed |= manager.UpdateItem(existing);
+                    changed |= existing.UpdateFrom(marker);
+                    continue;
                 }
 
+                removals.Add(existing);
+                var replacement = new ChurchClusterItem(marker);
+                itemsById[marker.Id] = replacement;
+                additions.Add(replacement);
+                changed = true;
                 continue;
             }
 
@@ -104,7 +116,12 @@ internal sealed class AndroidMapClusterController : IDisposable
             manager.RemoveItems(removals);
             foreach (ChurchClusterItem item in removals)
             {
-                itemsById.Remove(item.Marker.Id);
+                if (itemsById.TryGetValue(item.Marker.Id, out ChurchClusterItem? current) &&
+                    ReferenceEquals(current, item))
+                {
+                    itemsById.Remove(item.Marker.Id);
+                }
+
                 item.Dispose();
             }
 
@@ -119,7 +136,6 @@ internal sealed class AndroidMapClusterController : IDisposable
         if (changed)
         {
             manager.Cluster();
-
         }
     }
 

@@ -14,6 +14,8 @@ public sealed class ClusteredMap : Microsoft.Maui.Controls.Maps.Map
 
 #if !ANDROID
     private readonly Dictionary<string, Pin> fallbackPins = new(StringComparer.Ordinal);
+    private readonly HashSet<string> fallbackIncomingIds = new(StringComparer.Ordinal);
+    private readonly List<string> fallbackRemovalIds = [];
 #endif
 
     public IReadOnlyList<ChurchMapPin> Markers
@@ -42,11 +44,17 @@ public sealed class ClusteredMap : Microsoft.Maui.Controls.Maps.Map
 #if !ANDROID
     private void SyncFallbackMarkers(IReadOnlyList<ChurchMapPin> markers)
     {
-        var incomingIds = new HashSet<string>(markers.Count, StringComparer.Ordinal);
+        fallbackIncomingIds.Clear();
+        fallbackRemovalIds.Clear();
+        fallbackIncomingIds.EnsureCapacity(markers.Count);
+        if (fallbackRemovalIds.Capacity < fallbackPins.Count)
+        {
+            fallbackRemovalIds.Capacity = fallbackPins.Count;
+        }
 
         foreach (ChurchMapPin marker in markers)
         {
-            if (!incomingIds.Add(marker.Id))
+            if (!fallbackIncomingIds.Add(marker.Id))
             {
                 continue;
             }
@@ -64,13 +72,17 @@ public sealed class ClusteredMap : Microsoft.Maui.Controls.Maps.Map
             Pins.Add(pin);
         }
 
-        foreach ((string id, Pin pin) in fallbackPins.ToArray())
+        foreach (string id in fallbackPins.Keys)
         {
-            if (incomingIds.Contains(id))
+            if (!fallbackIncomingIds.Contains(id))
             {
-                continue;
+                fallbackRemovalIds.Add(id);
             }
+        }
 
+        foreach (string id in fallbackRemovalIds)
+        {
+            Pin pin = fallbackPins[id];
             pin.MarkerClicked -= OnFallbackMarkerClicked;
             Pins.Remove(pin);
             fallbackPins.Remove(id);

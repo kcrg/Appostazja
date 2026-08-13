@@ -6,7 +6,7 @@ namespace Appostazja.Maui.Platforms.Android.Maps;
 
 internal sealed class ChurchClusterItem : Java.Lang.Object, IClusterItem
 {
-    private LatLng position;
+    private readonly LatLng position;
 
     public ChurchClusterItem(ChurchMapPin marker)
     {
@@ -24,13 +24,13 @@ internal sealed class ChurchClusterItem : Java.Lang.Object, IClusterItem
 
     public Java.Lang.Float? ZIndex => null;
 
+    public bool HasSamePosition(ChurchMapPin marker) =>
+        Marker.Location.Latitude.Equals(marker.Location.Latitude) &&
+        Marker.Location.Longitude.Equals(marker.Location.Longitude);
+
     public bool UpdateFrom(ChurchMapPin marker)
     {
-        bool positionChanged =
-            !Marker.Location.Latitude.Equals(marker.Location.Latitude) ||
-            !Marker.Location.Longitude.Equals(marker.Location.Longitude);
         bool changed =
-            positionChanged ||
             !string.Equals(Marker.Label, marker.Label, StringComparison.Ordinal) ||
             !string.Equals(Marker.Address, marker.Address, StringComparison.Ordinal) ||
             !Marker.AverageRating.Equals(marker.AverageRating);
@@ -41,12 +41,6 @@ internal sealed class ChurchClusterItem : Java.Lang.Object, IClusterItem
         }
 
         Marker = marker;
-        if (positionChanged)
-        {
-            LatLng previousPosition = position;
-            position = CreatePosition(marker);
-            previousPosition.Dispose();
-        }
 
         return true;
     }
