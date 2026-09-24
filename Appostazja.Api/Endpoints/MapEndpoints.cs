@@ -2,6 +2,7 @@ using System.Globalization;
 using ApostasyMap.Api.Configuration;
 using ApostasyMap.Api.Contracts;
 using ApostasyMap.Api.Data;
+using ApostasyMap.Api.Json;
 using ApostasyMap.Api.Services;
 
 namespace ApostasyMap.Api.Endpoints;
@@ -73,11 +74,35 @@ public static class MapEndpoints
             }
         }
 
+        if (boundsResult.Bounds is null)
+        {
+            var fullDataset = memoryCache.GetFullDataset();
+            if (fullDataset.State.PlaceCount <= 0)
+            {
+                return Results.Json(
+                    new ApiError("No cached map data is currently available."),
+                    AppJsonSerializerContext.Default.ApiError,
+                    statusCode: StatusCodes.Status503ServiceUnavailable);
+            }
+
+            ApplyDatasetHeaders(context, fullDataset.State);
+
+            if (MatchesIfNoneMatch(context, fullDataset.State.Version))
+            {
+                return Results.StatusCode(StatusCodes.Status304NotModified);
+            }
+
+            return Results.Bytes(
+                fullDataset.Json,
+                contentType: "application/json; charset=utf-8");
+        }
+
         var state = memoryCache.GetState();
         if (state.PlaceCount <= 0)
         {
             return Results.Json(
                 new ApiError("No cached map data is currently available."),
+                AppJsonSerializerContext.Default.ApiError,
                 statusCode: StatusCodes.Status503ServiceUnavailable);
         }
 
