@@ -1,7 +1,0 @@
-bin/
-obj/
-data/
-*.user
-*.suo
-.vs/
-.idea/

@@ -1,0 +1,11 @@
+<Solution>
+  <Folder Name="/Legacy/">
+    <File Path="Legacy/Appostazja.Core.Tests/Appostazja.Core.Tests.csproj" />
+    <Project Path="Legacy/Appostazja.Core/Appostazja.Core.csproj" />
+    <Project Path="Legacy/Appostazja.Maui/Appostazja.Maui.csproj">
+      <Deploy />
+    </Project>
+    <Project Path="Legacy/Google.Maps.Utils.Android/Google.Maps.Utils.Android.csproj" />
+  </Folder>
+  <Project Path="Appostazja.Api/Appostazja.Api.csproj" />
+</Solution>

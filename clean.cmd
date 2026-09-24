@@ -1,36 +1,18 @@
 @echo off
 setlocal
 
-set LOGFILE=clean.log
+set "SCRIPT=%~dp0scripts\clean.ps1"
 
-echo Checking if the log file exists...
-if exist "%LOGFILE%" (
-    del /q "%LOGFILE%"
-    echo Existing log file deleted.
-) else (
-    echo Log file does not exist, continuing.
+if not exist "%SCRIPT%" (
+    echo Cleanup script not found: %SCRIPT%
+    exit /b 1
 )
 
-echo Starting cleanup...
-
-rem Deleting unnecessary IDE files
-for %%f in (*.ncb, *.user) do (
-    if exist "%%f" (
-        echo Deleting file: %%f
-        del /q "%%f"
-        echo Deleted file: %%f >> "%LOGFILE%"
-    )
+where pwsh.exe >nul 2>&1
+if %ERRORLEVEL% EQU 0 (
+    pwsh.exe -NoProfile -File "%SCRIPT%"
+    exit /b %ERRORLEVEL%
 )
 
-rem Deleting bin and obj directories
-for /d /r %%d in (bin, obj) do (
-    if exist "%%d" (
-        echo Deleting directory: %%d
-        rmdir /s /q "%%d"
-        echo Deleted directory: %%d >> "%LOGFILE%"
-    )
-)
-
-echo Cleanup complete.
-pause
-endlocal
+powershell.exe -NoProfile -ExecutionPolicy Bypass -File "%SCRIPT%"
+exit /b %ERRORLEVEL%

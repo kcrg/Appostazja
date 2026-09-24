@@ -1,67 +1,68 @@
 # Appostazja
-Aplikacja .NET MAUI wyświetlająca dane parafii z Mapy Apostazji oraz generująca
-deklarację apostazji w PDF.
 
-## Stos technologiczny
+Monorepo projektu Appostazja. Aktywny kod jest rozdzielony według platformy, a wspólne pliki repozytorium pozostają w katalogu głównym.
 
-- .NET 11 Preview 7 / .NET MAUI 11 Preview 7
-- Android, iOS i Windows
-- NativeAOT: iOS oraz eksperymentalnie Android
-- CommunityToolkit.Maui i CommunityToolkit.Mvvm
-- System.Net.Http i source-generated System.Text.Json
-- własny generator PDF w czystym .NET z osadzoną czcionką TrueType
+## Struktura
 
-Aplikacja nie używa QuestPDF, RestSharp, Sentry, Plainer, mavvm ani runtime
-SkiaSharp. SkiaSharp występuje wyłącznie wewnątrz narzędzia build-time
-Microsoft.Maui.Resizetizer, które przetwarza SVG/ikony; nie trafia do AAB.
+```text
+Appostazja/
+├─ src/
+│  ├─ Appostazja.DotNet/
+│  │  ├─ Appostazja.sln
+│  │  ├─ Appostazja.Api/
+│  │  └─ Legacy/
+│  │     ├─ Appostazja.Core/
+│  │     ├─ Appostazja.Core.Tests/
+│  │     ├─ Appostazja.Maui/
+│  │     └─ Google.Maps.Utils.Android/
+│  └─ Appostazja.Android/
+├─ art/
+├─ scripts/
+│  └─ clean.ps1
+├─ .gitignore
+├─ clean.cmd
+└─ global.json
+```
 
-## Wymagania
+Docelowo natywny klient iOS może zostać dodany jako osobny projekt w `src/Appostazja.iOS/`.
 
-- SDK 11.0.100-preview.7.26381.103
-- workload set 11.0.100-preview.7.26410.2
-- Android SDK API 37 oraz workload android
-- macOS + Xcode dla publikacji iOS
+## .NET
 
-Wersje są przypięte w global.json. Preview 7 workloadu Android wskazuje
-nieopublikowany build paczek NativeAOT 26378; Directory.Build.targets
-przypina zgodny i opublikowany build SDK 26381.
+Solution znajduje się w:
 
-## Konfiguracja Google Maps na Androidzie
+```text
+src/Appostazja.DotNet/Appostazja.sln
+```
 
-Klucz nie jest przechowywany w repozytorium. Przekaż go przy buildzie:
+Backend API znajduje się w `src/Appostazja.DotNet/Appostazja.Api/`. Szczegóły uruchamiania i publikacji backendu są w jego lokalnym `README.md`.
 
-~~~powershell
-dotnet build Appostazja.Maui/Appostazja.Maui.csproj -f net11.0-android -c Release -r android-arm64 -p:GoogleMapsApiKey=TWÓJ_KLUCZ
-~~~
+Stara aplikacja .NET MAUI i powiązane projekty zostały zachowane w `src/Appostazja.DotNet/Legacy/`.
 
-Ogranicz klucz w Google Cloud Console do aplikacji Android
-app.apostazja.siostra i właściwego odcisku SHA-1 certyfikatu podpisującego.
+## Android
 
-## Build i testy
+Natywny projekt Kotlin/Gradle znajduje się w:
 
-~~~powershell
-dotnet test Appostazja.Core.Tests/Appostazja.Core.Tests.csproj -c Release
-dotnet build Appostazja.Maui/Appostazja.Maui.csproj -f net11.0-windows10.0.19041.0 -c Debug
-dotnet build Appostazja.Maui/Appostazja.Maui.csproj -f net11.0-android -c Release -r android-arm64 -p:GoogleMapsApiKey=TWÓJ_KLUCZ
-~~~
+```text
+src/Appostazja.Android/
+```
 
-Publikację iOS NativeAOT wykonuj na Macu:
+Przykładowy build debug na Windows:
 
-~~~bash
-dotnet publish Appostazja.Maui/Appostazja.Maui.csproj -f net11.0-ios -c Release -r ios-arm64
-~~~
+```powershell
+cd src/Appostazja.Android
+.\gradlew.bat assembleDebug
+```
 
-NativeAOT na Androidzie w .NET 11 Preview 7 pozostaje funkcją eksperymentalną.
-Nie należy traktować tego targetu jako gotowego do produkcji bez testów na
-fizycznych urządzeniach.
+## Czyszczenie
 
-## Dane i PDF
+Z katalogu głównego na Windows:
 
-Mapa pobiera GeoJSON z https://mapaapostazji.pl/api/map-data.php.
+```powershell
+.\clean.cmd
+```
 
-Generator PDF uwzględnia wymagania Dekretu Ogólnego KEP obowiązującego od
-19 lutego 2016 r.: dane osobowe, datę i parafię chrztu, motywację,
-dobrowolność aktu oraz miejsce na własnoręczny podpis. Dokument składa się
-osobiście proboszczowi parafii miejsca zamieszkania. Aplikacja nie świadczy
-porady prawnej ani kanonicznej; przed użyciem warto zweryfikować aktualną
-procedurę.
+Skrypt usuwa artefakty buildów i lokalne cache IDE z części .NET i Android/Kotlin. Celowo nie dotyka przyszłego `src/Appostazja.iOS/`.
+
+## Git ignore
+
+Repo używa jednego globalnego `.gitignore` w katalogu głównym. Obejmuje .NET/Visual Studio/Rider, Android/Kotlin/Gradle oraz Swift/Xcode, więc projekty nie potrzebują własnych zagnieżdżonych plików `.gitignore`.
