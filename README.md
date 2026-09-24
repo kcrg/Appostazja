@@ -46,11 +46,13 @@ Natywny projekt Kotlin/Gradle znajduje się w:
 src/Appostazja.Android/
 ```
 
+Szczegóły konfiguracji Google Maps, adresu `Appostazja.Api`, prywatności formularza i buildu są w `src/Appostazja.Android/README.md`.
+
 Przykładowy build debug na Windows:
 
 ```powershell
 cd src/Appostazja.Android
-.\gradlew.bat assembleDebug
+.\gradlew.bat :app:assembleDebug
 ```
 
 ## Czyszczenie

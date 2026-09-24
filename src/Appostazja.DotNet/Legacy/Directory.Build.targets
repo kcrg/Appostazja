@@ -1,8 +1,0 @@
-<Project>
-  <!-- Work around Android workload 37.0.0-preview.7.2131 pointing NativeAOT at
-       unpublished runtime build 26378 while Preview 7 SDK ships build 26381. -->
-  <PropertyGroup Condition="$([MSBuild]::GetTargetPlatformIdentifier('$(TargetFramework)')) == 'android'">
-    <MicrosoftNETCoreAppRefPackageVersion>11.0.0-preview.7.26381.103</MicrosoftNETCoreAppRefPackageVersion>
-    <NoWarn>$(NoWarn);NU1603</NoWarn>
-  </PropertyGroup>
-</Project>

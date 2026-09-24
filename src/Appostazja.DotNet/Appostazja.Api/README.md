@@ -110,7 +110,7 @@ dotnet publish -c Release -r linux-x64 --self-contained true
 Example:
 
 ```bash
-ASPNETCORE_URLS=http://127.0.0.1:5080 \
+ASPNETCORE_URLS=http://127.0.0.1:5000 \
 Database__Path='/var/lib/apostasy-map/apostasy-map.db' \
 ./bin/Release/net11.0/linux-x64/publish/Appostazja.Api
 ```

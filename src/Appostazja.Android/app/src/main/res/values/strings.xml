@@ -1,3 +1,55 @@
 <resources>
     <string name="app_name">Appostazja</string>
+    <string name="nav_map">Mapa</string>
+    <string name="nav_declaration">Deklaracja</string>
+    <string name="nav_more">Więcej</string>
+
+    <string name="map_loading">Pobieram dane mapy…</string>
+    <string name="map_loaded_count">Załadowano %1$d parafii</string>
+    <string name="map_error_title">Nie udało się wczytać mapy</string>
+    <string name="map_error_body">Sprawdź połączenie z internetem i spróbuj ponownie.</string>
+    <string name="action_retry">Spróbuj ponownie</string>
+    <string name="action_refresh">Odśwież</string>
+    <string name="church_relations">Relacje</string>
+    <string name="church_positive">Dobre</string>
+    <string name="church_neutral">Średnie</string>
+    <string name="church_negative">Złe</string>
+    <string name="church_no_relations">Brak ocenionych relacji</string>
+    <string name="church_comments_title">Komentarze relacji</string>
+    <string name="church_comments_placeholder">Miejsce przygotowane pod komentarze relacji. Backend nie wystawia ich jeszcze w aktualnym kontrakcie.</string>
+    <string name="church_navigate">Nawiguj w Google Maps</string>
+
+    <string name="declaration_title">Deklaracja</string>
+    <string name="declaration_your_data">Twoje dane</string>
+    <string name="declaration_full_name">Imię i nazwisko</string>
+    <string name="declaration_home_address">Adres zamieszkania</string>
+    <string name="declaration_baptism_data">Dane chrztu</string>
+    <string name="declaration_baptism_date">Data chrztu</string>
+    <string name="declaration_baptism_parish">Parafia chrztu i jej adres</string>
+    <string name="declaration_submission">Miejsce złożenia</string>
+    <string name="declaration_residence_parish">Parafia właściwa dla miejsca zamieszkania</string>
+    <string name="declaration_motivation">Uzasadnienie decyzji</string>
+    <string name="declaration_motivation_hint">Krótko opisz swoją świadomą i dobrowolną decyzję</string>
+    <string name="declaration_motivation_support">Treść trafi bezpośrednio do dokumentu. Przeczytaj ją ponownie przed zapisaniem PDF.</string>
+    <string name="declaration_info">Dokument należy wydrukować, podpisać odręcznie i złożyć osobiście proboszczowi parafii miejsca zamieszkania.</string>
+    <string name="declaration_generate">Generuj PDF</string>
+    <string name="declaration_clear">Wyczyść formularz</string>
+    <string name="declaration_saved">PDF został zapisany.</string>
+    <string name="declaration_save_error">Nie udało się utworzyć PDF.</string>
+    <string name="declaration_file_name">deklaracja-apostazji.pdf</string>
+
+    <string name="more_title">Więcej</string>
+    <string name="more_data_source">Źródło danych</string>
+    <string name="more_data_source_title">Mapa Apostazji</string>
+    <string name="more_data_source_body">Dane parafii i relacji pochodzą z mapaapostazji.pl.</string>
+    <string name="more_privacy">Prywatność</string>
+    <string name="more_privacy_body">Dane z formularza jak i sam wygenerowany pdf są przechowywane wyłącznie w pamięci urządzenia. Nie są nigdzie wysyłane.</string>
+    <string name="more_theme">Motyw</string>
+    <string name="theme_system">Systemowy</string>
+    <string name="theme_light">Jasny</string>
+    <string name="theme_dark">Ciemny</string>
+    <string name="more_project">Projekt</string>
+    <string name="more_github">Repozytorium na GitHubie</string>
+    <string name="more_contact">Kontakt</string>
+    <string name="more_contact_email">kacper@tryniecki.com</string>
 </resources>
