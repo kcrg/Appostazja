@@ -1,0 +1,12 @@
+{
+  "profiles": {
+    "Appostazja.Api": {
+      "commandName": "Project",
+      "launchBrowser": true,
+      "environmentVariables": {
+        "ASPNETCORE_ENVIRONMENT": "Development"
+      },
+      "applicationUrl": "https://localhost:32816;http://localhost:32817"
+    }
+  }
+}

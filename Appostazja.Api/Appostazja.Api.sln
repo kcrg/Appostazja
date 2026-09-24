@@ -1,0 +1,55 @@
+﻿
+Microsoft Visual Studio Solution File, Format Version 12.00
+# Visual Studio Version 18
+VisualStudioVersion = 18.10.12106.202
+MinimumVisualStudioVersion = 10.0.40219.1
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Appostazja.Api", "Appostazja.Api.csproj", "{480BD230-D354-E3CA-CDE9-DCB4C4E082B7}"
+EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Google.Maps.Utils.Android", "..\Legacy\Google.Maps.Utils.Android\Google.Maps.Utils.Android.csproj", "{879B61F7-C1FE-549C-F30A-B7AE8244ED9F}"
+EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Appostazja.Maui", "..\Legacy\Appostazja.Maui\Appostazja.Maui.csproj", "{C83BAD30-2B6B-F3A1-52DF-4941CF2162F0}"
+EndProject
+Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "Legacy", "Legacy", "{9AEE7779-6CD7-4248-86F4-60029C9FDA77}"
+	ProjectSection(SolutionItems) = preProject
+		..\Legacy\Appostazja.Core.Tests\Appostazja.Core.Tests.csproj = ..\Legacy\Appostazja.Core.Tests\Appostazja.Core.Tests.csproj
+	EndProjectSection
+EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Appostazja.Core", "..\Legacy\Appostazja.Core\Appostazja.Core.csproj", "{8412FE65-9F4B-6DCB-2312-70FA817CDB87}"
+EndProject
+Global
+	GlobalSection(SolutionConfigurationPlatforms) = preSolution
+		Debug|Any CPU = Debug|Any CPU
+		Release|Any CPU = Release|Any CPU
+	EndGlobalSection
+	GlobalSection(ProjectConfigurationPlatforms) = postSolution
+		{480BD230-D354-E3CA-CDE9-DCB4C4E082B7}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{480BD230-D354-E3CA-CDE9-DCB4C4E082B7}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{480BD230-D354-E3CA-CDE9-DCB4C4E082B7}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{480BD230-D354-E3CA-CDE9-DCB4C4E082B7}.Release|Any CPU.Build.0 = Release|Any CPU
+		{879B61F7-C1FE-549C-F30A-B7AE8244ED9F}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{879B61F7-C1FE-549C-F30A-B7AE8244ED9F}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{879B61F7-C1FE-549C-F30A-B7AE8244ED9F}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{879B61F7-C1FE-549C-F30A-B7AE8244ED9F}.Release|Any CPU.Build.0 = Release|Any CPU
+		{C83BAD30-2B6B-F3A1-52DF-4941CF2162F0}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{C83BAD30-2B6B-F3A1-52DF-4941CF2162F0}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{C83BAD30-2B6B-F3A1-52DF-4941CF2162F0}.Debug|Any CPU.Deploy.0 = Debug|Any CPU
+		{C83BAD30-2B6B-F3A1-52DF-4941CF2162F0}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{C83BAD30-2B6B-F3A1-52DF-4941CF2162F0}.Release|Any CPU.Build.0 = Release|Any CPU
+		{C83BAD30-2B6B-F3A1-52DF-4941CF2162F0}.Release|Any CPU.Deploy.0 = Release|Any CPU
+		{8412FE65-9F4B-6DCB-2312-70FA817CDB87}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{8412FE65-9F4B-6DCB-2312-70FA817CDB87}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{8412FE65-9F4B-6DCB-2312-70FA817CDB87}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{8412FE65-9F4B-6DCB-2312-70FA817CDB87}.Release|Any CPU.Build.0 = Release|Any CPU
+	EndGlobalSection
+	GlobalSection(SolutionProperties) = preSolution
+		HideSolutionNode = FALSE
+	EndGlobalSection
+	GlobalSection(NestedProjects) = preSolution
+		{879B61F7-C1FE-549C-F30A-B7AE8244ED9F} = {9AEE7779-6CD7-4248-86F4-60029C9FDA77}
+		{C83BAD30-2B6B-F3A1-52DF-4941CF2162F0} = {9AEE7779-6CD7-4248-86F4-60029C9FDA77}
+		{8412FE65-9F4B-6DCB-2312-70FA817CDB87} = {9AEE7779-6CD7-4248-86F4-60029C9FDA77}
+	EndGlobalSection
+	GlobalSection(ExtensibilityGlobals) = postSolution
+		SolutionGuid = {61F7FB11-1E47-470C-91E2-47F8143E1572}
+	EndGlobalSection
+EndGlobal

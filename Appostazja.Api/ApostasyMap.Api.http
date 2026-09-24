@@ -1,0 +1,15 @@
+@host = http://localhost:5000
+
+GET {{host}}/health
+
+### Whole dataset from memory cache
+GET {{host}}/api/v1/places
+
+### Force a full upstream refresh first (globally cooldown-limited)
+GET {{host}}/api/v1/places?forceRefresh=true
+
+### Viewport / bbox
+GET {{host}}/api/v1/places?minLat=49.8&maxLat=50.2&minLon=21.8&maxLon=22.2
+
+### Dataset metadata
+GET {{host}}/api/v1/dataset
