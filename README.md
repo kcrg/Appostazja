@@ -8,13 +8,8 @@ Monorepo projektu Appostazja. Aktywny kod jest rozdzielony według platformy, a 
 Appostazja/
 ├─ src/
 │  ├─ Appostazja.DotNet/
-│  │  ├─ Appostazja.sln
-│  │  ├─ Appostazja.Api/
-│  │  └─ Legacy/
-│  │     ├─ Appostazja.Core/
-│  │     ├─ Appostazja.Core.Tests/
-│  │     ├─ Appostazja.Maui/
-│  │     └─ Google.Maps.Utils.Android/
+│  │  ├─ Appostazja.slnx
+│  │  └─ Appostazja.Api/
 │  └─ Appostazja.Android/
 ├─ art/
 ├─ scripts/
@@ -31,12 +26,12 @@ Docelowo natywny klient iOS może zostać dodany jako osobny projekt w `src/Appo
 Solution znajduje się w:
 
 ```text
-src/Appostazja.DotNet/Appostazja.sln
+src/Appostazja.DotNet/Appostazja.slnx
 ```
 
-Backend API znajduje się w `src/Appostazja.DotNet/Appostazja.Api/`. Szczegóły uruchamiania i publikacji backendu są w jego lokalnym `README.md`.
+Backend API wymaga SDK .NET 11.0.100 i znajduje się w `src/Appostazja.DotNet/Appostazja.Api/`. Szczegóły uruchamiania i publikacji backendu są w jego lokalnym `README.md`.
 
-Stara aplikacja .NET MAUI i powiązane projekty zostały zachowane w `src/Appostazja.DotNet/Legacy/`.
+Kod dawnej aplikacji .NET MAUI jest dostępny w historii Git. Aktywnym klientem jest Android.
 
 ## Android
 
