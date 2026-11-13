@@ -1,7 +1,9 @@
+import com.android.build.api.variant.BuildConfigField
 import java.util.Properties
 
 plugins {
     alias(libs.plugins.android.application)
+    alias(libs.plugins.androidx.baselineprofile)
     alias(libs.plugins.kotlin.compose)
     alias(libs.plugins.kotlin.serialization)
 }
@@ -64,7 +66,29 @@ android {
     }
 }
 
+androidComponents {
+    finalizeDsl { extension ->
+        // The profile plugin's legacy minification flags do not clear inherited AGP optimization.
+        extension.buildTypes.findByName("nonMinifiedRelease")?.optimization {
+            enable = false
+        }
+    }
+    onVariants(selector().withBuildType("nonMinifiedRelease")) { variant ->
+        val url = configuredApiBaseUrl ?: "http://127.0.0.1:5000"
+        requireNotNull(variant.buildConfigFields)
+            .put("APPOSTAZJA_API_BASE_URL", BuildConfigField("String", "\"$url\"", null))
+    }
+}
+
+baselineProfile {
+    automaticGenerationDuringBuild = providers.gradleProperty("APPOSTAZJA_GENERATE_BASELINE_PROFILE")
+        .map(String::toBooleanStrict)
+        .getOrElse(true)
+    saveInSrc = true
+}
+
 dependencies {
+    baselineProfile(project(":baseline-profile"))
     implementation(project(":api"))
     implementation(platform(libs.androidx.compose.bom))
     implementation(libs.androidx.activity.compose)
@@ -78,6 +102,7 @@ dependencies {
     implementation(libs.androidx.lifecycle.runtime.compose)
     implementation(libs.androidx.lifecycle.viewmodel.compose)
     implementation(libs.androidx.navigation.compose)
+    implementation(libs.androidx.profileinstaller)
     implementation(libs.kotlinx.coroutines.core)
     implementation(libs.kotlinx.serialization.json)
     implementation(libs.maps.compose)

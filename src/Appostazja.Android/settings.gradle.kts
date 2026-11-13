@@ -27,3 +27,4 @@ dependencyResolutionManagement {
 rootProject.name = "Appostazja"
 include(":app")
 include(":api")
+include(":baseline-profile")

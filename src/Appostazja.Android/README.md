@@ -6,6 +6,7 @@ Natywny klient Android projektu Appostazja napisany w Kotlinie i Jetpack Compose
 
 - `app` — UI Compose/Material 3 Expressive, Google Maps, lokalny formularz i generowanie PDF.
 - `api` — klient `Appostazja.Api` oparty o Retrofit i `kotlinx.serialization`.
+- `baseline-profile` — testy Jetpack Macrobenchmark generujące profile startu i obsługi mapy.
 
 ## Konfiguracja lokalna
 
@@ -60,4 +61,20 @@ Projekt używa Gradle 9.9.1, AGP 9.5.1, Kotlin 2.4.21, JDK 27 do uruchamiania Gr
 ```powershell
 cd src\Appostazja.Android
 .\gradlew.bat :app:assembleDebug
+```
+
+### Release i profile wydajności
+
+Build release używa R8 w trybie pełnym, zoptymalizowanego usuwania zasobów i polskich tłumaczeń bibliotek. Pakiet dla Google Play buduje zadanie `:app:bundleRelease`. Plik `ic_launcher-playstore.png` służy do publikacji w sklepie.
+
+`assembleRelease` i `bundleRelease` automatycznie odświeżają Baseline Profile i Startup Profile. Generator czeka na klastry, przybliża mapę i ją przesuwa. Podłącz urządzenie z Androidem 17, skonfiguruj klucz Map Google dla podpisu debug, uruchom lokalne API i wykonaj `adb reverse tcp:5000 tcp:5000`. Wariant używany do profilowania domyślnie odczytuje dane przez USB.
+
+```powershell
+.\gradlew.bat :app:generateReleaseBaselineProfile
+```
+
+Parametr `APPOSTAZJA_API_BASE_URL` ustawia adres również dla generatora. Release można zbudować bez podłączonego urządzenia z zapisanymi profilami z repozytorium:
+
+```powershell
+.\gradlew.bat :app:bundleRelease -PAPPOSTAZJA_GENERATE_BASELINE_PROFILE=false -PAPPOSTAZJA_API_BASE_URL=https://api.example.com
 ```
