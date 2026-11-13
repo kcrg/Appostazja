@@ -108,8 +108,16 @@ Example item:
     "negative": 0,
     "total": 2
   }
+  "stages": {
+    "beforeApostasy": { "positive": 0, "neutral": 0, "negative": 0, "total": 0 },
+    "apostasy": { "positive": 2, "neutral": 0, "negative": 0, "total": 2 },
+    "afterApostasy": { "positive": 0, "neutral": 0, "negative": 0, "total": 0 }
+  },
+  "lastActionDate": "2021-02-08"
 }
 ```
+
+`stages` splits `ratings` by the stage each report describes (the three totals add up to `ratings.total`). `lastActionDate` is the latest `action_date` mentioned in the reports, or null when no report has a date. Both are derived from the stored reports when the snapshot is built, so an existing database serves them without a re-import.
 
 ### `GET /api/v1/places/{id}`
 

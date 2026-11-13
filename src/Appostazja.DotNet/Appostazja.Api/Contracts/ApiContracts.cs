@@ -13,7 +13,15 @@ public sealed record PlaceDto(
     double Latitude,
     double Longitude,
     double Score,
-    RatingBreakdownDto Ratings);
+    RatingBreakdownDto Ratings,
+    StageRatingsDto? Stages = null,
+    string? LastActionDate = null);
+
+/// <summary>Ratings split by the stage the report describes; they add up to <see cref="PlaceDto.Ratings"/>.</summary>
+public sealed record StageRatingsDto(
+    RatingBreakdownDto BeforeApostasy,
+    RatingBreakdownDto Apostasy,
+    RatingBreakdownDto AfterApostasy);
 
 public sealed record ReportDto(string Stage, string Rating, string? Date, string? Comment);
 

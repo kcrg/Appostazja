@@ -2,6 +2,7 @@ using System.IO.Compression;
 using System.Text.Json;
 using ApostasyMap.Api.Contracts;
 using ApostasyMap.Api.Json;
+using ApostasyMap.Api.Services;
 
 namespace ApostasyMap.Api.Data;
 
@@ -48,6 +49,15 @@ public sealed class MapMemoryCache
 
     public void Replace(DatasetStateRow state, PlaceDto[] places, IReadOnlyList<PlaceReportsRow> reports)
     {
+        var detailsById = new Dictionary<string, PlaceReportsDto>(reports.Count, StringComparer.Ordinal);
+        foreach (var entry in reports)
+        {
+            detailsById[entry.PlaceId] = entry.Details;
+        }
+
+        places = Array.ConvertAll(places,
+            place => PlaceSummary.WithReportSummary(place, detailsById.GetValueOrDefault(place.Id)));
+
         var byId = new Dictionary<string, PlaceDto>(places.Length, StringComparer.Ordinal);
         foreach (var place in places)
         {
