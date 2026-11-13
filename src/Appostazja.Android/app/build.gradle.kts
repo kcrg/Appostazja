@@ -43,11 +43,14 @@ android {
         release {
             val apiBaseUrl = configuredApiBaseUrl ?: "https://appostazja-api.invalid"
             buildConfigField("String", "APPOSTAZJA_API_BASE_URL", "\"$apiBaseUrl\"")
-            proguardFiles("proguard-rules.pro")
             optimization {
                 enable = true
             }
         }
+    }
+
+    androidResources {
+        localeFilters += "pl"
     }
 
     compileOptions {
@@ -70,7 +73,6 @@ dependencies {
     implementation(libs.androidx.compose.material3)
     implementation(libs.androidx.compose.ui)
     implementation(libs.androidx.compose.ui.graphics)
-    implementation(libs.androidx.compose.ui.tooling.preview)
     implementation(libs.androidx.core.ktx)
     implementation(libs.androidx.lifecycle.runtime.ktx)
     implementation(libs.androidx.lifecycle.runtime.compose)
