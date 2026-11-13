@@ -15,7 +15,11 @@ public sealed record PlaceDto(
     double Score,
     RatingBreakdownDto Ratings,
     StageRatingsDto? Stages = null,
-    string? LastActionDate = null);
+    string? LastActionDate = null,
+    /// <summary>Score on a 0-5 scale rounded to one decimal, for display; null without reports.</summary>
+    double? Rating = null,
+    /// <summary>positive, mixed, negative, or none without reports. Clients colour pins by it.</summary>
+    string? Tone = null);
 
 /// <summary>Ratings split by the stage the report describes; they add up to <see cref="PlaceDto.Ratings"/>.</summary>
 public sealed record StageRatingsDto(
@@ -53,3 +57,6 @@ public sealed record ImportStatusDto(
 public sealed record HealthDto(string Status, string? Reason = null);
 
 public sealed record ApiError(string Error);
+
+/// <param name="Total">All places matching the query and filters, before paging.</param>
+public sealed record PlaceSearchResultDto(int Total, int Offset, int Limit, PlaceDto[] Items);

@@ -8,6 +8,15 @@ internal static class HttpCaching
 {
     internal const string DatasetCacheControl = "public, max-age=900, must-revalidate";
 
+    /// <summary>
+    /// Bump when the JSON shape of dataset responses changes. ETags combine it with the dataset version, so a
+    /// client holding a response in the old shape gets the new body instead of a 304.
+    /// </summary>
+    internal const string ResponseFormat = "f2";
+
+    internal static string? ResponseVersion(DatasetStateRow state) =>
+        string.IsNullOrWhiteSpace(state.Version) ? null : $"{state.Version}.{ResponseFormat}";
+
     /// <summary>Honours q-values, including <c>gzip;q=0</c> and an <c>identity</c> preference.</summary>
     internal static bool AcceptsGzip(HttpRequest request)
     {
@@ -38,7 +47,7 @@ internal static class HttpCaching
     {
         response.Headers.CacheControl = DatasetCacheControl;
 
-        version ??= state.Version;
+        version ??= ResponseVersion(state);
         if (!string.IsNullOrWhiteSpace(version))
         {
             response.Headers.ETag = $"\"{version}\"";

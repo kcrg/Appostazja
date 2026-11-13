@@ -56,7 +56,7 @@ The tests cover the parser, sanitizing, import validation and status recording (
 - Sends conditional requests for both inputs and retains the cached bytes when a source returns `304`. Failed scheduled checks retry after an hour.
 - Uses a SHA-256 version based on both inputs and the import format. An unchanged version updates only cache metadata.
 - Replaces the whole SQLite dataset in one transaction and then atomically swaps the in-memory snapshot.
-- Exposes dataset `ETag` / `Last-Modified` to clients so unchanged responses can become `304 Not Modified`.
+- Exposes dataset `ETag` / `Last-Modified` to clients so unchanged responses can become `304 Not Modified`. The ETag also includes a response format version (`HttpCaching.ResponseFormat`); bump it whenever the JSON shape changes, otherwise clients keep a cached body in the old shape.
 - Supports optional bounding-box filtering for map viewports.
 
 ## Force refresh protection
@@ -113,11 +113,30 @@ Example item:
     "apostasy": { "positive": 2, "neutral": 0, "negative": 0, "total": 2 },
     "afterApostasy": { "positive": 0, "neutral": 0, "negative": 0, "total": 0 }
   },
-  "lastActionDate": "2021-02-08"
+  "lastActionDate": "2021-02-08",
+  "rating": 5.0,
+  "tone": "positive"
 }
 ```
 
 `stages` splits `ratings` by the stage each report describes (the three totals add up to `ratings.total`). `lastActionDate` is the latest `action_date` mentioned in the reports, or null when no report has a date. Both are derived from the stored reports when the snapshot is built, so an existing database serves them without a re-import.
+
+`rating` is the score on a 0-5 scale rounded to one decimal (null without reports) and `tone` is `positive`, `mixed`, `negative` or `none`. Clients display and colour places with these fields instead of re-deriving them from `score`.
+
+### `GET /api/v1/places/search`
+
+Server-side search for client apps; clients do not filter or sort locally.
+
+```text
+GET /api/v1/places/search?q=jozefa%20rzeszow&sort=best&withReports=true&offset=0&limit=30
+```
+
+- `q`: optional, up to 100 characters. Matching ignores case and diacritics, and every word must appear in the name or the address (`jozefa rzeszow` finds Józefa parishes in Rzeszów).
+- `sort`: `relevance` (default: name matches first; without `q` the same as `reports`), `best`, `worst`, `reports`, `name`. `best` and `worst` order by score, then by report count, and always list places without reports last.
+- `withReports`: `true` hides places without reports.
+- `offset` / `limit`: paging, `limit` 1-100 (default 30).
+
+The response is `{ "total", "offset", "limit", "items": [place...] }`; `total` counts all matches before paging. Invalid parameters return `400` with an `ApiError`. Like the other dataset responses it has an ETag and answers `If-None-Match` with `304`.
 
 ### `GET /api/v1/places/{id}`
 

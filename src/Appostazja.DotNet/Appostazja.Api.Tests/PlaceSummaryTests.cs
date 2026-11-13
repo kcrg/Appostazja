@@ -29,6 +29,27 @@ public class PlaceSummaryTests
         Assert.Equal("2023-01-02", place.LastActionDate);
     }
 
+    [Theory]
+    [InlineData(3, 0, 0, 5.0, "positive")]
+    [InlineData(1, 0, 1, 2.5, "mixed")]
+    [InlineData(2, 1, 2, 2.5, "mixed")]
+    [InlineData(1, 1, 3, 1.5, "negative")]
+    [InlineData(0, 0, 0, null, "none")]
+    public void Rating_and_tone_are_derived_from_the_score(int easy, int medium, int hard, double? rating, string tone)
+    {
+        var total = easy + medium + hard;
+        var place = Place with
+        {
+            Score = total == 0 ? 0 : (double)(easy - hard) / total,
+            Ratings = new RatingBreakdownDto(easy, medium, hard, total)
+        };
+
+        var summary = PlaceSummary.WithReportSummary(place, null);
+
+        Assert.Equal(rating, summary.Rating);
+        Assert.Equal(tone, summary.Tone);
+    }
+
     [Fact]
     public void Place_without_reports_or_dates_has_empty_stages_and_no_date()
     {

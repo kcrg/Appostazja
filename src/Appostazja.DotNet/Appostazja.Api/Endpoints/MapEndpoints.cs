@@ -21,6 +21,15 @@ public static class MapEndpoints
             .Produces(StatusCodes.Status304NotModified)
             .Produces<ApiError>(StatusCodes.Status400BadRequest)
             .Produces<ApiError>(StatusCodes.Status503ServiceUnavailable);
+        api.MapGet("/places/search", SearchPlaces)
+            .WithName("SearchPlaces")
+            .WithSummary("Search places by name or address, with sorting, a reports filter and paging.")
+            .WithDescription("sort: relevance (default; most reports without q), best, worst, reports, name. "
+                + "best and worst list places without reports last. limit: 1-100, default 30.")
+            .Produces<PlaceSearchResultDto>()
+            .Produces(StatusCodes.Status304NotModified)
+            .Produces<ApiError>(StatusCodes.Status400BadRequest)
+            .Produces<ApiError>(StatusCodes.Status503ServiceUnavailable);
         api.MapGet("/places/{id}", GetPlace)
             .WithName("GetPlace")
             .Produces<PlaceDto>()
@@ -79,7 +88,7 @@ public static class MapEndpoints
             }
 
             context.Response.Headers.Vary = HeaderNames.AcceptEncoding;
-            var version = gzip ? $"{fullDataset.State.Version}-gzip" : fullDataset.State.Version;
+            var version = gzip ? $"{ResponseVersion(fullDataset.State)}-gzip" : ResponseVersion(fullDataset.State);
             ApplyDatasetHeaders(context.Response, fullDataset.State, version);
 
             if (MatchesIfNoneMatch(context.Request, version))
@@ -105,7 +114,7 @@ public static class MapEndpoints
 
         ApplyDatasetHeaders(context.Response, state);
 
-        if (MatchesIfNoneMatch(context.Request, state.Version))
+        if (MatchesIfNoneMatch(context.Request, ResponseVersion(state)))
         {
             return Results.StatusCode(StatusCodes.Status304NotModified);
         }
@@ -153,6 +162,69 @@ public static class MapEndpoints
             AppJsonSerializerContext.Default.ApiError,
             statusCode: StatusCodes.Status503ServiceUnavailable);
 
+    private static IResult SearchPlaces(
+        HttpContext context,
+        MapMemoryCache memoryCache,
+        string? q,
+        string? sort,
+        bool withReports = false,
+        int offset = 0,
+        int limit = PlaceSearch.DefaultLimit)
+    {
+        var (query, error) = CreateSearchQuery(q, sort, withReports, offset, limit);
+        if (query is null)
+        {
+            return Results.BadRequest(new ApiError(error!));
+        }
+
+        var (state, result) = memoryCache.Search(query);
+        if (state.PlaceCount <= 0)
+        {
+            return NoData();
+        }
+
+        // The result depends only on the dataset and the query string, so the dataset version is a valid ETag.
+        ApplyDatasetHeaders(context.Response, state);
+        return MatchesIfNoneMatch(context.Request, ResponseVersion(state))
+            ? Results.StatusCode(StatusCodes.Status304NotModified)
+            : Results.Ok(result);
+    }
+
+    internal static (PlaceSearchQuery? Query, string? Error) CreateSearchQuery(
+        string? text, string? sort, bool withReports, int offset, int limit)
+    {
+        if (text is { Length: > PlaceSearch.MaxQueryLength })
+        {
+            return (null, $"q can have at most {PlaceSearch.MaxQueryLength} characters.");
+        }
+
+        if (offset < 0)
+        {
+            return (null, "offset cannot be negative.");
+        }
+
+        if (limit is < 1 or > PlaceSearch.MaxLimit)
+        {
+            return (null, $"limit must be between 1 and {PlaceSearch.MaxLimit}.");
+        }
+
+        PlaceSort? parsedSort = sort?.ToLowerInvariant() switch
+        {
+            null or "" or "relevance" => PlaceSort.Relevance,
+            "best" => PlaceSort.Best,
+            "worst" => PlaceSort.Worst,
+            "reports" => PlaceSort.Reports,
+            "name" => PlaceSort.Name,
+            _ => null
+        };
+        if (parsedSort is null)
+        {
+            return (null, "sort must be one of: relevance, best, worst, reports, name.");
+        }
+
+        return (new PlaceSearchQuery(text, parsedSort.Value, withReports, offset, limit), null);
+    }
+
     private static IResult PlaceNotFound(string id) =>
         Results.Json(
             new ApiError($"Place '{id}' was not found."),
@@ -169,7 +241,7 @@ public static class MapEndpoints
 
         ApplyDatasetHeaders(context.Response, state);
 
-        return MatchesIfNoneMatch(context.Request, state.Version)
+        return MatchesIfNoneMatch(context.Request, ResponseVersion(state))
             ? Results.StatusCode(StatusCodes.Status304NotModified)
             : Results.Ok(place);
     }
@@ -183,7 +255,7 @@ public static class MapEndpoints
         }
 
         ApplyDatasetHeaders(context.Response, state);
-        return MatchesIfNoneMatch(context.Request, state.Version)
+        return MatchesIfNoneMatch(context.Request, ResponseVersion(state))
             ? Results.StatusCode(StatusCodes.Status304NotModified)
             : Results.Ok(reports ?? new PlaceReportsDto(null, []));
     }

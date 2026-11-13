@@ -13,6 +13,8 @@ namespace ApostasyMap.Api.Json;
 [JsonSerializable(typeof(RatingBreakdownDto))]
 [JsonSerializable(typeof(StageRatingsDto))]
 [JsonSerializable(typeof(PlaceReportsDto))]
+[JsonSerializable(typeof(PlaceSearchResultDto))]
+[JsonSerializable(typeof(int?))]
 [JsonSerializable(typeof(string[]))]
 [JsonSerializable(typeof(DatasetStatusDto))]
 [JsonSerializable(typeof(ApiError))]

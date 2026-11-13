@@ -8,6 +8,9 @@ GET {{host}}/health/ready
 ### OpenAPI document
 GET {{host}}/openapi/v1.json
 
+### Search: name or address, worst rated first, only places with reports
+GET {{host}}/api/v1/places/search?q=jozefa&sort=worst&withReports=true&limit=10
+
 ### Whole dataset from memory cache
 GET {{host}}/api/v1/places
 
