@@ -4,6 +4,7 @@ using ApostasyMap.Api.Contracts;
 using ApostasyMap.Api.Data;
 using ApostasyMap.Api.Json;
 using ApostasyMap.Api.Services;
+using Microsoft.Net.Http.Headers;
 
 namespace ApostasyMap.Api.Endpoints;
 
@@ -15,6 +16,7 @@ public static class MapEndpoints
 
         api.MapGet("/places", GetPlaces);
         api.MapGet("/places/{id}", GetPlace);
+        api.MapGet("/places/{id}/reports", GetReports);
         api.MapGet("/dataset", GetDatasetStatus);
 
         return endpoints;
@@ -66,6 +68,12 @@ public static class MapEndpoints
                     .LogWarning(exception, "Forced source refresh failed; serving cached data.");
                 context.Response.Headers["X-Refresh-Outcome"] = "failed";
             }
+            catch (OperationCanceledException exception)
+            {
+                loggerFactory.CreateLogger("ForceRefresh")
+                    .LogWarning(exception, "Forced source refresh timed out; serving cached data.");
+                context.Response.Headers["X-Refresh-Outcome"] = "failed";
+            }
             catch (InvalidDataException exception)
             {
                 loggerFactory.CreateLogger("ForceRefresh")
@@ -76,7 +84,8 @@ public static class MapEndpoints
 
         if (boundsResult.Bounds is null)
         {
-            var fullDataset = memoryCache.GetFullDataset();
+            var gzip = AcceptsGzip(context);
+            var fullDataset = memoryCache.GetFullDataset(gzip);
             if (fullDataset.State.PlaceCount <= 0)
             {
                 return Results.Json(
@@ -85,11 +94,18 @@ public static class MapEndpoints
                     statusCode: StatusCodes.Status503ServiceUnavailable);
             }
 
-            ApplyDatasetHeaders(context, fullDataset.State);
+            context.Response.Headers.Vary = HeaderNames.AcceptEncoding;
+            var version = gzip ? $"{fullDataset.State.Version}-gzip" : fullDataset.State.Version;
+            ApplyDatasetHeaders(context, fullDataset.State, version);
 
-            if (MatchesIfNoneMatch(context, fullDataset.State.Version))
+            if (MatchesIfNoneMatch(context, version))
             {
                 return Results.StatusCode(StatusCodes.Status304NotModified);
+            }
+
+            if (gzip)
+            {
+                context.Response.Headers.ContentEncoding = "gzip";
             }
 
             return Results.Bytes(
@@ -97,7 +113,7 @@ public static class MapEndpoints
                 contentType: "application/json; charset=utf-8");
         }
 
-        var state = memoryCache.GetState();
+        var (state, places) = memoryCache.GetPlaces(boundsResult.Bounds.Value);
         if (state.PlaceCount <= 0)
         {
             return Results.Json(
@@ -113,21 +129,36 @@ public static class MapEndpoints
             return Results.StatusCode(StatusCodes.Status304NotModified);
         }
 
-        return Results.Ok(memoryCache.GetPlaces(boundsResult.Bounds));
+        return Results.Ok(places);
     }
 
     private static IResult GetPlace(HttpContext context, MapMemoryCache memoryCache, string id)
     {
-        var state = memoryCache.GetState();
-        ApplyDatasetHeaders(context, state);
-
-        if (MatchesIfNoneMatch(context, state.Version))
+        var (state, place, _) = memoryCache.GetPlace(id);
+        if (place is null)
         {
-            return Results.StatusCode(StatusCodes.Status304NotModified);
+            return Results.NotFound();
         }
 
-        var place = memoryCache.GetPlace(id);
-        return place is null ? Results.NotFound() : Results.Ok(place);
+        ApplyDatasetHeaders(context, state);
+
+        return MatchesIfNoneMatch(context, state.Version)
+            ? Results.StatusCode(StatusCodes.Status304NotModified)
+            : Results.Ok(place);
+    }
+
+    private static IResult GetReports(HttpContext context, MapMemoryCache memoryCache, string id)
+    {
+        var (state, place, reports) = memoryCache.GetPlace(id);
+        if (place is null)
+        {
+            return Results.NotFound();
+        }
+
+        ApplyDatasetHeaders(context, state);
+        return MatchesIfNoneMatch(context, state.Version)
+            ? Results.StatusCode(StatusCodes.Status304NotModified)
+            : Results.Ok(reports ?? new PlaceReportsDto(null, []));
     }
 
     private static IResult GetDatasetStatus(
@@ -147,7 +178,8 @@ public static class MapEndpoints
             FromUnixSecondsOrNull(state.LastCheckedAtUnixSeconds),
             FromUnixSecondsOrNull(state.LastChangedAtUnixSeconds),
             refreshService.IsFresh(state, now),
-            (int)settings.Source.FreshFor.TotalHours));
+            (int)settings.Source.FreshFor.TotalHours,
+            state.CoordinatesUrl));
     }
 
     private static (BoundingBox? Bounds, string? Error) TryCreateBoundingBox(
@@ -177,13 +209,39 @@ public static class MapEndpoints
         return (new BoundingBox(minLat.Value, maxLat.Value, minLon.Value, maxLon.Value), null);
     }
 
-    private static void ApplyDatasetHeaders(HttpContext context, DatasetStateRow state)
+    private static bool AcceptsGzip(HttpContext context)
+    {
+        double? gzip = null;
+        double? wildcard = null;
+        double? identity = null;
+        foreach (var coding in context.Request.GetTypedHeaders().AcceptEncoding)
+        {
+            if (coding.Value.Equals("gzip", StringComparison.OrdinalIgnoreCase))
+            {
+                gzip = coding.Quality ?? 1;
+            }
+            else if (coding.Value.Equals("*", StringComparison.Ordinal))
+            {
+                wildcard = coding.Quality ?? 1;
+            }
+            else if (coding.Value.Equals("identity", StringComparison.OrdinalIgnoreCase))
+            {
+                identity = coding.Quality ?? 1;
+            }
+        }
+
+        var quality = gzip ?? wildcard ?? 0;
+        return quality > 0 && quality >= (identity ?? 0);
+    }
+
+    private static void ApplyDatasetHeaders(HttpContext context, DatasetStateRow state, string? version = null)
     {
         context.Response.Headers.CacheControl = "public, max-age=900, must-revalidate";
 
-        if (!string.IsNullOrWhiteSpace(state.Version))
+        version ??= state.Version;
+        if (!string.IsNullOrWhiteSpace(version))
         {
-            context.Response.Headers.ETag = $"\"{state.Version}\"";
+            context.Response.Headers.ETag = $"\"{version}\"";
         }
 
         if (state.LastChangedAtUnixSeconds > 0)
@@ -201,10 +259,10 @@ public static class MapEndpoints
             return false;
         }
 
-        var expected = $"\"{version}\"";
-        foreach (var value in context.Request.Headers.IfNoneMatch)
+        var expected = new EntityTagHeaderValue($"\"{version}\"");
+        foreach (var value in context.Request.GetTypedHeaders().IfNoneMatch)
         {
-            if (string.Equals(value, expected, StringComparison.Ordinal) || value == "*")
+            if (value.Equals(EntityTagHeaderValue.Any) || value.Compare(expected, useStrongComparison: false))
             {
                 return true;
             }

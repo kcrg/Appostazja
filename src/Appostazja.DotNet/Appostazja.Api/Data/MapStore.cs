@@ -1,6 +1,8 @@
 using ApostasyMap.Api.Configuration;
 using ApostasyMap.Api.Contracts;
+using ApostasyMap.Api.Json;
 using Microsoft.Data.Sqlite;
+using System.Text.Json;
 
 namespace ApostasyMap.Api.Data;
 
@@ -45,12 +47,23 @@ public sealed class MapStore(AppSettings settings)
             CREATE INDEX IF NOT EXISTS ix_places_lat_lon
                 ON places(latitude, longitude);
 
+            CREATE TABLE IF NOT EXISTS place_reports (
+                place_id TEXT PRIMARY KEY NOT NULL,
+                details_json BLOB NOT NULL,
+                aliases_json BLOB NOT NULL
+            );
+
+            CREATE TABLE IF NOT EXISTS source_inputs (
+                url TEXT PRIMARY KEY NOT NULL,
+                payload BLOB NOT NULL,
+                etag TEXT NULL,
+                last_modified TEXT NULL
+            );
+
             CREATE TABLE IF NOT EXISTS dataset_state (
                 id INTEGER PRIMARY KEY NOT NULL CHECK (id = 1),
                 source_url TEXT NOT NULL,
                 version TEXT NULL,
-                source_etag TEXT NULL,
-                source_last_modified TEXT NULL,
                 last_checked_at_unix_seconds INTEGER NOT NULL,
                 last_changed_at_unix_seconds INTEGER NOT NULL,
                 place_count INTEGER NOT NULL
@@ -60,12 +73,10 @@ public sealed class MapStore(AppSettings settings)
                 id,
                 source_url,
                 version,
-                source_etag,
-                source_last_modified,
                 last_checked_at_unix_seconds,
                 last_changed_at_unix_seconds,
                 place_count
-            ) VALUES (1, $sourceUrl, NULL, NULL, NULL, 0, 0, 0);
+            ) VALUES (1, $sourceUrl, NULL, 0, 0, 0);
             """;
         command.Parameters.AddWithValue("$sourceUrl", settings.Source.Url.ToString());
         command.ExecuteNonQuery();
@@ -78,11 +89,10 @@ public sealed class MapStore(AppSettings settings)
         command.CommandText = """
             SELECT source_url,
                    version,
-                   source_etag,
-                   source_last_modified,
                    last_checked_at_unix_seconds,
                    last_changed_at_unix_seconds,
-                   place_count
+                   place_count,
+                   (SELECT url FROM source_inputs WHERE url <> dataset_state.source_url LIMIT 1)
             FROM dataset_state
             WHERE id = 1;
             """;
@@ -97,11 +107,10 @@ public sealed class MapStore(AppSettings settings)
         {
             SourceUrl = reader.GetString(0),
             Version = reader.IsDBNull(1) ? null : reader.GetString(1),
-            SourceEtag = reader.IsDBNull(2) ? null : reader.GetString(2),
-            SourceLastModified = reader.IsDBNull(3) ? null : reader.GetString(3),
-            LastCheckedAtUnixSeconds = reader.GetInt64(4),
-            LastChangedAtUnixSeconds = reader.GetInt64(5),
-            PlaceCount = reader.GetInt32(6)
+            LastCheckedAtUnixSeconds = reader.GetInt64(2),
+            LastChangedAtUnixSeconds = reader.GetInt64(3),
+            PlaceCount = reader.GetInt32(4),
+            CoordinatesUrl = reader.IsDBNull(5) ? null : reader.GetString(5)
         };
     }
 
@@ -126,31 +135,60 @@ public sealed class MapStore(AppSettings settings)
         return [.. result];
     }
 
-    public void MarkChecked(
-        DateTimeOffset checkedAtUtc,
-        string? sourceEtag,
-        string? sourceLastModified)
+    public PlaceReportsRow[] LoadReports()
     {
         using var connection = OpenConnection();
         using var command = connection.CreateCommand();
+        command.CommandText = "SELECT place_id, details_json, aliases_json FROM place_reports;";
+        using var reader = command.ExecuteReader();
+        var result = new List<PlaceReportsRow>();
+        while (reader.Read())
+        {
+            var details = JsonSerializer.Deserialize(
+                reader.GetFieldValue<byte[]>(1), AppJsonSerializerContext.Default.PlaceReportsDto)!;
+            var aliases = JsonSerializer.Deserialize(
+                reader.GetFieldValue<byte[]>(2), AppJsonSerializerContext.Default.StringArray)!;
+            result.Add(new PlaceReportsRow(reader.GetString(0), aliases, details));
+        }
+
+        return [.. result];
+    }
+
+    public SourceInputRow? LoadInput(Uri url)
+    {
+        using var connection = OpenConnection();
+        using var command = connection.CreateCommand();
+        command.CommandText = "SELECT payload, etag, last_modified FROM source_inputs WHERE url = $url;";
+        command.Parameters.AddWithValue("$url", url.AbsoluteUri);
+        using var reader = command.ExecuteReader();
+        return reader.Read()
+            ? new SourceInputRow(url, reader.GetFieldValue<byte[]>(0),
+                reader.IsDBNull(1) ? null : reader.GetString(1), reader.IsDBNull(2) ? null : reader.GetString(2))
+            : null;
+    }
+
+    public void MarkChecked(DateTimeOffset checkedAtUtc, IReadOnlyList<SourceInputRow> changedInputs)
+    {
+        using var connection = OpenConnection();
+        using var transaction = connection.BeginTransaction();
+        SaveInputs(connection, transaction, changedInputs);
+        using var command = connection.CreateCommand();
+        command.Transaction = transaction;
         command.CommandText = """
             UPDATE dataset_state
-            SET source_etag = COALESCE($etag, source_etag),
-                source_last_modified = COALESCE($lastModified, source_last_modified),
-                last_checked_at_unix_seconds = $checkedAt
+            SET last_checked_at_unix_seconds = $checkedAt
             WHERE id = 1;
             """;
-        command.Parameters.AddWithValue("$etag", (object?)sourceEtag ?? DBNull.Value);
-        command.Parameters.AddWithValue("$lastModified", (object?)sourceLastModified ?? DBNull.Value);
         command.Parameters.AddWithValue("$checkedAt", checkedAtUtc.ToUnixTimeSeconds());
         command.ExecuteNonQuery();
+        transaction.Commit();
     }
 
     public void ReplaceDataset(
         IReadOnlyList<PlaceRow> places,
+        IReadOnlyList<PlaceReportsRow> reports,
+        IReadOnlyList<SourceInputRow> inputs,
         string version,
-        string? sourceEtag,
-        string? sourceLastModified,
         DateTimeOffset checkedAtUtc)
     {
         using var connection = OpenConnection();
@@ -161,7 +199,7 @@ public sealed class MapStore(AppSettings settings)
             using (var delete = connection.CreateCommand())
             {
                 delete.Transaction = transaction;
-                delete.CommandText = "DELETE FROM places;";
+                delete.CommandText = "DELETE FROM places; DELETE FROM place_reports;";
                 delete.ExecuteNonQuery();
             }
 
@@ -207,6 +245,39 @@ public sealed class MapStore(AppSettings settings)
                 }
             }
 
+            using (var insert = connection.CreateCommand())
+            {
+                insert.Transaction = transaction;
+                insert.CommandText = """
+                    INSERT INTO place_reports (place_id, details_json, aliases_json)
+                    VALUES ($id, $details, $aliases);
+                    """;
+                var id = insert.Parameters.Add("$id", SqliteType.Text);
+                var details = insert.Parameters.Add("$details", SqliteType.Blob);
+                var aliases = insert.Parameters.Add("$aliases", SqliteType.Blob);
+                insert.Prepare();
+
+                foreach (var report in reports)
+                {
+                    id.Value = report.PlaceId;
+                    details.Value = JsonSerializer.SerializeToUtf8Bytes(
+                        report.Details, AppJsonSerializerContext.Default.PlaceReportsDto);
+                    aliases.Value = JsonSerializer.SerializeToUtf8Bytes(
+                        report.Aliases, AppJsonSerializerContext.Default.StringArray);
+                    insert.ExecuteNonQuery();
+                }
+            }
+
+            SaveInputs(connection, transaction, inputs);
+            using (var delete = connection.CreateCommand())
+            {
+                delete.Transaction = transaction;
+                delete.CommandText = "DELETE FROM source_inputs WHERE url NOT IN ($responses, $coordinates);";
+                delete.Parameters.AddWithValue("$responses", settings.Source.Url.AbsoluteUri);
+                delete.Parameters.AddWithValue("$coordinates", settings.Source.CoordinatesUrl.AbsoluteUri);
+                delete.ExecuteNonQuery();
+            }
+
             using (var state = connection.CreateCommand())
             {
                 state.Transaction = transaction;
@@ -214,8 +285,6 @@ public sealed class MapStore(AppSettings settings)
                     UPDATE dataset_state
                     SET source_url = $sourceUrl,
                         version = $version,
-                        source_etag = $etag,
-                        source_last_modified = $lastModified,
                         last_checked_at_unix_seconds = $checkedAt,
                         last_changed_at_unix_seconds = $checkedAt,
                         place_count = $placeCount
@@ -223,8 +292,6 @@ public sealed class MapStore(AppSettings settings)
                     """;
                 state.Parameters.AddWithValue("$sourceUrl", settings.Source.Url.ToString());
                 state.Parameters.AddWithValue("$version", version);
-                state.Parameters.AddWithValue("$etag", (object?)sourceEtag ?? DBNull.Value);
-                state.Parameters.AddWithValue("$lastModified", (object?)sourceLastModified ?? DBNull.Value);
                 state.Parameters.AddWithValue("$checkedAt", checkedAtUtc.ToUnixTimeSeconds());
                 state.Parameters.AddWithValue("$placeCount", places.Count);
                 state.ExecuteNonQuery();
@@ -236,6 +303,31 @@ public sealed class MapStore(AppSettings settings)
         {
             transaction.Rollback();
             throw;
+        }
+    }
+
+    private static void SaveInputs(
+        SqliteConnection connection, SqliteTransaction transaction, IReadOnlyList<SourceInputRow> inputs)
+    {
+        using var command = connection.CreateCommand();
+        command.Transaction = transaction;
+        command.CommandText = """
+            INSERT INTO source_inputs (url, payload, etag, last_modified)
+            VALUES ($url, $payload, $etag, $lastModified)
+            ON CONFLICT (url) DO UPDATE SET
+                payload = excluded.payload, etag = excluded.etag, last_modified = excluded.last_modified;
+            """;
+        var url = command.Parameters.Add("$url", SqliteType.Text);
+        var payload = command.Parameters.Add("$payload", SqliteType.Blob);
+        var etag = command.Parameters.Add("$etag", SqliteType.Text);
+        var lastModified = command.Parameters.Add("$lastModified", SqliteType.Text);
+        foreach (var input in inputs)
+        {
+            url.Value = input.Url.AbsoluteUri;
+            payload.Value = input.Payload;
+            etag.Value = (object?)input.Etag ?? DBNull.Value;
+            lastModified.Value = (object?)input.LastModified ?? DBNull.Value;
+            command.ExecuteNonQuery();
         }
     }
 

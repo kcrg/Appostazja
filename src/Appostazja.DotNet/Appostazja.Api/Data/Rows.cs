@@ -14,15 +14,18 @@ public sealed class PlaceRow
     public int NegativeRatings { get; set; }
 }
 
+public sealed record PlaceReportsRow(string PlaceId, string[] Aliases, Contracts.PlaceReportsDto Details);
+
+public sealed record SourceInputRow(Uri Url, byte[] Payload, string? Etag, string? LastModified);
+
 public sealed record DatasetStateRow
 {
     public const int SingletonId = 1;
 
     public int Id { get; init; } = SingletonId;
     public string SourceUrl { get; init; } = string.Empty;
+    public string? CoordinatesUrl { get; init; }
     public string? Version { get; init; }
-    public string? SourceEtag { get; init; }
-    public string? SourceLastModified { get; init; }
     public long LastCheckedAtUnixSeconds { get; init; }
     public long LastChangedAtUnixSeconds { get; init; }
     public int PlaceCount { get; init; }

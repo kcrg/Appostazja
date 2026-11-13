@@ -25,7 +25,8 @@ builder.Services.AddSingleton(_ =>
 
     var client = new HttpClient(handler)
     {
-        Timeout = TimeSpan.FromSeconds(settings.Source.RequestTimeoutSeconds)
+        Timeout = TimeSpan.FromSeconds(settings.Source.RequestTimeoutSeconds),
+        MaxResponseContentBufferSize = 16 * 1024 * 1024
     };
     client.DefaultRequestHeaders.UserAgent.ParseAdd("ApostasyMap.Api/1.0");
     return client;
@@ -42,20 +43,7 @@ var store = app.Services.GetRequiredService<MapStore>();
 store.Initialize();
 
 var memoryCache = app.Services.GetRequiredService<MapMemoryCache>();
-memoryCache.Replace(store.GetState(), store.LoadPlaces());
-
-if (memoryCache.GetState().PlaceCount == 0)
-{
-    try
-    {
-        await app.Services.GetRequiredService<MapRefreshService>()
-            .RefreshAsync(force: false, CancellationToken.None);
-    }
-    catch (Exception exception)
-    {
-        app.Logger.LogWarning(exception, "Initial source refresh failed; starting with an empty cache.");
-    }
-}
+memoryCache.Replace(store.GetState(), store.LoadPlaces(), store.LoadReports());
 
 app.MapGet("/health", () => Results.Text("ok"));
 app.MapMapEndpoints();

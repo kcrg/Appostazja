@@ -11,21 +11,26 @@ public sealed class NightlyRefreshWorker(
 
     protected override async Task ExecuteAsync(CancellationToken stoppingToken)
     {
-        await TryRefresh(stoppingToken);
+        var succeeded = await TryRefresh(stoppingToken);
 
         while (!stoppingToken.IsCancellationRequested)
         {
             var now = DateTimeOffset.UtcNow;
             var next = GetNextRunUtc(now);
+            if (!succeeded && now + MapRefreshService.RetryDelay < next)
+            {
+                next = now + MapRefreshService.RetryDelay;
+            }
+
             var delay = next - now;
 
             logger.LogInformation("Next scheduled source refresh: {NextRefreshUtc}.", next);
             await Task.Delay(delay, stoppingToken);
-            await TryRefresh(stoppingToken);
+            succeeded = await TryRefresh(stoppingToken);
         }
     }
 
-    private async Task TryRefresh(CancellationToken cancellationToken)
+    private async Task<bool> TryRefresh(CancellationToken cancellationToken)
     {
         try
         {
@@ -35,13 +40,16 @@ public sealed class NightlyRefreshWorker(
                 result.Outcome,
                 result.Version,
                 result.PlaceCount);
+            return result.Outcome != "retry-throttled";
         }
         catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
         {
+            return false;
         }
         catch (Exception exception)
         {
             logger.LogError(exception, "Scheduled source refresh failed. Existing cached data is kept.");
+            return false;
         }
     }
 
@@ -60,6 +68,11 @@ public sealed class NightlyRefreshWorker(
         if (localCandidate <= localNow.DateTime)
         {
             localCandidate = localCandidate.AddDays(1);
+        }
+
+        while (_timeZone.IsInvalidTime(localCandidate))
+        {
+            localCandidate = localCandidate.AddMinutes(1);
         }
 
         var utc = TimeZoneInfo.ConvertTimeToUtc(localCandidate, _timeZone);

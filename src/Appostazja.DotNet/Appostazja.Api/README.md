@@ -1,6 +1,11 @@
 # ApostasyMap.Api
 
-Small .NET 11 Minimal API that turns the GeoJSON from `https://mapaapostazji.pl/data/map-data.json` into a mobile-friendly REST API backed by SQLite and an in-memory read cache.
+Small .NET 11 Minimal API that publishes reports and parish locations from [Mapa Apostazji](https://mapaapostazji.pl/).
+
+- [Responses CSV](https://mapaapostazji.pl/data/responses.csv) supplies stages, difficulty ratings, optional dates and comments, and parish websites.
+- [GeoJSON](https://mapaapostazji.pl/data/map-data.json) supplies coordinates and stable IDs. The importer joins on normalized parish name and address. For multiple pins at the same address, it keeps the most reported pin and resolves the other IDs as aliases.
+- Ratings count all three stages. `score` is `(easy - hard) / total`, or zero when there are no reports. CSV rows without a corresponding coordinate are counted in a warning and can join on a later refresh.
+- Public report responses expose stage, rating, date and comment. The raw CSV also contains submission timestamps and demographic columns and is stored in the local SQLite cache.
 
 ## What it does
 
@@ -9,25 +14,24 @@ Small .NET 11 Minimal API that turns the GeoJSON from `https://mapaapostazji.pl/
 - Uses `CreateSlimBuilder` and source-generated `System.Text.Json` metadata.
 - Stores a flattened representation in SQLite as the persistent cache.
 - Warms an immutable in-memory snapshot from SQLite at startup; normal API reads do not hit SQLite.
-- On first boot, tries to populate an empty database before opening the HTTP listener; a source failure is non-fatal.
+- Starts serving the last good snapshot from SQLite immediately. On an empty database, map reads return `503` until the background worker finishes the first import.
 - Schedules a normal refresh every day at 03:15 in `Europe/Warsaw`.
 - Treats data as fresh for 20 hours by default.
-- Uses upstream `ETag` / `Last-Modified` validators for normal refreshes.
-- Computes SHA-256 of the downloaded JSON and rewrites SQLite only when the payload changed.
+- Sends conditional requests for both inputs and retains the cached bytes when a source returns `304`. Failed scheduled checks retry after an hour.
+- Uses a SHA-256 version based on both inputs and the import format. An unchanged version updates only cache metadata.
 - Replaces the whole SQLite dataset in one transaction and then atomically swaps the in-memory snapshot.
 - Exposes dataset `ETag` / `Last-Modified` to clients so unchanged responses can become `304 Not Modified`.
 - Supports optional bounding-box filtering for map viewports.
 
 ## Force refresh protection
 
-`GET /api/v1/places?forceRefresh=true` bypasses the local freshness check and performs a full source download before returning places.
+`GET /api/v1/places?forceRefresh=true` bypasses the local freshness check and conditionally revalidates both feeds before returning places.
 
 There is no API key and no separate admin endpoint. To stay gentle to `mapaapostazji.pl`, forced refreshes are protected globally:
 
 - one `SemaphoreSlim` serializes all refresh work,
 - forced refresh has a configurable global cooldown (6 hours by default),
-- the cooldown is also calculated from the last successful source check persisted in SQLite, so a restart does not immediately enable another forced download,
-- a failed forced attempt is remembered in-process and also starts the cooldown,
+- the cooldown uses the last successful source check persisted in SQLite and the last in-process attempt, including failures,
 - a throttled force request simply returns current cached data instead of touching the upstream,
 - `forceRefresh=true` is accepted only for the whole-dataset request, not viewport/bounding-box requests.
 
@@ -38,6 +42,7 @@ The response includes `X-Refresh-Outcome` when `forceRefresh=true`. A throttled 
 ### `GET /api/v1/places`
 
 Returns all places from the in-memory snapshot.
+The unfiltered response is also available as precompressed gzip via `Accept-Encoding: gzip`.
 
 Optional force refresh:
 
@@ -74,6 +79,10 @@ Example item:
 
 Returns a single place from memory.
 
+### `GET /api/v1/places/{id}/reports`
+
+Returns the optional parish website and its reports from the same snapshot. Each report has a stage (`before_apostasy`, `apostasy`, `after_apostasy`), a rating (`easy`, `medium`, `hard`), an optional ISO date and optional comment.
+
 ### `GET /api/v1/dataset`
 
 Returns cache/source metadata, current SHA-256 version and freshness state.
@@ -84,6 +93,8 @@ Useful environment overrides:
 
 ```text
 Database__Path
+Source__Url
+Source__CoordinatesUrl
 Source__FreshForHours
 Source__ForceRefreshCooldownMinutes
 Source__NightlyLocalHour

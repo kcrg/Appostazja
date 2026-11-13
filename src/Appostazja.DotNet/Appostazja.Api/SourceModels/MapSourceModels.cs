@@ -43,12 +43,6 @@ public sealed class SourceProperties
     [JsonPropertyName("adr")]
     public string? Address { get; init; }
 
-    [JsonPropertyName("avg")]
-    public double Score { get; init; }
-
     [JsonPropertyName("cnt")]
     public int RatingsCount { get; init; }
-
-    [JsonPropertyName("rts")]
-    public int[]? Ratings { get; init; }
 }

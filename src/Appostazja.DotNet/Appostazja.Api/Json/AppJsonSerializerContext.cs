@@ -11,6 +11,8 @@ namespace ApostasyMap.Api.Json;
 [JsonSerializable(typeof(PlaceDto))]
 [JsonSerializable(typeof(PlaceDto[]))]
 [JsonSerializable(typeof(RatingBreakdownDto))]
+[JsonSerializable(typeof(PlaceReportsDto))]
+[JsonSerializable(typeof(string[]))]
 [JsonSerializable(typeof(DatasetStatusDto))]
 [JsonSerializable(typeof(ApiError))]
 internal partial class AppJsonSerializerContext : JsonSerializerContext;

@@ -15,6 +15,10 @@ public sealed record PlaceDto(
     double Score,
     RatingBreakdownDto Ratings);
 
+public sealed record ReportDto(string Stage, string Rating, string? Date, string? Comment);
+
+public sealed record PlaceReportsDto(string? Website, ReportDto[] Reports);
+
 public sealed record DatasetStatusDto(
     string SourceUrl,
     string? Version,
@@ -22,6 +26,7 @@ public sealed record DatasetStatusDto(
     DateTimeOffset? LastCheckedAtUtc,
     DateTimeOffset? LastChangedAtUtc,
     bool IsFresh,
-    int FreshForHours);
+    int FreshForHours,
+    string? CoordinatesUrl);
 
 public sealed record ApiError(string Error);

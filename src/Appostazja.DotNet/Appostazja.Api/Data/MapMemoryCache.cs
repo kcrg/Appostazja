@@ -1,3 +1,4 @@
+using System.IO.Compression;
 using System.Text.Json;
 using ApostasyMap.Api.Contracts;
 using ApostasyMap.Api.Json;
@@ -10,47 +11,57 @@ public sealed class MapMemoryCache
 
     public DatasetStateRow GetState() => Volatile.Read(ref _snapshot).State;
 
-    public (DatasetStateRow State, byte[] Json) GetFullDataset()
+    public (DatasetStateRow State, byte[] Json) GetFullDataset(bool gzip)
     {
         var snapshot = Volatile.Read(ref _snapshot);
-        return (snapshot.State, snapshot.FullDatasetJson);
+        return (snapshot.State, gzip ? snapshot.FullDatasetGzip : snapshot.FullDatasetJson);
     }
 
-    public PlaceDto[] GetPlaces(BoundingBox? bounds)
+    public (DatasetStateRow State, PlaceDto[] Places) GetPlaces(BoundingBox bounds)
     {
         var snapshot = Volatile.Read(ref _snapshot);
-        if (bounds is not { } box)
-        {
-            return snapshot.Places;
-        }
-
         var result = new List<PlaceDto>();
         foreach (var place in snapshot.Places)
         {
-            if (place.Latitude >= box.MinLatitude &&
-                place.Latitude <= box.MaxLatitude &&
-                place.Longitude >= box.MinLongitude &&
-                place.Longitude <= box.MaxLongitude)
+            if (place.Latitude >= bounds.MinLatitude &&
+                place.Latitude <= bounds.MaxLatitude &&
+                place.Longitude >= bounds.MinLongitude &&
+                place.Longitude <= bounds.MaxLongitude)
             {
                 result.Add(place);
             }
         }
 
-        return [.. result];
+        return (snapshot.State, [.. result]);
     }
 
-    public PlaceDto? GetPlace(string id)
+    public (DatasetStateRow State, PlaceDto? Place, PlaceReportsDto? Reports) GetPlace(string id)
     {
         var snapshot = Volatile.Read(ref _snapshot);
-        return snapshot.ById.TryGetValue(id, out var place) ? place : null;
+        if (!snapshot.ById.TryGetValue(id, out var place))
+        {
+            return (snapshot.State, null, null);
+        }
+
+        return (snapshot.State, place, snapshot.Reports.GetValueOrDefault(place.Id));
     }
 
-    public void Replace(DatasetStateRow state, PlaceDto[] places)
+    public void Replace(DatasetStateRow state, PlaceDto[] places, IReadOnlyList<PlaceReportsRow> reports)
     {
         var byId = new Dictionary<string, PlaceDto>(places.Length, StringComparer.Ordinal);
         foreach (var place in places)
         {
             byId[place.Id] = place;
+        }
+
+        var reportsById = new Dictionary<string, PlaceReportsDto>(reports.Count, StringComparer.Ordinal);
+        foreach (var entry in reports)
+        {
+            reportsById.Add(entry.PlaceId, entry.Details);
+            foreach (var alias in entry.Aliases)
+            {
+                byId.Add(alias, byId[entry.PlaceId]);
+            }
         }
 
         // The full-dataset endpoint is by far the hottest serialization path. Build its
@@ -59,10 +70,17 @@ public sealed class MapMemoryCache
             places,
             AppJsonSerializerContext.Default.PlaceDtoArray);
 
-        Volatile.Write(ref _snapshot, new Snapshot(state, places, byId, fullDatasetJson));
+        using var compressed = new MemoryStream();
+        using (var gzip = new GZipStream(compressed, CompressionLevel.Optimal, leaveOpen: true))
+        {
+            gzip.Write(fullDatasetJson);
+        }
+
+        Volatile.Write(ref _snapshot, new Snapshot(state, places, byId, reportsById,
+            fullDatasetJson, compressed.ToArray()));
     }
 
-    public void Replace(DatasetStateRow state, IReadOnlyList<PlaceRow> places)
+    public void Replace(DatasetStateRow state, IReadOnlyList<PlaceRow> places, IReadOnlyList<PlaceReportsRow> reports)
     {
         var dtos = new PlaceDto[places.Count];
         for (var i = 0; i < places.Count; i++)
@@ -82,27 +100,29 @@ public sealed class MapMemoryCache
                     place.RatingsCount));
         }
 
-        Replace(state, dtos);
+        Replace(state, dtos, reports);
     }
 
     public void UpdateState(DatasetStateRow state)
     {
         var snapshot = Volatile.Read(ref _snapshot);
-        Volatile.Write(
-            ref _snapshot,
-            new Snapshot(state, snapshot.Places, snapshot.ById, snapshot.FullDatasetJson));
+        Volatile.Write(ref _snapshot, snapshot with { State = state });
     }
 
     private sealed record Snapshot(
         DatasetStateRow State,
         PlaceDto[] Places,
         Dictionary<string, PlaceDto> ById,
-        byte[] FullDatasetJson)
+        Dictionary<string, PlaceReportsDto> Reports,
+        byte[] FullDatasetJson,
+        byte[] FullDatasetGzip)
     {
         public static readonly Snapshot Empty = new(
             new DatasetStateRow(),
             [],
             new Dictionary<string, PlaceDto>(StringComparer.Ordinal),
-            "[]"u8.ToArray());
+            new Dictionary<string, PlaceReportsDto>(StringComparer.Ordinal),
+            "[]"u8.ToArray(),
+            []);
     }
 }

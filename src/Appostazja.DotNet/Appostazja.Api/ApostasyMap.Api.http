@@ -5,7 +5,7 @@ GET {{host}}/health
 ### Whole dataset from memory cache
 GET {{host}}/api/v1/places
 
-### Force a full upstream refresh first (globally cooldown-limited)
+### Conditionally revalidate the source (globally cooldown-limited)
 GET {{host}}/api/v1/places?forceRefresh=true
 
 ### Viewport / bbox
@@ -13,3 +13,6 @@ GET {{host}}/api/v1/places?minLat=49.8&maxLat=50.2&minLon=21.8&maxLon=22.2
 
 ### Dataset metadata
 GET {{host}}/api/v1/dataset
+
+### Reports and website of one place
+GET {{host}}/api/v1/places/nawiedzenia-najswietszej-maryi-panny_sucha-beskidzka/reports
