@@ -344,10 +344,11 @@ internal class ChurchClusterRenderer(
     }
 
     private fun pin(item: ChurchClusterItem): Icon {
-        val color = when {
-            item.place.score < -0.2 -> colors.bad
-            item.place.score <= 0.2 -> colors.neutral
-            else -> colors.good
+        // The API decides the verdict so every client colours pins the same way.
+        val color = when (item.place.tone) {
+            "positive" -> colors.good
+            "negative" -> colors.bad
+            else -> colors.neutral
         }
         return pins.getOrPut(color) {
             val bitmap = Bitmap.createBitmap((48 * density).roundToInt(), (48 * density).roundToInt(), Bitmap.Config.ARGB_8888)

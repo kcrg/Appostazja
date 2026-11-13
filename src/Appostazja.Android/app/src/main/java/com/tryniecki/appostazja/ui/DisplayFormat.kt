@@ -18,3 +18,6 @@ internal fun formatApiTimestampDate(value: String, locale: Locale, zone: ZoneId 
     }.getOrNull()
 
 private fun longDate(locale: Locale) = DateTimeFormatter.ofLocalizedDate(FormatStyle.LONG).withLocale(locale)
+
+/** "4,5" for a rating the API already rounded to one decimal. */
+internal fun formatRating(rating: Double, locale: Locale): String = String.format(locale, "%.1f", rating)

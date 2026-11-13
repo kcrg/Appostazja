@@ -31,6 +31,32 @@
     <string name="church_report_after">Po apostazji</string>
     <string name="church_report_heading">%1$s · %2$s</string>
     <string name="church_last_action">Najnowsze zdarzenie z relacji: %1$s</string>
+    <string name="place_rating">Ocena %1$s/5</string>
+    <plurals name="place_reports_count">
+        <item quantity="one">%d relacja</item>
+        <item quantity="few">%d relacje</item>
+        <item quantity="many">%d relacji</item>
+        <item quantity="other">%d relacji</item>
+    </plurals>
+
+    <string name="search_open">Szukaj parafii</string>
+    <string name="search_close">Zamknij wyszukiwarkę</string>
+    <string name="search_placeholder">Nazwa parafii lub miejscowość</string>
+    <string name="search_clear">Wyczyść</string>
+    <string name="search_sort_relevance">Trafność</string>
+    <string name="search_sort_best">Najlepiej oceniane</string>
+    <string name="search_sort_worst">Najgorzej oceniane</string>
+    <string name="search_sort_reports">Najwięcej relacji</string>
+    <string name="search_sort_name">A–Z</string>
+    <string name="search_with_reports_only">Tylko z relacjami</string>
+    <string name="search_empty">Brak parafii pasujących do wyszukiwania.</string>
+    <string name="search_error">Nie udało się wyszukać. Sprawdź połączenie.</string>
+    <plurals name="search_results_count">
+        <item quantity="one">%d parafia</item>
+        <item quantity="few">%d parafie</item>
+        <item quantity="many">%d parafii</item>
+        <item quantity="other">%d parafii</item>
+    </plurals>
     <string name="church_stages_title">Według etapu</string>
     <string name="church_stage_summary">%1$s: łatwo %2$d, średnio %3$d, trudno %4$d</string>
     <string name="church_website">Strona parafii</string>

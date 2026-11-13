@@ -4,15 +4,24 @@ import android.content.ActivityNotFoundException
 import android.content.Context
 import android.content.Intent
 import android.net.Uri
+import androidx.activity.compose.BackHandler
+import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.AnimatedContent
 import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
+import androidx.compose.animation.scaleIn
+import androidx.compose.animation.scaleOut
+import androidx.compose.animation.slideInVertically
+import androidx.compose.animation.slideOutVertically
 import androidx.compose.animation.togetherWith
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.widthIn
 import androidx.compose.ui.semantics.clearAndSetSemantics
 import androidx.compose.ui.semantics.contentDescription
 import com.tryniecki.appostazja.ui.formatApiDate
+import com.tryniecki.appostazja.ui.formatRating
+import com.tryniecki.appostazja.ui.search.PlaceSearchScreen
+import com.tryniecki.appostazja.ui.search.PlaceSearchViewModel
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.foundation.layout.Arrangement
@@ -43,6 +52,7 @@ import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.FloatingActionButton
 import androidx.compose.material3.ModalBottomSheet
 import androidx.compose.material3.SheetValue
 import androidx.compose.material3.Surface
@@ -58,6 +68,7 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
+import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.toArgb
@@ -110,6 +121,7 @@ fun MapRoute(
     themeMode: ThemeMode,
 ) {
     val viewModel: MapViewModel = viewModel(factory = MapViewModel.factory(repository))
+    val searchViewModel: PlaceSearchViewModel = viewModel(factory = PlaceSearchViewModel.factory(repository))
     val state by viewModel.uiState.collectAsStateWithLifecycle()
     val mapColors = when (themeMode) {
         ThemeMode.SYSTEM -> ComposeMapColorScheme.FOLLOW_SYSTEM
@@ -124,8 +136,24 @@ fun MapRoute(
         loadStreetView = { place, userRetry ->
             streetViewRepository.load(place.id, place.latitude, place.longitude, userRetry)
         },
+        search = { onClose, onPlaceClick ->
+            val searchState by searchViewModel.uiState.collectAsStateWithLifecycle()
+            LaunchedEffect(Unit) { searchViewModel.ensureLoaded() }
+            PlaceSearchScreen(
+                state = searchState,
+                onQueryChange = searchViewModel::onQueryChange,
+                onSortChange = searchViewModel::onSortChange,
+                onWithReportsOnlyChange = searchViewModel::onWithReportsOnlyChange,
+                onLoadMore = searchViewModel::loadMore,
+                onRetry = searchViewModel::retry,
+                onPlaceClick = onPlaceClick,
+                onClose = onClose,
+            )
+        },
     )
 }
+
+private const val PLACE_ZOOM = 15f
 
 @OptIn(MapsComposeExperimentalApi::class, ExperimentalMaterial3Api::class)
 @Composable
@@ -135,8 +163,10 @@ private fun MapScreen(
     onRefresh: () -> Unit,
     loadReports: suspend (String) -> PlaceReportsDto,
     loadStreetView: suspend (PlaceDto, Boolean) -> StreetViewPreview,
+    search: @Composable (onClose: () -> Unit, onPlaceClick: (PlaceDto) -> Unit) -> Unit,
 ) {
     val context = LocalContext.current
+    var searchOpen by rememberSaveable { mutableStateOf(false) }
     val scope = rememberCoroutineScope()
     val cameraState = rememberCameraPositionState {
         position = CameraPosition.fromLatLngZoom(LatLng(52.05, 19.20), 5.7f)
@@ -251,7 +281,44 @@ private fun MapScreen(
                 }
             }
         }
+
+        AnimatedVisibility(
+            visible = !searchOpen && !state.isLoading,
+            modifier = Modifier
+                .align(Alignment.BottomEnd)
+                .padding(16.dp),
+            enter = scaleIn(motion.fastSpatialSpec()) + fadeIn(motion.fastEffectsSpec()),
+            exit = scaleOut(motion.fastSpatialSpec()) + fadeOut(motion.fastEffectsSpec()),
+        ) {
+            FloatingActionButton(onClick = { searchOpen = true }) {
+                Icon(
+                    painter = painterResource(com.composables.icons.tabler.outline.R.drawable.tabler_ic_search_outline),
+                    contentDescription = stringResource(R.string.search_open),
+                )
+            }
+        }
+
+        AnimatedVisibility(
+            visible = searchOpen,
+            enter = slideInVertically(motion.defaultSpatialSpec()) { it / 8 } + fadeIn(motion.defaultEffectsSpec()),
+            exit = slideOutVertically(motion.fastSpatialSpec()) { it / 8 } + fadeOut(motion.fastEffectsSpec()),
+        ) {
+            search(
+                { searchOpen = false },
+                { place ->
+                    searchOpen = false
+                    selectedPlace = place
+                    scope.launch {
+                        cameraState.animate(
+                            CameraUpdateFactory.newLatLngZoom(LatLng(place.latitude, place.longitude), PLACE_ZOOM),
+                            durationMs = 700,
+                        )
+                    }
+                },
+            )
+        }
     }
+    BackHandler(enabled = searchOpen) { searchOpen = false }
 
     if (nearbyPlaces.isNotEmpty()) {
         ModalBottomSheet(onDismissRequest = { nearbyPlaces = emptyList() }) {
@@ -441,10 +508,9 @@ private fun ChurchDetailsSheet(
                     style = MaterialTheme.typography.bodyMedium,
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
                 )
-                if (place.ratings.total > 0) {
-                    val displayRating = ((place.score + 1.0) * 2.5).coerceIn(0.0, 5.0)
+                place.rating?.let { rating ->
                     Text(
-                        "Ocena ${String.format(LocalLocale.current.platformLocale, "%.1f", displayRating)}/5",
+                        stringResource(R.string.place_rating, formatRating(rating, LocalLocale.current.platformLocale)),
                         style = MaterialTheme.typography.labelLarge,
                         color = MaterialTheme.colorScheme.primary,
                     )

@@ -23,6 +23,18 @@ data class PlaceDto(
     val stages: StageRatingsDto? = null,
     /** Latest action date (yyyy-MM-dd) mentioned in the place's reports. */
     val lastActionDate: String? = null,
+    /** Score on a 0-5 scale for display; null without reports. */
+    val rating: Double? = null,
+    /** positive, mixed, negative or none; decides the pin colour. */
+    val tone: String? = null,
+)
+
+@Serializable
+data class PlaceSearchResultDto(
+    val total: Int,
+    val offset: Int,
+    val limit: Int,
+    val items: List<PlaceDto>,
 )
 
 @Serializable
