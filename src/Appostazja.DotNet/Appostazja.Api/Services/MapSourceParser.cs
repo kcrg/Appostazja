@@ -10,13 +10,31 @@ using Microsoft.VisualBasic.FileIO;
 
 namespace ApostasyMap.Api.Services;
 
+internal sealed record ParsedDataset(
+    PlaceRow[] Places,
+    PlaceReportsRow[] Reports,
+    int UnmatchedReportCount,
+    int TotalReportRows,
+    int SkippedReportRows,
+    int TotalFeatures,
+    int SkippedFeatures)
+{
+    public int SkippedRows => SkippedReportRows + SkippedFeatures;
+    public int TotalRows => TotalReportRows + TotalFeatures;
+}
+
+/// <summary>
+/// Joins the responses CSV with the GeoJSON coordinates. Structural problems (missing columns, invalid
+/// encoding, not a FeatureCollection) throw; individual bad rows and features are skipped and counted so a
+/// single upstream typo does not block every future import.
+/// </summary>
 internal static partial class MapSourceParser
 {
-    internal static (PlaceRow[] Places, PlaceReportsRow[] Reports, int UnmatchedReportCount) Parse(
-        byte[] responses, byte[] coordinates)
+    internal static ParsedDataset Parse(byte[] responses, byte[] coordinates)
     {
-        var reports = ParseResponses(responses);
-        var locations = ParseCoordinates(coordinates)
+        var (reports, totalReportRows, skippedReportRows) = ParseResponses(responses);
+        var (features, totalFeatures, skippedFeatures) = ParseCoordinates(coordinates);
+        var locations = features
             .GroupBy(place => Key(place.Name, place.Address), StringComparer.OrdinalIgnoreCase);
         var places = new List<PlaceRow>();
         var details = new List<PlaceReportsRow>();
@@ -46,41 +64,63 @@ internal static partial class MapSourceParser
             throw new InvalidDataException("The sources have no places with matching reports.");
         }
 
-        return ([.. places.OrderBy(place => place.Id, StringComparer.Ordinal)], [.. details],
-            reports.Values.Sum(parish => parish.Reports.Count));
+        return new ParsedDataset(
+            [.. places.OrderBy(place => place.Id, StringComparer.Ordinal)],
+            [.. details],
+            reports.Values.Sum(parish => parish.Reports.Count),
+            totalReportRows,
+            skippedReportRows,
+            totalFeatures,
+            skippedFeatures);
     }
 
-    private static Dictionary<string, ParishReports> ParseResponses(byte[] payload)
+    private static (Dictionary<string, ParishReports> Reports, int Total, int Skipped) ParseResponses(byte[] payload)
     {
-        using var stream = new MemoryStream(payload, writable: false);
-        using var csv = new TextFieldParser(stream, new UTF8Encoding(false, true), detectEncoding: false)
-        {
-            Delimiters = [","],
-            HasFieldsEnclosedInQuotes = true,
-            TrimWhiteSpace = false
-        };
+        using var csv = ResponsesCsv.OpenParser(payload);
         var result = new Dictionary<string, ParishReports>(StringComparer.OrdinalIgnoreCase);
+        var total = 0;
+        var skipped = 0;
 
         try
         {
             var headers = csv.ReadFields() ?? throw new InvalidDataException("The response CSV has no header.");
-            headers[0] = headers[0].TrimStart('\uFEFF');
-            var name = FindColumn(headers, "church_name");
-            var address = FindColumn(headers, "church_address");
-            var website = FindColumn(headers, "church_website");
-            var stage = FindColumn(headers, "action_type");
-            var rating = FindColumn(headers, "action_rating");
-            var date = FindColumn(headers, "action_date");
-            var comment = FindColumn(headers, "action_comment");
+            headers[0] = headers[0].TrimStart('﻿');
+            var name = ResponsesCsv.FindColumn(headers, ResponsesCsv.Name);
+            var address = ResponsesCsv.FindColumn(headers, ResponsesCsv.Address);
+            var website = ResponsesCsv.FindColumn(headers, ResponsesCsv.Website);
+            var stage = ResponsesCsv.FindColumn(headers, ResponsesCsv.Stage);
+            var rating = ResponsesCsv.FindColumn(headers, ResponsesCsv.Rating);
+            var date = ResponsesCsv.FindColumn(headers, ResponsesCsv.Date);
+            var comment = ResponsesCsv.FindColumn(headers, ResponsesCsv.Comment);
 
             while (!csv.EndOfData)
             {
-                var line = csv.LineNumber;
-                var fields = csv.ReadFields();
+                total++;
+                string[]? fields;
+                try
+                {
+                    fields = csv.ReadFields();
+                }
+                catch (MalformedLineException)
+                {
+                    skipped++;
+                    continue;
+                }
+
                 if (fields is null || fields.Length != headers.Length ||
                     string.IsNullOrWhiteSpace(fields[name]) || string.IsNullOrWhiteSpace(fields[address]))
                 {
-                    throw new InvalidDataException($"Invalid response CSV row at line {line}.");
+                    skipped++;
+                    continue;
+                }
+
+                var reportRating = fields[rating].Trim();
+                var reportStage = fields[stage].Trim();
+                if (reportRating is not ("easy" or "medium" or "hard") ||
+                    reportStage is not ("before_apostasy" or "apostasy" or "after_apostasy"))
+                {
+                    skipped++;
+                    continue;
                 }
 
                 var key = Key(fields[name], fields[address]);
@@ -90,19 +130,11 @@ internal static partial class MapSourceParser
                     result.Add(key, parish);
                 }
 
-                var reportRating = fields[rating].Trim();
                 switch (reportRating)
                 {
                     case "easy": parish.Easy++; break;
                     case "medium": parish.Medium++; break;
-                    case "hard": parish.Hard++; break;
-                    default: throw new InvalidDataException($"Invalid response rating at line {line}.");
-                }
-
-                var reportStage = fields[stage].Trim();
-                if (reportStage is not ("before_apostasy" or "apostasy" or "after_apostasy"))
-                {
-                    throw new InvalidDataException($"Invalid response stage at line {line}.");
+                    default: parish.Hard++; break;
                 }
 
                 var reportDate = DateOnly.TryParseExact(fields[date].Trim(), "yyyy-MM-dd",
@@ -115,16 +147,12 @@ internal static partial class MapSourceParser
                 parish.Website ??= ParseWebsite(fields[website]);
             }
         }
-        catch (MalformedLineException exception)
-        {
-            throw new InvalidDataException($"Malformed response CSV at line {exception.LineNumber}.");
-        }
         catch (DecoderFallbackException)
         {
             throw new InvalidDataException("The response CSV is not valid UTF-8.");
         }
 
-        return result;
+        return (result, total, skipped);
     }
 
     private static string? ParseWebsite(string website)
@@ -145,17 +173,6 @@ internal static partial class MapSourceParser
         return url.AbsoluteUri;
     }
 
-    private static int FindColumn(string[] headers, string name)
-    {
-        var index = Array.IndexOf(headers, name);
-        if (index < 0 || index != Array.LastIndexOf(headers, name))
-        {
-            throw new InvalidDataException($"The response CSV must contain one '{name}' column.");
-        }
-
-        return index;
-    }
-
     private static string Key(string name, string address) =>
         $"{Normalize(name)}\0{Normalize(address)}";
 
@@ -168,10 +185,22 @@ internal static partial class MapSourceParser
     [GeneratedRegex(@"^(?:[\p{L}\p{N}-]+\.)+[\p{L}]{2,}(?::\d+)?(?:[/?#][^\s]*)?$", RegexOptions.CultureInvariant)]
     private static partial Regex BareWebsite();
 
-    private static PlaceRow[] ParseCoordinates(ReadOnlySpan<byte> payload)
+    private static (List<PlaceRow> Places, int Total, int Skipped) ParseCoordinates(ReadOnlySpan<byte> payload)
     {
-        var source = JsonSerializer.Deserialize(payload, AppJsonSerializerContext.Default.SourceFeatureCollection)
-            ?? throw new InvalidDataException("Source JSON is empty.");
+        SourceFeatureCollection? source;
+        try
+        {
+            source = JsonSerializer.Deserialize(payload, AppJsonSerializerContext.Default.SourceFeatureCollection);
+        }
+        catch (JsonException)
+        {
+            throw new InvalidDataException("The coordinate feed is not valid GeoJSON.");
+        }
+
+        if (source is null)
+        {
+            throw new InvalidDataException("Source JSON is empty.");
+        }
 
         if (!string.Equals(source.Type, "FeatureCollection", StringComparison.Ordinal))
         {
@@ -182,68 +211,55 @@ internal static partial class MapSourceParser
             ?? throw new InvalidDataException("Source JSON has no features array.");
 
         var ids = new HashSet<string>(StringComparer.Ordinal);
-        var places = new PlaceRow[features.Length];
+        var places = new List<PlaceRow>(features.Length);
+        var skipped = 0;
 
-        for (var i = 0; i < features.Length; i++)
+        foreach (var feature in features)
         {
-            var feature = features[i];
-            var geometry = feature.Geometry
-                ?? throw Invalid(i, "missing geometry");
-            var properties = feature.Properties
-                ?? throw Invalid(i, "missing properties");
-
-            if (!string.Equals(feature.Type, "Feature", StringComparison.Ordinal) ||
-                !string.Equals(geometry.Type, "Point", StringComparison.Ordinal))
+            var place = TryReadFeature(feature);
+            if (place is null || !ids.Add(place.Id))
             {
-                throw Invalid(i, "only Point features are supported");
+                skipped++;
+                continue;
             }
 
-            var coordinates = geometry.Coordinates;
-            if (coordinates is null || coordinates.Length < 2)
-            {
-                throw Invalid(i, "missing coordinates");
-            }
-
-            var longitude = coordinates[0];
-            var latitude = coordinates[1];
-            if (!double.IsFinite(latitude) || latitude is < -90 or > 90 ||
-                !double.IsFinite(longitude) || longitude is < -180 or > 180)
-            {
-                throw Invalid(i, "invalid coordinates");
-            }
-
-            var id = Require(properties.Id, i, "id");
-            if (!ids.Add(id))
-            {
-                throw Invalid(i, $"duplicate id '{id}'");
-            }
-
-            places[i] = new PlaceRow
-            {
-                Id = id,
-                Name = Require(properties.Name, i, "nm"),
-                Address = Require(properties.Address, i, "adr"),
-                Latitude = latitude,
-                Longitude = longitude,
-                RatingsCount = properties.RatingsCount
-            };
+            places.Add(place);
         }
 
-        return places;
+        return (places, features.Length, skipped);
     }
 
-    private static string Require(string? value, int index, string field)
+    private static PlaceRow? TryReadFeature(SourceFeature? feature)
     {
-        if (string.IsNullOrWhiteSpace(value))
+        if (feature is not { Geometry: { } geometry, Properties: { } properties } ||
+            !string.Equals(feature.Type, "Feature", StringComparison.Ordinal) ||
+            !string.Equals(geometry.Type, "Point", StringComparison.Ordinal) ||
+            geometry.Coordinates is not { Length: >= 2 } coordinates)
         {
-            throw Invalid(index, $"missing {field}");
+            return null;
         }
 
-        return value.Trim();
-    }
+        var longitude = coordinates[0];
+        var latitude = coordinates[1];
+        if (!double.IsFinite(latitude) || latitude is < -90 or > 90 ||
+            !double.IsFinite(longitude) || longitude is < -180 or > 180 ||
+            string.IsNullOrWhiteSpace(properties.Id) ||
+            string.IsNullOrWhiteSpace(properties.Name) ||
+            string.IsNullOrWhiteSpace(properties.Address))
+        {
+            return null;
+        }
 
-    private static InvalidDataException Invalid(int index, string message) =>
-        new($"Invalid feature at index {index}: {message}.");
+        return new PlaceRow
+        {
+            Id = properties.Id.Trim(),
+            Name = properties.Name.Trim(),
+            Address = properties.Address.Trim(),
+            Latitude = latitude,
+            Longitude = longitude,
+            RatingsCount = properties.RatingsCount
+        };
+    }
 
     private sealed class ParishReports
     {

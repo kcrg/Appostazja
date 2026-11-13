@@ -5,7 +5,43 @@ Small .NET 11 Minimal API that publishes reports and parish locations from [Mapa
 - [Responses CSV](https://mapaapostazji.pl/data/responses.csv) supplies stages, difficulty ratings, optional dates and comments, and parish websites.
 - [GeoJSON](https://mapaapostazji.pl/data/map-data.json) supplies coordinates and stable IDs. The importer joins on normalized parish name and address. For multiple pins at the same address, it keeps the most reported pin and resolves the other IDs as aliases.
 - Ratings count all three stages. `score` is `(easy - hard) / total`, or zero when there are no reports. CSV rows without a corresponding coordinate are counted in a warning and can join on a later refresh.
-- Public report responses expose stage, rating, date and comment. The raw CSV also contains submission timestamps and demographic columns and is stored in the local SQLite cache.
+- Public report responses expose stage, rating, date and comment.
+
+## Privacy
+
+The upstream CSV also contains submission timestamps and demographic columns (`timestamp`, `person_*`). Right after download the importer keeps only the seven columns it publishes, so only that sanitized CSV is stored in SQLite and used for the version hash. E-mail addresses and phone-like numbers (Polish 9-digit numbers in the usual groupings, optionally with `+48`, and 11-digit PESEL) in comments and in the website field are replaced with `[e-mail ukryty]` / `[numer ukryty]`. Names written in free text cannot be detected reliably and are **not** masked.
+
+When it starts, the API rewrites an older database that still holds the full CSV, vacuums it and marks the data stale so the next refresh rebuilds the published reports.
+
+## Import robustness
+
+Structural problems (missing column, invalid UTF-8, a payload that is not a FeatureCollection, a source larger than `Source:MaxResponseMegabytes`) fail the import. Individual bad CSV rows (unknown rating/stage, wrong field count, missing name) and bad GeoJSON features (invalid coordinates, duplicate id) are skipped and counted.
+
+An import is rejected and the previous dataset keeps being served when:
+
+- more than `Import:MaxSkippedRowPercent` (default 5%) of all rows and features were skipped, or
+- the place count drops by more than `Import:MaxPlaceDropPercent` (default 30%).
+
+Every attempt that reaches the sources is recorded and shown in `GET /api/v1/dataset` under `lastImport`: `lastAttemptAtUtc`, `outcome` (`updated`, `unchanged`, `not-modified`, `failed`, `invalid-data`), `error`, `skippedRows` and `unmatchedReports`.
+
+## Health
+
+- `GET /health` and `GET /health/live`: the process is answering.
+- `GET /health/ready`: `200` when data exists and the sources were checked successfully within `Import:ReadyMaxAgeHours` (default 48 h), otherwise `503` with a reason that includes the last import error.
+
+Use `/health/ready` for monitoring and alerting, not for taking the instance out of a load balancer. Stale data is still better than no data.
+
+## OpenAPI
+
+The OpenAPI document is served at `GET /openapi/v1.json`.
+
+## Tests
+
+```bash
+dotnet test ../Appostazja.slnx
+```
+
+The tests cover the parser, sanitizing, import validation and status recording (temporary SQLite and a fake HTTP source), database upgrades, HTTP caching rules and readiness.
 
 ## What it does
 
@@ -101,6 +137,10 @@ Source__NightlyLocalHour
 Source__NightlyLocalMinute
 Source__TimeZoneId
 Source__RequestTimeoutSeconds
+Source__MaxResponseMegabytes
+Import__MaxSkippedRowPercent
+Import__MaxPlaceDropPercent
+Import__ReadyMaxAgeHours
 ```
 
 Default forced-refresh cooldown is 360 minutes. The accepted range is 5 minutes to 7 days.

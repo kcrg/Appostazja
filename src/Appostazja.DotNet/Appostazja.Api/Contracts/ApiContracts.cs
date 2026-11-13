@@ -27,6 +27,21 @@ public sealed record DatasetStatusDto(
     DateTimeOffset? LastChangedAtUtc,
     bool IsFresh,
     int FreshForHours,
-    string? CoordinatesUrl);
+    string? CoordinatesUrl,
+    ImportStatusDto LastImport);
+
+/// <param name="LastAttemptAtUtc">Last refresh that contacted the sources.</param>
+/// <param name="Outcome">updated, unchanged, not-modified, failed or invalid-data.</param>
+/// <param name="Error">Why the last attempt did not update the data; null after a successful check.</param>
+/// <param name="SkippedRows">Invalid CSV rows and GeoJSON features skipped by the published dataset.</param>
+/// <param name="UnmatchedReports">CSV reports without a matching coordinate in the published dataset.</param>
+public sealed record ImportStatusDto(
+    DateTimeOffset? LastAttemptAtUtc,
+    string? Outcome,
+    string? Error,
+    int SkippedRows,
+    int UnmatchedReports);
+
+public sealed record HealthDto(string Status, string? Reason = null);
 
 public sealed record ApiError(string Error);

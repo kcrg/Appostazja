@@ -15,4 +15,9 @@ namespace ApostasyMap.Api.Json;
 [JsonSerializable(typeof(string[]))]
 [JsonSerializable(typeof(DatasetStatusDto))]
 [JsonSerializable(typeof(ApiError))]
+[JsonSerializable(typeof(HealthDto))]
+// Query/route parameter types, needed by the OpenAPI document generator under NativeAOT.
+[JsonSerializable(typeof(double?))]
+[JsonSerializable(typeof(bool))]
+[JsonSerializable(typeof(string))]
 internal partial class AppJsonSerializerContext : JsonSerializerContext;

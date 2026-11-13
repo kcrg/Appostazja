@@ -12,7 +12,6 @@ public sealed class MapStore(AppSettings settings)
     {
         DataSource = settings.Database.Path,
         Mode = SqliteOpenMode.ReadWriteCreate,
-        Cache = SqliteCacheMode.Shared,
         Pooling = true
     }.ToString();
 
@@ -80,6 +79,40 @@ public sealed class MapStore(AppSettings settings)
             """;
         command.Parameters.AddWithValue("$sourceUrl", settings.Source.Url.ToString());
         command.ExecuteNonQuery();
+
+        AddMissingColumns(connection, "dataset_state",
+            ("last_attempt_at_unix_seconds", "INTEGER NOT NULL DEFAULT 0"),
+            ("last_attempt_outcome", "TEXT NULL"),
+            ("last_error", "TEXT NULL"),
+            ("skipped_rows", "INTEGER NOT NULL DEFAULT 0"),
+            ("unmatched_reports", "INTEGER NOT NULL DEFAULT 0"));
+    }
+
+    private static void AddMissingColumns(
+        SqliteConnection connection, string table, params (string Name, string Definition)[] columns)
+    {
+        var existing = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+        using (var info = connection.CreateCommand())
+        {
+            info.CommandText = $"PRAGMA table_info({table});";
+            using var reader = info.ExecuteReader();
+            while (reader.Read())
+            {
+                existing.Add(reader.GetString(1));
+            }
+        }
+
+        foreach (var (name, definition) in columns)
+        {
+            if (existing.Contains(name))
+            {
+                continue;
+            }
+
+            using var alter = connection.CreateCommand();
+            alter.CommandText = $"ALTER TABLE {table} ADD COLUMN {name} {definition};";
+            alter.ExecuteNonQuery();
+        }
     }
 
     public DatasetStateRow GetState()
@@ -92,7 +125,12 @@ public sealed class MapStore(AppSettings settings)
                    last_checked_at_unix_seconds,
                    last_changed_at_unix_seconds,
                    place_count,
-                   (SELECT url FROM source_inputs WHERE url <> dataset_state.source_url LIMIT 1)
+                   (SELECT url FROM source_inputs WHERE url <> dataset_state.source_url LIMIT 1),
+                   last_attempt_at_unix_seconds,
+                   last_attempt_outcome,
+                   last_error,
+                   skipped_rows,
+                   unmatched_reports
             FROM dataset_state
             WHERE id = 1;
             """;
@@ -110,8 +148,87 @@ public sealed class MapStore(AppSettings settings)
             LastCheckedAtUnixSeconds = reader.GetInt64(2),
             LastChangedAtUnixSeconds = reader.GetInt64(3),
             PlaceCount = reader.GetInt32(4),
-            CoordinatesUrl = reader.IsDBNull(5) ? null : reader.GetString(5)
+            CoordinatesUrl = reader.IsDBNull(5) ? null : reader.GetString(5),
+            LastAttemptAtUnixSeconds = reader.GetInt64(6),
+            LastAttemptOutcome = reader.IsDBNull(7) ? null : reader.GetString(7),
+            LastError = reader.IsDBNull(8) ? null : reader.GetString(8),
+            SkippedRows = reader.GetInt32(9),
+            UnmatchedReports = reader.GetInt32(10)
         };
+    }
+
+    /// <summary>
+    /// Rewrites a stored source payload (used to strip private columns cached by older versions) and vacuums
+    /// the database so the removed bytes do not linger in free pages. Unreadable payloads are deleted.
+    /// </summary>
+    /// <returns>true when the stored payload was changed or removed.</returns>
+    public bool RewriteInput(Uri url, Func<byte[], byte[]> transform)
+    {
+        var input = LoadInput(url);
+        if (input is null)
+        {
+            return false;
+        }
+
+        byte[]? rewritten;
+        try
+        {
+            rewritten = transform(input.Payload);
+        }
+        catch (InvalidDataException)
+        {
+            rewritten = null;
+        }
+
+        if (rewritten is not null && rewritten.AsSpan().SequenceEqual(input.Payload))
+        {
+            return false;
+        }
+
+        using var connection = OpenConnection();
+        using (var command = connection.CreateCommand())
+        {
+            command.CommandText = rewritten is null
+                ? "DELETE FROM source_inputs WHERE url = $url;"
+                : "UPDATE source_inputs SET payload = $payload WHERE url = $url;";
+            command.Parameters.AddWithValue("$url", url.AbsoluteUri);
+            if (rewritten is not null)
+            {
+                command.Parameters.AddWithValue("$payload", rewritten);
+            }
+
+            command.ExecuteNonQuery();
+        }
+
+        // The published dataset was built from the old payload, so let the next refresh rebuild it.
+        using (var expire = connection.CreateCommand())
+        {
+            expire.CommandText = "UPDATE dataset_state SET last_checked_at_unix_seconds = 0 WHERE id = 1;";
+            expire.ExecuteNonQuery();
+        }
+
+        using var vacuum = connection.CreateCommand();
+        vacuum.CommandText = "VACUUM; PRAGMA wal_checkpoint(TRUNCATE);";
+        vacuum.ExecuteNonQuery();
+        return true;
+    }
+
+    /// <summary>Records a refresh that reached the sources but did not produce a new dataset.</summary>
+    public void RecordFailure(DateTimeOffset attemptedAtUtc, string outcome, string error)
+    {
+        using var connection = OpenConnection();
+        using var command = connection.CreateCommand();
+        command.CommandText = """
+            UPDATE dataset_state
+            SET last_attempt_at_unix_seconds = $attemptedAt,
+                last_attempt_outcome = $outcome,
+                last_error = $error
+            WHERE id = 1;
+            """;
+        command.Parameters.AddWithValue("$attemptedAt", attemptedAtUtc.ToUnixTimeSeconds());
+        command.Parameters.AddWithValue("$outcome", outcome);
+        command.Parameters.AddWithValue("$error", error);
+        command.ExecuteNonQuery();
     }
 
     public PlaceDto[] LoadPlaces()
@@ -167,7 +284,7 @@ public sealed class MapStore(AppSettings settings)
             : null;
     }
 
-    public void MarkChecked(DateTimeOffset checkedAtUtc, IReadOnlyList<SourceInputRow> changedInputs)
+    public void MarkChecked(DateTimeOffset checkedAtUtc, IReadOnlyList<SourceInputRow> changedInputs, string outcome)
     {
         using var connection = OpenConnection();
         using var transaction = connection.BeginTransaction();
@@ -176,10 +293,14 @@ public sealed class MapStore(AppSettings settings)
         command.Transaction = transaction;
         command.CommandText = """
             UPDATE dataset_state
-            SET last_checked_at_unix_seconds = $checkedAt
+            SET last_checked_at_unix_seconds = $checkedAt,
+                last_attempt_at_unix_seconds = $checkedAt,
+                last_attempt_outcome = $outcome,
+                last_error = NULL
             WHERE id = 1;
             """;
         command.Parameters.AddWithValue("$checkedAt", checkedAtUtc.ToUnixTimeSeconds());
+        command.Parameters.AddWithValue("$outcome", outcome);
         command.ExecuteNonQuery();
         transaction.Commit();
     }
@@ -189,7 +310,9 @@ public sealed class MapStore(AppSettings settings)
         IReadOnlyList<PlaceReportsRow> reports,
         IReadOnlyList<SourceInputRow> inputs,
         string version,
-        DateTimeOffset checkedAtUtc)
+        DateTimeOffset checkedAtUtc,
+        int skippedRows,
+        int unmatchedReports)
     {
         using var connection = OpenConnection();
         using var transaction = connection.BeginTransaction();
@@ -287,9 +410,16 @@ public sealed class MapStore(AppSettings settings)
                         version = $version,
                         last_checked_at_unix_seconds = $checkedAt,
                         last_changed_at_unix_seconds = $checkedAt,
-                        place_count = $placeCount
+                        place_count = $placeCount,
+                        last_attempt_at_unix_seconds = $checkedAt,
+                        last_attempt_outcome = 'updated',
+                        last_error = NULL,
+                        skipped_rows = $skippedRows,
+                        unmatched_reports = $unmatchedReports
                     WHERE id = 1;
                     """;
+                state.Parameters.AddWithValue("$skippedRows", skippedRows);
+                state.Parameters.AddWithValue("$unmatchedReports", unmatchedReports);
                 state.Parameters.AddWithValue("$sourceUrl", settings.Source.Url.ToString());
                 state.Parameters.AddWithValue("$version", version);
                 state.Parameters.AddWithValue("$checkedAt", checkedAtUtc.ToUnixTimeSeconds());

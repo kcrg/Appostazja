@@ -29,6 +29,15 @@ public sealed record DatasetStateRow
     public long LastCheckedAtUnixSeconds { get; init; }
     public long LastChangedAtUnixSeconds { get; init; }
     public int PlaceCount { get; init; }
+
+    /// <summary>Last refresh that contacted the sources, successful or not.</summary>
+    public long LastAttemptAtUnixSeconds { get; init; }
+    public string? LastAttemptOutcome { get; init; }
+    public string? LastError { get; init; }
+
+    /// <summary>Invalid CSV rows and GeoJSON features skipped by the last successful import.</summary>
+    public int SkippedRows { get; init; }
+    public int UnmatchedReports { get; init; }
 }
 
 public readonly record struct BoundingBox(

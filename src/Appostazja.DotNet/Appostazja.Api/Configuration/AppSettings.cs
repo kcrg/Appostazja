@@ -4,7 +4,8 @@ namespace ApostasyMap.Api.Configuration;
 
 public sealed record AppSettings(
     SourceSettings Source,
-    DatabaseSettings Database)
+    DatabaseSettings Database,
+    ImportSettings Import)
 {
     public static AppSettings FromConfiguration(IConfiguration configuration, string contentRootPath)
     {
@@ -30,8 +31,13 @@ public sealed record AppSettings(
                 ReadInt(configuration, "Source:NightlyLocalHour", 3, 0, 23),
                 ReadInt(configuration, "Source:NightlyLocalMinute", 15, 0, 59),
                 configuration["Source:TimeZoneId"] ?? "Europe/Warsaw",
-                ReadInt(configuration, "Source:RequestTimeoutSeconds", 30, 5, 300)),
-            new DatabaseSettings(databasePath));
+                ReadInt(configuration, "Source:RequestTimeoutSeconds", 30, 5, 300),
+                ReadInt(configuration, "Source:MaxResponseMegabytes", 32, 1, 512) * 1024L * 1024L),
+            new DatabaseSettings(databasePath),
+            new ImportSettings(
+                ReadInt(configuration, "Import:MaxSkippedRowPercent", 5, 0, 100) / 100.0,
+                ReadInt(configuration, "Import:MaxPlaceDropPercent", 30, 0, 100) / 100.0,
+                TimeSpan.FromHours(ReadInt(configuration, "Import:ReadyMaxAgeHours", 48, 1, 720))));
     }
 
     private static Uri ReadUrl(IConfiguration configuration, string key, string fallback)
@@ -76,6 +82,15 @@ public sealed record SourceSettings(
     int NightlyLocalHour,
     int NightlyLocalMinute,
     string TimeZoneId,
-    int RequestTimeoutSeconds);
+    int RequestTimeoutSeconds,
+    long MaxResponseBytes);
 
 public sealed record DatabaseSettings(string Path);
+
+/// <param name="MaxSkippedRowRatio">Import is rejected when more invalid source rows than this are skipped.</param>
+/// <param name="MaxPlaceDropRatio">Import is rejected when the place count shrinks by more than this.</param>
+/// <param name="ReadyMaxAge">Readiness fails when the last successful source check is older than this.</param>
+public sealed record ImportSettings(
+    double MaxSkippedRowRatio,
+    double MaxPlaceDropRatio,
+    TimeSpan ReadyMaxAge);
