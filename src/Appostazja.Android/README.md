@@ -44,7 +44,31 @@ adb reverse tcp:5000 tcp:5000
 .\gradlew.bat :app:installDebug
 ```
 
-Przekierowanie ustaw ponownie po rozłączeniu telefonu. Na Androidzie 16 i starszym użyj backendu HTTPS z certyfikatem zaufanym przez urządzenie. Inny adres ustawisz przez właściwość Gradle:
+Przekierowanie ustaw ponownie po rozłączeniu telefonu.
+
+### Lokalny backend przez Wi-Fi
+
+Telefon i komputer muszą być w tej samej sieci. Uruchom API nasłuchujące na wszystkich interfejsach:
+
+```powershell
+cd ..\Appostazja.DotNet\Appostazja.Api
+dotnet run --launch-profile "Appostazja.Api (LAN)"
+```
+
+Jednorazowo (PowerShell jako administrator) ustaw sieć jako prywatną i otwórz port:
+
+```powershell
+Set-NetConnectionProfile -InterfaceAlias Wi-Fi -NetworkCategory Private
+New-NetFirewallRule -DisplayName "Appostazja API (LAN)" -Direction Inbound -Protocol TCP -LocalPort 5000 -Action Allow -Profile Private
+```
+
+Zbuduj aplikację z adresem IP komputera (`ipconfig`):
+
+```powershell
+.\gradlew.bat :app:installDebug -PAPPOSTAZJA_API_BASE_URL=http://192.168.x.y:5000
+```
+
+Build debug zezwala na nieszyfrowany HTTP (`app/src/debug/res/xml/network_security_config.xml`); release nadal go blokuje. Na Androidzie 16 i starszym użyj backendu HTTPS z certyfikatem zaufanym przez urządzenie. Inny adres ustawisz przez właściwość Gradle:
 
 ```powershell
 .\gradlew.bat :app:assembleDebug -PAPPOSTAZJA_API_BASE_URL=https://api.example.com
