@@ -113,11 +113,11 @@ Example item:
 
 ### `GET /api/v1/places/{id}`
 
-Returns a single place from memory.
+Returns a single place from memory. An old pin ID resolves to its main place. Unknown IDs return `404` with an `ApiError` body.
 
 ### `GET /api/v1/places/{id}/reports`
 
-Returns the optional parish website and its reports from the same snapshot. Each report has a stage (`before_apostasy`, `apostasy`, `after_apostasy`), a rating (`easy`, `medium`, `hard`), an optional ISO date and optional comment.
+Returns the optional parish website and its reports from the same snapshot. Each report has a stage (`before_apostasy`, `apostasy`, `after_apostasy`), a rating (`easy`, `medium`, `hard`), an optional ISO date and optional comment. Reports are ordered newest submission first.
 
 ### `GET /api/v1/dataset`
 

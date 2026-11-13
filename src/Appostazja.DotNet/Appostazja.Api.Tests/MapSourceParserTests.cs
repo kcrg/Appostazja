@@ -26,6 +26,20 @@ public class MapSourceParserTests
     }
 
     [Fact]
+    public void Reports_are_returned_newest_submission_first()
+    {
+        var csv = Csv(
+            Row("Parafia", "Adres 1", comment: "najstarsza"),
+            Row("Parafia", "Adres 1", comment: "środkowa"),
+            Row("Parafia", "Adres 1", comment: "najnowsza"));
+        var geo = GeoJson(("p1", "Parafia", "Adres 1", 50, 20, 3));
+
+        var reports = Assert.Single(MapSourceParser.Parse(csv, geo).Reports).Details.Reports;
+
+        Assert.Equal(["najnowsza", "środkowa", "najstarsza"], reports.Select(report => report.Comment));
+    }
+
+    [Fact]
     public void Duplicate_pins_at_one_address_keep_the_most_reported_pin_and_alias_the_rest()
     {
         var csv = Csv(Row("Parafia", "Adres 1"));

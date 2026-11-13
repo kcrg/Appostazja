@@ -277,7 +277,7 @@ public sealed class MapRefreshService(
     {
         using var hash = IncrementalHash.CreateHash(HashAlgorithmName.SHA256);
         // Bump when import or sanitizing rules change so the next refresh rebuilds the dataset.
-        hash.AppendData("responses-v2"u8);
+        hash.AppendData("responses-v3"u8);
         hash.AppendData(SHA256.HashData(responses));
         hash.AppendData(SHA256.HashData(coordinates));
         return Convert.ToHexStringLower(hash.GetHashAndReset());

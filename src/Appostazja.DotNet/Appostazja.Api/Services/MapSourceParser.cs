@@ -56,7 +56,8 @@ internal static partial class MapSourceParser
 
             places.Add(place);
             details.Add(new PlaceReportsRow(place.Id, pins.Skip(1).Select(pin => pin.Id).ToArray(),
-                new PlaceReportsDto(parish?.Website, parish is null ? [] : [.. parish.Reports])));
+                // The CSV is in submission order; clients show the latest experiences first.
+                new PlaceReportsDto(parish?.Website, parish is null ? [] : [.. Enumerable.Reverse(parish.Reports)])));
         }
 
         if (places.Count == 0 || places.All(place => place.RatingsCount == 0))

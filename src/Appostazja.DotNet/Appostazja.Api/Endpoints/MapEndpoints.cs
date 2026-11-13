@@ -25,13 +25,13 @@ public static class MapEndpoints
             .WithName("GetPlace")
             .Produces<PlaceDto>()
             .Produces(StatusCodes.Status304NotModified)
-            .Produces(StatusCodes.Status404NotFound);
+            .Produces<ApiError>(StatusCodes.Status404NotFound);
         api.MapGet("/places/{id}/reports", GetReports)
             .WithName("GetPlaceReports")
             .WithSummary("Parish website and its reports.")
             .Produces<PlaceReportsDto>()
             .Produces(StatusCodes.Status304NotModified)
-            .Produces(StatusCodes.Status404NotFound);
+            .Produces<ApiError>(StatusCodes.Status404NotFound);
         api.MapGet("/dataset", GetDatasetStatus)
             .WithName("GetDatasetStatus")
             .WithSummary("Dataset version, freshness and the result of the last import attempt.")
@@ -153,12 +153,18 @@ public static class MapEndpoints
             AppJsonSerializerContext.Default.ApiError,
             statusCode: StatusCodes.Status503ServiceUnavailable);
 
+    private static IResult PlaceNotFound(string id) =>
+        Results.Json(
+            new ApiError($"Place '{id}' was not found."),
+            AppJsonSerializerContext.Default.ApiError,
+            statusCode: StatusCodes.Status404NotFound);
+
     private static IResult GetPlace(HttpContext context, MapMemoryCache memoryCache, string id)
     {
         var (state, place, _) = memoryCache.GetPlace(id);
         if (place is null)
         {
-            return Results.NotFound();
+            return PlaceNotFound(id);
         }
 
         ApplyDatasetHeaders(context.Response, state);
@@ -173,7 +179,7 @@ public static class MapEndpoints
         var (state, place, reports) = memoryCache.GetPlace(id);
         if (place is null)
         {
-            return Results.NotFound();
+            return PlaceNotFound(id);
         }
 
         ApplyDatasetHeaders(context.Response, state);
