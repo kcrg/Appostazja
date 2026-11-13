@@ -10,7 +10,10 @@ class AppContainer(context: Context) {
     private val applicationContext = context.applicationContext
 
     val mapRepository = MapRepository(
-        AppostazjaApiClientFactory.create(BuildConfig.APPOSTAZJA_API_BASE_URL),
+        AppostazjaApiClientFactory.create(
+            BuildConfig.APPOSTAZJA_API_BASE_URL,
+            cacheDirectory = applicationContext.cacheDir.resolve("map-http"),
+        ),
     )
     val secureDraftStore = SecureDraftStore(applicationContext)
     val pdfGenerator = ApostasyPdfGenerator()

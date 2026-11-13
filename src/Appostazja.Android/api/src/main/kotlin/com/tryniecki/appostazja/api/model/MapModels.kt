@@ -22,6 +22,20 @@ data class PlaceDto(
 )
 
 @Serializable
+data class ReportDto(
+    val stage: String,
+    val rating: String,
+    val date: String? = null,
+    val comment: String? = null,
+)
+
+@Serializable
+data class PlaceReportsDto(
+    val website: String? = null,
+    val reports: List<ReportDto>,
+)
+
+@Serializable
 data class DatasetStatusDto(
     val sourceUrl: String,
     val version: String? = null,
@@ -30,4 +44,5 @@ data class DatasetStatusDto(
     val lastChangedAtUtc: String? = null,
     val isFresh: Boolean,
     val freshForHours: Int,
+    val coordinatesUrl: String? = null,
 )

@@ -2,11 +2,13 @@ package com.tryniecki.appostazja.api.client
 
 import kotlinx.serialization.ExperimentalSerializationApi
 import kotlinx.serialization.json.Json
+import okhttp3.Cache
 import okhttp3.MediaType.Companion.toMediaType
 import okhttp3.OkHttpClient
 import retrofit2.Retrofit
 import retrofit2.converter.kotlinx.serialization.asConverterFactory
 import retrofit2.create
+import java.io.File
 import java.util.concurrent.TimeUnit
 
 private val AppostazjaJson = Json {
@@ -22,9 +24,12 @@ object AppostazjaApiClientFactory {
         .build()
 
     @OptIn(ExperimentalSerializationApi::class)
-    fun create(baseUrl: String): AppostazjaApi = Retrofit.Builder()
+    fun create(baseUrl: String, cacheDirectory: File? = null): AppostazjaApi = Retrofit.Builder()
         .baseUrl(normalizeBaseUrl(baseUrl))
-        .client(httpClient)
+        .client(
+            if (cacheDirectory == null) httpClient
+            else httpClient.newBuilder().cache(Cache(cacheDirectory, 8L * 1024 * 1024)).build(),
+        )
         .addConverterFactory(AppostazjaJson.asConverterFactory("application/json".toMediaType()))
         .build()
         .create<AppostazjaApi>()

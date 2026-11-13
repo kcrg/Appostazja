@@ -3,7 +3,6 @@ package com.tryniecki.appostazja.ui.more
 import android.content.ActivityNotFoundException
 import android.content.Intent
 import android.net.Uri
-import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.fillMaxSize
@@ -37,7 +36,6 @@ import com.tryniecki.appostazja.R
 import com.tryniecki.appostazja.browser.rememberOpenCustomTab
 import com.tryniecki.appostazja.ui.theme.ThemeMode
 
-private const val DATA_SOURCE_URL = "https://mapaapostazji.pl/"
 private const val GITHUB_URL = "https://github.com/kcrg/Appostazja"
 
 @OptIn(ExperimentalMaterial3Api::class)
@@ -50,6 +48,7 @@ fun MoreScreen(
     val context = LocalContext.current
     val uriHandler = LocalUriHandler.current
     val email = stringResource(R.string.more_contact_email)
+    val dataSourceUrl = stringResource(R.string.map_data_source_url)
 
     Scaffold(
         topBar = { TopAppBar(title = { Text(stringResource(R.string.more_title)) }) },
@@ -67,18 +66,12 @@ fun MoreScreen(
                     title = stringResource(R.string.more_data_source_title),
                     body = stringResource(R.string.more_data_source_body),
                     icon = com.composables.icons.tabler.outline.R.drawable.tabler_ic_database_outline,
-                    onClick = { openCustomTab(DATA_SOURCE_URL) },
+                    onClick = { openCustomTab(dataSourceUrl) },
                 )
             }
 
             MoreSection(stringResource(R.string.more_privacy)) {
                 ListItem(
-                    headlineContent = {
-                        Text(
-                            stringResource(R.string.more_privacy_body),
-                            style = MaterialTheme.typography.bodyMedium,
-                        )
-                    },
                     leadingContent = {
                         Icon(
                             painter = painterResource(com.composables.icons.tabler.outline.R.drawable.tabler_ic_info_circle_outline),
@@ -87,7 +80,12 @@ fun MoreScreen(
                         )
                     },
                     colors = listItemColors(),
-                )
+                ) {
+                    Text(
+                        stringResource(R.string.more_privacy_body),
+                        style = MaterialTheme.typography.bodyMedium,
+                    )
+                }
             }
 
             Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
@@ -171,7 +169,7 @@ private fun LinkRow(
     onClick: () -> Unit,
 ) {
     ListItem(
-        headlineContent = { Text(title) },
+        onClick = onClick,
         supportingContent = { Text(body) },
         leadingContent = {
             Icon(
@@ -188,10 +186,10 @@ private fun LinkRow(
             )
         },
         colors = listItemColors(),
-        modifier = Modifier
-            .fillMaxWidth()
-            .clickable(onClick = onClick),
-    )
+        modifier = Modifier.fillMaxWidth(),
+    ) {
+        Text(title)
+    }
 }
 
 @Composable

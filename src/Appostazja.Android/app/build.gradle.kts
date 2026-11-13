@@ -20,8 +20,9 @@ val mapsApiKey = providers.gradleProperty("MAPS_API_KEY").orNull
 android {
     namespace = "com.tryniecki.appostazja"
     compileSdk {
-        version = release(37)
+        version = release(37) { minorApiLevel = 2 }
     }
+    buildToolsVersion = "37.0.0"
 
     defaultConfig {
         applicationId = "com.tryniecki.appostazja"
@@ -36,14 +37,12 @@ android {
 
     buildTypes {
         debug {
-            val apiBaseUrl = configuredApiBaseUrl ?: "http://10.0.2.2:5000"
+            val apiBaseUrl = configuredApiBaseUrl ?: "http://127.0.0.1:5000"
             buildConfigField("String", "APPOSTAZJA_API_BASE_URL", "\"$apiBaseUrl\"")
-            manifestPlaceholders["allowCleartextTraffic"] = "true"
         }
         release {
             val apiBaseUrl = configuredApiBaseUrl ?: "https://appostazja-api.invalid"
             buildConfigField("String", "APPOSTAZJA_API_BASE_URL", "\"$apiBaseUrl\"")
-            manifestPlaceholders["allowCleartextTraffic"] = "false"
             proguardFiles("proguard-rules.pro")
             optimization {
                 enable = true

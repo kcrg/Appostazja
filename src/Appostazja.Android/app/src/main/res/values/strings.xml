@@ -6,17 +6,31 @@
 
     <string name="map_loading">Pobieram dane mapy…</string>
     <string name="map_loaded_count">Załadowano %1$d parafii</string>
+    <string name="map_nearby_places">Parafie w tym miejscu</string>
+    <plurals name="map_cluster_count">
+        <item quantity="one">%d parafia</item>
+        <item quantity="few">%d parafie</item>
+        <item quantity="many">%d parafii</item>
+        <item quantity="other">%d parafii</item>
+    </plurals>
+    <string name="map_data_source">Źródło danych mapy: Mapa Apostazji</string>
+    <string name="map_data_source_url" translatable="false">https://mapaapostazji.pl/</string>
     <string name="map_error_title">Nie udało się wczytać mapy</string>
     <string name="map_error_body">Sprawdź połączenie z internetem i spróbuj ponownie.</string>
     <string name="action_retry">Spróbuj ponownie</string>
     <string name="action_refresh">Odśwież</string>
     <string name="church_relations">Relacje</string>
-    <string name="church_positive">Dobre</string>
-    <string name="church_neutral">Średnie</string>
-    <string name="church_negative">Złe</string>
+    <string name="church_positive">Łatwo</string>
+    <string name="church_neutral">Średnio</string>
+    <string name="church_negative">Trudno</string>
     <string name="church_no_relations">Brak ocenionych relacji</string>
-    <string name="church_comments_title">Komentarze relacji</string>
-    <string name="church_comments_placeholder">Miejsce przygotowane pod komentarze relacji. Backend nie wystawia ich jeszcze w aktualnym kontrakcie.</string>
+    <string name="church_reports_loading">Pobieram relacje…</string>
+    <string name="church_reports_error">Nie udało się wczytać relacji.</string>
+    <string name="church_report_before">Przed apostazją</string>
+    <string name="church_report_apostasy">Apostazja</string>
+    <string name="church_report_after">Po apostazji</string>
+    <string name="church_report_heading">%1$s · %2$s</string>
+    <string name="church_website">Strona parafii</string>
     <string name="church_navigate">Nawiguj w Google Maps</string>
 
     <string name="declaration_title">Deklaracja</string>
