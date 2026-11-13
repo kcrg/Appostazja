@@ -3,6 +3,7 @@ package com.tryniecki.appostazja
 import android.content.Context
 import com.tryniecki.appostazja.api.client.AppostazjaApiClientFactory
 import com.tryniecki.appostazja.data.MapRepository
+import com.tryniecki.appostazja.data.StreetViewRepository
 import com.tryniecki.appostazja.pdf.ApostasyPdfGenerator
 import com.tryniecki.appostazja.security.SecureDraftStore
 
@@ -14,6 +15,11 @@ class AppContainer(context: Context) {
             BuildConfig.APPOSTAZJA_API_BASE_URL,
             cacheDirectory = applicationContext.cacheDir.resolve("map-http"),
         ),
+    )
+    val streetViewRepository = StreetViewRepository(
+        applicationContext,
+        apiKey = BuildConfig.MAPS_API_KEY,
+        cacheDirectory = applicationContext.cacheDir.resolve("street-view-http"),
     )
     val secureDraftStore = SecureDraftStore(applicationContext)
     val pdfGenerator = ApostasyPdfGenerator()

@@ -32,6 +32,17 @@
     <string name="church_report_heading">%1$s · %2$s</string>
     <string name="church_website">Strona parafii</string>
     <string name="church_navigate">Nawiguj w Google Maps</string>
+    <string name="street_view_label">Street View</string>
+    <string name="street_view_loading">Wczytuję widok z ulicy…</string>
+    <string name="street_view_open">Otwórz</string>
+    <string name="street_view_open_in_maps">Otwórz w Mapach</string>
+    <string name="street_view_image_description">Widok Street View okolicy parafii</string>
+    <string name="street_view_unavailable_title">Brak widoku z ulicy</string>
+    <string name="street_view_unavailable_body">Google nie ma zdjęć Street View w pobliżu tej parafii.</string>
+    <string name="street_view_quota_title">Podgląd chwilowo niedostępny</string>
+    <string name="street_view_quota_body">Wyczerpaliśmy limit darmowych podglądów Street View. Spróbuj ponownie później albo otwórz widok bezpośrednio w Mapach Google.</string>
+    <string name="street_view_error_title">Nie udało się wczytać podglądu</string>
+    <string name="street_view_error_body">Sprawdź połączenie z internetem i spróbuj ponownie.</string>
 
     <string name="declaration_title">Deklaracja</string>
     <string name="declaration_your_data">Twoje dane</string>

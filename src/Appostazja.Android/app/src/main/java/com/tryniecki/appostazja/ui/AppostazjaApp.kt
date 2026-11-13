@@ -110,7 +110,7 @@ fun AppostazjaApp(
             },
         ) {
             composable<AppRoute.Map> {
-                MapRoute(container.mapRepository, themeMode)
+                MapRoute(container.mapRepository, container.streetViewRepository, themeMode)
             }
             composable<AppRoute.Declaration> {
                 DeclarationRoute(

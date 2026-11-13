@@ -17,6 +17,8 @@ sdk.dir=C\:\\Users\\you\\AppData\\Local\\Android\\Sdk
 MAPS_API_KEY=YOUR_GOOGLE_MAPS_API_KEY
 ```
 
+Ten sam klucz służy do podglądu Street View w szczegółach parafii. W Google Cloud Console włącz dla projektu **Street View Static API** i podepnij konto rozliczeniowe (wymagane także przy darmowym limicie). Jeśli klucz ma ograniczenie do aplikacji Android, aplikacja wysyła nagłówki `X-Android-Package` i `X-Android-Cert`, więc to ograniczenie wystarczy. Zapytanie o metadane jest bezpłatne; płatne jest tylko pobranie obrazu, a wyniki są cache'owane. Po wyczerpaniu limitu użytkownik widzi komunikat z prośbą o ponowną próbę później oraz przycisk otwierający widok w Mapach Google.
+
 ### Lokalny backend przez USB
 
 Build debug domyślnie używa `http://127.0.0.1:5000`. Android 17 pozwala aplikacji korzystać z HTTP dla adresu loopback, a ADB przekierowuje port telefonu na komputer.

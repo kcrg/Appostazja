@@ -35,6 +35,8 @@ android {
 
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
         manifestPlaceholders["MAPS_API_KEY"] = mapsApiKey
+        // The same key is used for the Street View Static API (enable it in Google Cloud Console).
+        buildConfigField("String", "MAPS_API_KEY", "\"$mapsApiKey\"")
     }
 
     buildTypes {
@@ -107,6 +109,7 @@ dependencies {
     implementation(libs.kotlinx.serialization.json)
     implementation(libs.maps.compose)
     implementation(libs.maps.compose.utils)
+    implementation(libs.okhttp)
     implementation(libs.tabler.icons.outline.android)
 
     testImplementation(libs.junit)

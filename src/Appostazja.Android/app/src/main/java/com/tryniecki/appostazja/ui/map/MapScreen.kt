@@ -87,6 +87,8 @@ import com.tryniecki.appostazja.api.model.PlaceReportsDto
 import com.tryniecki.appostazja.api.model.ReportDto
 import com.tryniecki.appostazja.browser.rememberOpenCustomTab
 import com.tryniecki.appostazja.data.MapRepository
+import com.tryniecki.appostazja.data.StreetViewPreview
+import com.tryniecki.appostazja.data.StreetViewRepository
 import com.tryniecki.appostazja.ui.components.ExpressiveLoadingIndicator
 import com.tryniecki.appostazja.ui.theme.RatingBad
 import com.tryniecki.appostazja.ui.theme.RatingGood
@@ -98,7 +100,11 @@ import kotlin.math.ceil
 import kotlin.math.hypot
 
 @Composable
-fun MapRoute(repository: MapRepository, themeMode: ThemeMode) {
+fun MapRoute(
+    repository: MapRepository,
+    streetViewRepository: StreetViewRepository,
+    themeMode: ThemeMode,
+) {
     val viewModel: MapViewModel = viewModel(factory = MapViewModel.factory(repository))
     val state by viewModel.uiState.collectAsStateWithLifecycle()
     val mapColors = when (themeMode) {
@@ -111,6 +117,9 @@ fun MapRoute(repository: MapRepository, themeMode: ThemeMode) {
         mapColors = mapColors,
         onRefresh = viewModel::refresh,
         loadReports = repository::getPlaceReports,
+        loadStreetView = { place, userRetry ->
+            streetViewRepository.load(place.id, place.latitude, place.longitude, userRetry)
+        },
     )
 }
 
@@ -121,6 +130,7 @@ private fun MapScreen(
     mapColors: ComposeMapColorScheme,
     onRefresh: () -> Unit,
     loadReports: suspend (String) -> PlaceReportsDto,
+    loadStreetView: suspend (PlaceDto, Boolean) -> StreetViewPreview,
 ) {
     val context = LocalContext.current
     val scope = rememberCoroutineScope()
@@ -273,6 +283,7 @@ private fun MapScreen(
             ChurchDetailsSheet(
                 place = place,
                 loadReports = loadReports,
+                loadStreetView = loadStreetView,
                 onNavigate = { openGoogleMapsNavigation(context, place) },
             )
         }
@@ -384,6 +395,7 @@ private fun ErrorCard(
 private fun ChurchDetailsSheet(
     place: PlaceDto,
     loadReports: suspend (String) -> PlaceReportsDto,
+    loadStreetView: suspend (PlaceDto, Boolean) -> StreetViewPreview,
     onNavigate: () -> Unit,
 ) {
     val openCustomTab = rememberOpenCustomTab()
@@ -431,6 +443,8 @@ private fun ChurchDetailsSheet(
                 }
             }
         }
+
+        item(key = "street-view") { StreetViewPreviewCard(place = place, loadPreview = loadStreetView) }
 
         item { HorizontalDivider() }
         item { Text(stringResource(R.string.church_relations), style = MaterialTheme.typography.titleMedium) }
