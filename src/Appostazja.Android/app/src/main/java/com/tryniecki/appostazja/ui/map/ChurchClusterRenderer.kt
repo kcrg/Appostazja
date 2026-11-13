@@ -7,9 +7,13 @@ import android.graphics.Paint
 import android.graphics.Path
 import android.graphics.Typeface
 import android.util.LruCache
+import androidx.compose.ui.graphics.ImageBitmap
+import androidx.compose.ui.graphics.asImageBitmap
 import com.google.android.gms.maps.GoogleMap
 import com.google.android.gms.maps.model.BitmapDescriptor
 import com.google.android.gms.maps.model.BitmapDescriptorFactory
+import com.google.android.gms.maps.model.LatLng
+import com.google.android.gms.maps.model.LatLngBounds
 import com.google.android.gms.maps.model.Marker
 import com.google.android.gms.maps.model.MarkerOptions
 import com.google.maps.android.clustering.Cluster
@@ -32,30 +36,232 @@ internal data class MarkerColors(
 
 internal class ChurchClusterRenderer(
     context: Context,
-    map: GoogleMap,
+    private val map: GoogleMap,
     manager: ClusterManager<ChurchClusterItem>,
     private val colors: MarkerColors,
+    private val transitions: MarkerTransitions,
 ) : DefaultClusterRenderer<ChurchClusterItem>(context, map, manager) {
     private val resources = context.resources
     private val density = resources.displayMetrics.density
     private val paint = Paint(Paint.ANTI_ALIAS_FLAG)
     private val path = Path()
-    private val pins = mutableMapOf<Int, BitmapDescriptor>()
-    private val clusterIcons = LruCache<ClusterIcon, BitmapDescriptor>(96)
+    private val pins = mutableMapOf<Int, Icon>()
+    private val clusterIcons = LruCache<ClusterIcon, Icon>(96)
+
+    // State for the current cluster transition; see MarkerTransitions.
+    private var lastClusters: Set<Cluster<ChurchClusterItem>> = emptySet()
+    private var lastZoom = Float.NaN
+    private var lastBounds: LatLngBounds? = null
+    private var visibleBounds: LatLngBounds? = null
+    private var enterOrigins: Map<ChurchClusterItem, LatLng> = emptyMap()
+    /** New cluster to the previous cluster with the same items; only its center moved. */
+    private var unchanged: Map<Cluster<ChurchClusterItem>, Cluster<ChurchClusterItem>> = emptyMap()
+    private var persisting: Set<Cluster<ChurchClusterItem>> = emptySet()
+    private var popDelayNanos = 0L
+    /** Clusters that pins fly into when zooming out; only these pop in. */
+    private val mergeTargets = HashSet<Cluster<ChurchClusterItem>>()
+    private val pendingEnters = HashSet<Any>()
 
     init {
         minClusterSize = 2
+        // The library animation moves real markers every frame, which is too slow; MarkerTransitions draws it.
         setAnimation(false)
+    }
+
+    override fun onClustersChanged(clusters: Set<Cluster<ChurchClusterItem>>) {
+        val camera = map.cameraPosition
+        val bounds = map.projection.visibleRegion.latLngBounds
+        enterOrigins = emptyMap()
+        unchanged = emptyMap()
+        persisting = emptySet()
+        popDelayNanos = 0L
+        mergeTargets.clear()
+        pendingEnters.clear()
+        if (transitions.enabled) {
+            transitions.begin()
+            unchanged = sameItemClusters(lastClusters, clusters, minClusterSize)
+            persisting = unchanged.values.toHashSet()
+            val zoomChange = if (lastZoom.isNaN()) 0f else camera.zoom - lastZoom
+            if (zoomChange > ZOOM_EPSILON) {
+                enterOrigins = originsForSplit()
+                addSplitHolds(clusters)
+            } else if (zoomChange < -ZOOM_EPSILON) {
+                addMergeExits(clusters)
+                popDelayNanos = transitions.scaled(MarkerTransitions.EXIT_MS * 3 / 5)
+            }
+        }
+        lastClusters = clusters
+        lastZoom = camera.zoom
+        lastBounds = bounds
+        visibleBounds = bounds
+        super.onClustersChanged(clusters)
+    }
+
+    /** Zooming in: every item of a previously visible cluster starts at that cluster. */
+    private fun originsForSplit(): Map<ChurchClusterItem, LatLng> {
+        val bounds = lastBounds ?: return emptyMap()
+        val origins = HashMap<ChurchClusterItem, LatLng>()
+        for (cluster in lastClusters) {
+            if (cluster.size < minClusterSize || cluster in persisting || !bounds.contains(cluster.position)) continue
+            for (item in cluster.items) origins[item] = cluster.position
+        }
+        return origins
+    }
+
+    /**
+     * Zooming in: the library removes a splitting cluster before its pins exist. Keep drawing it until the
+     * pins fly out from under it, then let it shrink away.
+     */
+    private fun addSplitHolds(clusters: Set<Cluster<ChurchClusterItem>>) {
+        val bounds = lastBounds ?: return
+        val duration = transitions.scaled(MarkerTransitions.EXIT_MS)
+        for (previous in lastClusters) {
+            if (previous.size < minClusterSize || previous in clusters || previous in persisting ||
+                !bounds.contains(previous.position)
+            ) {
+                continue
+            }
+            if (!transitions.canAdd()) return
+            transitions.add(
+                MarkerTransitions.Sprite(
+                    bitmap = clusterIcon(previous).bitmap,
+                    anchorX = 0.5f,
+                    anchorY = 0.5f,
+                    from = previous.position,
+                    to = previous.position,
+                    kind = MarkerTransitions.Kind.Exit,
+                    delayNanos = 0L,
+                    durationNanos = duration,
+                    marker = null,
+                ),
+            )
+        }
+    }
+
+    /** Zooming out: previously visible markers fly into the cluster that now contains them. */
+    private fun addMergeExits(clusters: Set<Cluster<ChurchClusterItem>>) {
+        val bounds = lastBounds ?: return
+        val clusterOf = HashMap<ChurchClusterItem, Cluster<ChurchClusterItem>>()
+        for (cluster in clusters) {
+            if (cluster.size >= minClusterSize) for (item in cluster.items) clusterOf[item] = cluster
+        }
+        val duration = transitions.scaled(MarkerTransitions.EXIT_MS)
+        for (previous in lastClusters) {
+            if (previous in persisting || !bounds.contains(previous.position) || !transitions.canAdd()) continue
+            // Items that stay single keep their marker, so they have nowhere to go.
+            val target = clusterOf[previous.items.first()] ?: continue
+            if (target == previous) continue
+            mergeTargets += target
+            val isCluster = previous.size >= minClusterSize
+            val icon = if (isCluster) clusterIcon(previous) else pin(previous.items.first())
+            transitions.add(
+                MarkerTransitions.Sprite(
+                    bitmap = icon.bitmap,
+                    anchorX = 0.5f,
+                    anchorY = if (isCluster) 0.5f else 1f,
+                    from = previous.position,
+                    to = target.position,
+                    kind = MarkerTransitions.Kind.Exit,
+                    delayNanos = 0L,
+                    durationNanos = duration,
+                    marker = null,
+                ),
+            )
+        }
+    }
+
+    private fun hideForEnter(key: Any, position: LatLng, markerOptions: MarkerOptions) {
+        if (transitions.canAdd() && visibleBounds?.contains(position) == true) {
+            markerOptions.alpha(0f)
+            pendingEnters += key
+        }
+    }
+
+    private fun addEnter(
+        icon: Icon,
+        anchorY: Float,
+        origin: LatLng?,
+        position: LatLng,
+        marker: Marker,
+        mergeTarget: Boolean = false,
+    ) {
+        val from = origin?.takeIf { it != position }
+        val kind = when {
+            from != null -> MarkerTransitions.Kind.Move
+            mergeTarget -> MarkerTransitions.Kind.Pop
+            else -> MarkerTransitions.Kind.Fade
+        }
+        transitions.add(
+            MarkerTransitions.Sprite(
+                bitmap = icon.bitmap,
+                anchorX = 0.5f,
+                anchorY = anchorY,
+                from = from ?: position,
+                to = position,
+                kind = kind,
+                delayNanos = if (kind == MarkerTransitions.Kind.Pop) popDelayNanos else 0L,
+                durationNanos = transitions.scaled(
+                    when (kind) {
+                        MarkerTransitions.Kind.Move -> MarkerTransitions.MOVE_MS
+                        MarkerTransitions.Kind.Pop -> MarkerTransitions.POP_MS
+                        else -> MarkerTransitions.FADE_MS
+                    },
+                ),
+                marker = marker,
+            ),
+        )
     }
 
     override fun onBeforeClusterItemRendered(item: ChurchClusterItem, markerOptions: MarkerOptions) {
         super.onBeforeClusterItemRendered(item, markerOptions)
-        markerOptions.icon(pin(item)).anchor(0.5f, 1f)
+        markerOptions.icon(pin(item).descriptor).anchor(0.5f, 1f)
+        hideForEnter(item, item.position, markerOptions)
+    }
+
+    override fun onClusterItemRendered(clusterItem: ChurchClusterItem, marker: Marker) {
+        super.onClusterItemRendered(clusterItem, marker)
+        if (pendingEnters.remove(clusterItem)) {
+            addEnter(pin(clusterItem), 1f, enterOrigins[clusterItem], clusterItem.position, marker)
+        }
     }
 
     override fun onBeforeClusterRendered(cluster: Cluster<ChurchClusterItem>, markerOptions: MarkerOptions) {
-        markerOptions.icon(getDescriptorForCluster(cluster)).anchor(0.5f, 0.5f)
+        markerOptions.icon(clusterIcon(cluster).descriptor).anchor(0.5f, 0.5f)
             .title(clusterTitle(cluster.size))
+        hideForEnter(cluster, cluster.position, markerOptions)
+    }
+
+    override fun onClusterRendered(cluster: Cluster<ChurchClusterItem>, marker: Marker) {
+        super.onClusterRendered(cluster, marker)
+        if (!pendingEnters.remove(cluster)) return
+        val previous = unchanged[cluster]
+        if (previous != null) {
+            // Same items, recomputed center: glide to the new spot without any split or merge effect.
+            transitions.add(
+                MarkerTransitions.Sprite(
+                    bitmap = clusterIcon(cluster).bitmap,
+                    anchorX = 0.5f,
+                    anchorY = 0.5f,
+                    from = previous.position,
+                    to = cluster.position,
+                    kind = MarkerTransitions.Kind.Move,
+                    delayNanos = 0L,
+                    durationNanos = transitions.scaled(MarkerTransitions.SHIFT_MS),
+                    marker = marker,
+                    steady = true,
+                ),
+            )
+        } else {
+            addEnter(
+                clusterIcon(cluster), 0.5f, enterOrigins[cluster.items.first()], cluster.position, marker,
+                mergeTarget = cluster in mergeTargets,
+            )
+        }
+    }
+
+    override fun onRemove() {
+        transitions.clear()
+        super.onRemove()
     }
 
     override fun onClusterUpdated(cluster: Cluster<ChurchClusterItem>, marker: Marker) {
@@ -67,7 +273,10 @@ internal class ChurchClusterRenderer(
     private fun clusterTitle(size: Int): String =
         resources.getQuantityString(R.plurals.map_cluster_count, size, size)
 
-    override fun getDescriptorForCluster(cluster: Cluster<ChurchClusterItem>): BitmapDescriptor {
+    override fun getDescriptorForCluster(cluster: Cluster<ChurchClusterItem>): BitmapDescriptor =
+        clusterIcon(cluster).descriptor
+
+    private fun clusterIcon(cluster: Cluster<ChurchClusterItem>): Icon {
         var easy = 0
         var medium = 0
         var hard = 0
@@ -88,7 +297,8 @@ internal class ChurchClusterRenderer(
         return clusterIcons.get(key) ?: drawCluster(key).also { clusterIcons.put(key, it) }
     }
 
-    private fun drawCluster(icon: ClusterIcon): BitmapDescriptor {
+
+    private fun drawCluster(icon: ClusterIcon): Icon {
         val width = when {
             icon.size < 100 -> 48f
             icon.size < 1_000 -> 56f
@@ -124,7 +334,7 @@ internal class ChurchClusterRenderer(
             drawBar(canvas, barStart, icon.easyAndMedium, 24, colors.bad)
             canvas.restoreToCount(saved)
         }
-        return BitmapDescriptorFactory.fromBitmap(bitmap)
+        return Icon(bitmap)
     }
 
     private fun drawBar(canvas: Canvas, left: Float, start: Int, end: Int, color: Int) {
@@ -133,7 +343,7 @@ internal class ChurchClusterRenderer(
         canvas.drawRect(left + start, 31f, left + end, 34f, paint)
     }
 
-    private fun pin(item: ChurchClusterItem): BitmapDescriptor {
+    private fun pin(item: ChurchClusterItem): Icon {
         val color = when {
             item.place.score < -0.2 -> colors.bad
             item.place.score <= 0.2 -> colors.neutral
@@ -186,8 +396,18 @@ internal class ChurchClusterRenderer(
             paint.style = Paint.Style.FILL
             paint.color = color
             canvas.drawCircle(24f, 35f, 2.5f, paint)
-            BitmapDescriptorFactory.fromBitmap(bitmap)
+            Icon(bitmap)
         }
+    }
+
+    /** The same pixels as a map marker icon and as a sprite for MarkerTransitions. */
+    private class Icon(bitmap: Bitmap) {
+        val bitmap: ImageBitmap = bitmap.asImageBitmap()
+        val descriptor: BitmapDescriptor = BitmapDescriptorFactory.fromBitmap(bitmap)
+    }
+
+    private companion object {
+        const val ZOOM_EPSILON = 0.01f
     }
 
     private data class ClusterIcon(val size: Int, val easy: Int, val easyAndMedium: Int, val hasRatings: Boolean)

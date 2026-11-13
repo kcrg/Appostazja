@@ -75,7 +75,6 @@ import com.google.android.gms.maps.model.CameraPosition
 import com.google.android.gms.maps.model.LatLng
 import com.google.android.gms.maps.model.LatLngBounds
 import com.google.maps.android.clustering.Cluster
-import com.google.maps.android.clustering.algo.NonHierarchicalViewBasedAlgorithm
 import com.google.maps.android.compose.ComposeMapColorScheme
 import com.google.maps.android.compose.GoogleMap
 import com.google.maps.android.compose.GoogleMapComposable
@@ -144,13 +143,14 @@ private fun MapScreen(
     }
     var selectedPlace by remember { mutableStateOf<PlaceDto?>(null) }
     var nearbyPlaces by remember { mutableStateOf<List<PlaceDto>>(emptyList()) }
+    val markerTransitions = remember { MarkerTransitions() }
     val motion = MaterialTheme.motionScheme
     val openCustomTab = rememberOpenCustomTab()
     val dataSourceUrl = stringResource(R.string.map_data_source_url)
 
     BoxWithConstraints(Modifier.fillMaxSize()) {
-        // The diagonal covers map rotation, with room to preload nearby pins.
-        val clusterViewport = ceil(hypot(maxWidth.value, maxHeight.value)).toInt() + 160
+        // The diagonal covers map rotation; the extra half preloads neighbours so short pans reveal no gaps.
+        val clusterViewport = ceil(hypot(maxWidth.value, maxHeight.value) * 1.5f).toInt()
         GoogleMap(
             modifier = Modifier.fillMaxSize(),
             cameraPositionState = cameraState,
@@ -166,6 +166,7 @@ private fun MapScreen(
             ChurchClustering(
                 items = state.places,
                 viewport = clusterViewport,
+                transitions = markerTransitions,
                 onClusterClick = { cluster ->
                     val first = cluster.items.first().position
                     if (cameraState.position.zoom >= 19f || cluster.items.all { it.position == first }) {
@@ -181,6 +182,7 @@ private fun MapScreen(
                 },
             )
         }
+        MarkerTransitionOverlay(markerTransitions, cameraState)
 
         AnimatedContent(
             targetState = when {
@@ -301,6 +303,7 @@ private fun MapScreen(
 private fun ChurchClustering(
     items: List<ChurchClusterItem>,
     viewport: Int,
+    transitions: MarkerTransitions,
     onClusterClick: (Cluster<ChurchClusterItem>) -> Boolean,
     onClusterItemClick: (ChurchClusterItem) -> Boolean,
 ) {
@@ -318,11 +321,11 @@ private fun ChurchClustering(
         bad = RatingBad.toArgb(),
     )
     val context = LocalContext.current
-    val algorithm = remember(manager) { NonHierarchicalViewBasedAlgorithm<ChurchClusterItem>(viewport, viewport) }
+    val algorithm = remember(manager) { StableViewportAlgorithm<ChurchClusterItem>(viewport, viewport) }
     var ready by remember(manager) { mutableStateOf(false) }
 
     MapEffect(manager, colors) { map ->
-        manager.renderer = ChurchClusterRenderer(context, map, manager, colors)
+        manager.renderer = ChurchClusterRenderer(context, map, manager, colors, transitions)
         if (manager.algorithm !== algorithm) manager.setAlgorithm(algorithm)
         ready = true
     }
