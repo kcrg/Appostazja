@@ -9,6 +9,10 @@ import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
 import androidx.compose.animation.togetherWith
 import androidx.compose.foundation.background
+import androidx.compose.foundation.layout.widthIn
+import androidx.compose.ui.semantics.clearAndSetSemantics
+import androidx.compose.ui.semantics.contentDescription
+import com.tryniecki.appostazja.ui.formatApiDate
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.foundation.layout.Arrangement
@@ -83,6 +87,7 @@ import com.google.maps.android.compose.clustering.rememberClusterManager
 import com.google.maps.android.compose.rememberCameraPositionState
 import com.tryniecki.appostazja.R
 import com.tryniecki.appostazja.api.model.PlaceDto
+import com.tryniecki.appostazja.api.model.RatingBreakdownDto
 import com.tryniecki.appostazja.api.model.PlaceReportsDto
 import com.tryniecki.appostazja.api.model.ReportDto
 import com.tryniecki.appostazja.browser.rememberOpenCustomTab
@@ -441,6 +446,13 @@ private fun ChurchDetailsSheet(
                         color = MaterialTheme.colorScheme.primary,
                     )
                 }
+                place.lastActionDate?.let { date ->
+                    Text(
+                        stringResource(R.string.church_last_action, formatApiDate(date, LocalLocale.current.platformLocale)),
+                        style = MaterialTheme.typography.labelMedium,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    )
+                }
             }
         }
 
@@ -472,7 +484,17 @@ private fun ChurchDetailsSheet(
                     modifier = Modifier.weight(1f),
                 )
             }
-        } else item {
+        }
+        place.stages?.let { stages ->
+            val rows = listOf(
+                R.string.church_report_before to stages.beforeApostasy,
+                R.string.church_report_apostasy to stages.apostasy,
+                R.string.church_report_after to stages.afterApostasy,
+            ).filter { (_, ratings) -> ratings.total > 0 }
+            // A single stage would only repeat the totals above.
+            if (rows.size > 1) item(key = "stages") { StageBreakdown(rows) }
+        }
+        if (place.ratings.total == 0) item {
             Text(
                 stringResource(R.string.church_no_relations),
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
@@ -536,7 +558,9 @@ private fun ReportCard(report: ReportDto) {
     ) {
         Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(6.dp)) {
             Text(stringResource(R.string.church_report_heading, stage, rating), style = MaterialTheme.typography.titleSmall)
-            report.date?.let { Text(it, style = MaterialTheme.typography.labelSmall) }
+            report.date?.let {
+                Text(formatApiDate(it, LocalLocale.current.platformLocale), style = MaterialTheme.typography.labelSmall)
+            }
             report.comment?.let { Text(it, style = MaterialTheme.typography.bodyMedium) }
         }
     }
@@ -563,6 +587,56 @@ private fun RelationStat(
             Text(count.toString(), style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.SemiBold)
             Text(label, style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
         }
+    }
+}
+
+@Composable
+private fun StageBreakdown(rows: List<Pair<Int, RatingBreakdownDto>>) {
+    Surface(
+        modifier = Modifier.fillMaxWidth(),
+        shape = RoundedCornerShape(18.dp),
+        color = MaterialTheme.colorScheme.surfaceContainer,
+    ) {
+        Column(
+            modifier = Modifier.padding(horizontal = 14.dp, vertical = 12.dp),
+            verticalArrangement = Arrangement.spacedBy(8.dp),
+        ) {
+            Text(
+                stringResource(R.string.church_stages_title),
+                style = MaterialTheme.typography.labelLarge,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+            )
+            rows.forEach { (labelRes, ratings) ->
+                val label = stringResource(labelRes)
+                val summary = stringResource(
+                    R.string.church_stage_summary, label, ratings.positive, ratings.neutral, ratings.negative,
+                )
+                Row(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .clearAndSetSemantics { contentDescription = summary },
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.spacedBy(12.dp),
+                ) {
+                    Text(label, style = MaterialTheme.typography.bodyMedium, modifier = Modifier.weight(1f))
+                    StageCount(ratings.positive, RatingGood)
+                    StageCount(ratings.neutral, RatingNeutral)
+                    StageCount(ratings.negative, RatingBad)
+                }
+            }
+        }
+    }
+}
+
+@Composable
+private fun StageCount(count: Int, color: Color) {
+    Row(
+        modifier = Modifier.widthIn(min = 36.dp),
+        verticalAlignment = Alignment.CenterVertically,
+        horizontalArrangement = Arrangement.spacedBy(6.dp),
+    ) {
+        Box(Modifier.size(8.dp).background(color, CircleShape))
+        Text(count.toString(), style = MaterialTheme.typography.labelLarge, fontWeight = FontWeight.SemiBold)
     }
 }
 

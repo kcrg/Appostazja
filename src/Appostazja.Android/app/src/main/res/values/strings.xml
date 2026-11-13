@@ -30,6 +30,9 @@
     <string name="church_report_apostasy">Apostazja</string>
     <string name="church_report_after">Po apostazji</string>
     <string name="church_report_heading">%1$s · %2$s</string>
+    <string name="church_last_action">Najnowsze zdarzenie z relacji: %1$s</string>
+    <string name="church_stages_title">Według etapu</string>
+    <string name="church_stage_summary">%1$s: łatwo %2$d, średnio %3$d, trudno %4$d</string>
     <string name="church_website">Strona parafii</string>
     <string name="church_navigate">Nawiguj w Google Maps</string>
     <string name="street_view_label">Street View</string>
@@ -67,6 +70,8 @@
     <string name="more_data_source">Źródło danych</string>
     <string name="more_data_source_title">Mapa Apostazji</string>
     <string name="more_data_source_body">Dane parafii i relacji pochodzą z mapaapostazji.pl.</string>
+    <string name="more_data_updated">Dane parafii i relacji pochodzą z mapaapostazji.pl. Ostatnia zmiana danych: %1$s.</string>
+    <string name="more_data_stale">Dane parafii i relacji pochodzą z mapaapostazji.pl. Mogą być nieaktualne – ostatnio udało się je sprawdzić %1$s.</string>
     <string name="more_privacy">Prywatność</string>
     <string name="more_privacy_body">Dane z formularza jak i sam wygenerowany pdf są przechowywane wyłącznie w pamięci urządzenia. Nie są nigdzie wysyłane.</string>
     <string name="more_theme">Motyw</string>

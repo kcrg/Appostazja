@@ -25,16 +25,23 @@ import androidx.compose.material3.SingleChoiceSegmentedButtonRow
 import androidx.compose.material3.Text
 import androidx.compose.material3.TopAppBar
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.produceState
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.platform.LocalLocale
 import androidx.compose.ui.platform.LocalUriHandler
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import com.tryniecki.appostazja.R
+import com.tryniecki.appostazja.api.model.DatasetStatusDto
 import com.tryniecki.appostazja.browser.rememberOpenCustomTab
+import com.tryniecki.appostazja.ui.formatApiTimestampDate
 import com.tryniecki.appostazja.ui.theme.ThemeMode
+import kotlinx.coroutines.CancellationException
+import java.util.Locale
 
 private const val GITHUB_URL = "https://github.com/kcrg/Appostazja"
 
@@ -42,6 +49,7 @@ private const val GITHUB_URL = "https://github.com/kcrg/Appostazja"
 @Composable
 fun MoreScreen(
     themeMode: ThemeMode,
+    loadDatasetStatus: suspend () -> DatasetStatusDto,
     onThemeModeChange: (ThemeMode) -> Unit,
 ) {
     val openCustomTab = rememberOpenCustomTab()
@@ -49,6 +57,17 @@ fun MoreScreen(
     val uriHandler = LocalUriHandler.current
     val email = stringResource(R.string.more_contact_email)
     val dataSourceUrl = stringResource(R.string.map_data_source_url)
+    val datasetStatus by produceState<DatasetStatusDto?>(initialValue = null) {
+        value = try {
+            loadDatasetStatus()
+        } catch (cancelled: CancellationException) {
+            throw cancelled
+        } catch (_: Exception) {
+            null // The source description is still useful without the update date.
+        }
+    }
+    val dataSourceBody = datasetStatus?.let { dataSourceDescription(it, LocalLocale.current.platformLocale) }
+        ?: stringResource(R.string.more_data_source_body)
 
     Scaffold(
         topBar = { TopAppBar(title = { Text(stringResource(R.string.more_title)) }) },
@@ -64,7 +83,7 @@ fun MoreScreen(
             MoreSection(stringResource(R.string.more_data_source)) {
                 LinkRow(
                     title = stringResource(R.string.more_data_source_title),
-                    body = stringResource(R.string.more_data_source_body),
+                    body = dataSourceBody,
                     icon = com.composables.icons.tabler.outline.R.drawable.tabler_ic_database_outline,
                     onClick = { openCustomTab(dataSourceUrl) },
                 )
@@ -129,6 +148,17 @@ fun MoreScreen(
                 )
             }
         }
+    }
+}
+
+@Composable
+private fun dataSourceDescription(status: DatasetStatusDto, locale: Locale): String? {
+    val checked = status.lastCheckedAtUtc?.let { formatApiTimestampDate(it, locale) }
+    val changed = status.lastChangedAtUtc?.let { formatApiTimestampDate(it, locale) }
+    return when {
+        !status.isFresh && checked != null -> stringResource(R.string.more_data_stale, checked)
+        changed != null -> stringResource(R.string.more_data_updated, changed)
+        else -> null
     }
 }
 

@@ -121,6 +121,7 @@ fun AppostazjaApp(
             composable<AppRoute.More> {
                 MoreScreen(
                     themeMode = themeMode,
+                    loadDatasetStatus = container.mapRepository::getDatasetStatus,
                     onThemeModeChange = onThemeModeChange,
                 )
             }

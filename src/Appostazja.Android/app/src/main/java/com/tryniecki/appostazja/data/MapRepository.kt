@@ -8,4 +8,6 @@ class MapRepository(private val api: AppostazjaApi) {
         api.getPlaces(cacheControl = if (revalidate) "no-cache" else null)
 
     suspend fun getPlaceReports(id: String) = api.getPlaceReports(id)
+
+    suspend fun getDatasetStatus() = api.getDatasetStatus()
 }

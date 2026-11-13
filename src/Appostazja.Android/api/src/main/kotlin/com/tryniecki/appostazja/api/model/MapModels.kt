@@ -19,6 +19,17 @@ data class PlaceDto(
     val longitude: Double,
     val score: Double,
     val ratings: RatingBreakdownDto,
+    /** Ratings split by the stage a report describes. Null when talking to an older API. */
+    val stages: StageRatingsDto? = null,
+    /** Latest action date (yyyy-MM-dd) mentioned in the place's reports. */
+    val lastActionDate: String? = null,
+)
+
+@Serializable
+data class StageRatingsDto(
+    val beforeApostasy: RatingBreakdownDto,
+    val apostasy: RatingBreakdownDto,
+    val afterApostasy: RatingBreakdownDto,
 )
 
 @Serializable
@@ -45,4 +56,14 @@ data class DatasetStatusDto(
     val isFresh: Boolean,
     val freshForHours: Int,
     val coordinatesUrl: String? = null,
+    val lastImport: ImportStatusDto? = null,
+)
+
+@Serializable
+data class ImportStatusDto(
+    val lastAttemptAtUtc: String? = null,
+    val outcome: String? = null,
+    val error: String? = null,
+    val skippedRows: Int = 0,
+    val unmatchedReports: Int = 0,
 )
