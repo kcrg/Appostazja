@@ -1,3 +1,4 @@
 <Solution>
   <Project Path="Appostazja.Api/Appostazja.Api.csproj" />
+  <Project Path="Appostazja.Api.Tests/Appostazja.Api.Tests.csproj" />
 </Solution>
