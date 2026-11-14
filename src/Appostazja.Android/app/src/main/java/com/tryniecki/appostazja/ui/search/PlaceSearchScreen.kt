@@ -44,6 +44,7 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.derivedStateOf
 import androidx.compose.runtime.getValue
+import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.snapshotFlow
 import androidx.compose.ui.Alignment
@@ -255,3 +256,26 @@ private fun toneColor(tone: String?): Color = when (tone) {
     else -> RatingNeutral
 }
 
+
+/** The parish search as a destination of the map tab, opened from the map's FAB. */
+@Composable
+internal fun PlaceSearchRoute(
+    viewModel: PlaceSearchViewModel,
+    onPlaceClick: (PlaceDto) -> Unit,
+    onClose: () -> Unit,
+    modifier: Modifier = Modifier,
+) {
+    val state by viewModel.uiState.collectAsStateWithLifecycle()
+    LaunchedEffect(Unit) { viewModel.ensureLoaded() }
+    PlaceSearchScreen(
+        state = state,
+        onQueryChange = viewModel::onQueryChange,
+        onSortChange = viewModel::onSortChange,
+        onWithReportsOnlyChange = viewModel::onWithReportsOnlyChange,
+        onLoadMore = viewModel::loadMore,
+        onRetry = viewModel::retry,
+        onPlaceClick = onPlaceClick,
+        onClose = onClose,
+        modifier = modifier,
+    )
+}

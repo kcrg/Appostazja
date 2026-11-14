@@ -8,6 +8,10 @@ import android.provider.Settings
 import com.tryniecki.appostazja.ui.components.FabMorphRole
 import com.tryniecki.appostazja.ui.components.LocalSharedTransitionScope
 import com.tryniecki.appostazja.ui.components.fabMorph
+import com.tryniecki.appostazja.ui.components.fabMorphShape
+import androidx.compose.animation.AnimatedVisibilityScope
+import androidx.compose.animation.EnterExitState
+import kotlinx.coroutines.flow.filterNotNull
 import androidx.activity.compose.PredictiveBackHandler
 import androidx.compose.animation.EnterTransition
 import androidx.compose.animation.SharedTransitionLayout
@@ -144,14 +148,14 @@ import kotlin.math.ceil
 import kotlin.math.hypot
 
 @Composable
-fun MapRoute(
+internal fun MapRoute(
+    viewModel: MapViewModel,
     repository: MapRepository,
     streetViewRepository: StreetViewRepository,
     themeMode: ThemeMode,
     onUseInDeclaration: (PlaceDto, ParishField) -> Unit,
+    focus: MapFocus,
 ) {
-    val viewModel: MapViewModel = viewModel(factory = MapViewModel.factory(repository))
-    val searchViewModel: PlaceSearchViewModel = viewModel(factory = PlaceSearchViewModel.factory(repository))
     val state by viewModel.uiState.collectAsStateWithLifecycle()
     val mapColors = when (themeMode) {
         ThemeMode.SYSTEM -> ComposeMapColorScheme.FOLLOW_SYSTEM
@@ -166,25 +170,12 @@ fun MapRoute(
         placeReports = repository::placeReports,
         // Failures are not cached, so a retry simply loads again.
         loadStreetView = { place, _ -> streetViewRepository.load(place.id) },
-        search = { onClose, onPlaceClick ->
-            val searchState by searchViewModel.uiState.collectAsStateWithLifecycle()
-            LaunchedEffect(Unit) { searchViewModel.ensureLoaded() }
-            PlaceSearchScreen(
-                state = searchState,
-                onQueryChange = searchViewModel::onQueryChange,
-                onSortChange = searchViewModel::onSortChange,
-                onWithReportsOnlyChange = searchViewModel::onWithReportsOnlyChange,
-                onLoadMore = searchViewModel::loadMore,
-                onRetry = searchViewModel::retry,
-                onPlaceClick = onPlaceClick,
-                onClose = onClose,
-            )
-        },
+        focus = focus,
     )
 }
 
 private const val PLACE_ZOOM = 15f
-private const val SEARCH_MORPH_KEY = "search"
+internal const val SEARCH_MORPH_KEY = "search"
 // How long the snapshot covers the map after it resumes, long enough for its surface to draw again.
 private const val MAP_RESTART_MS = 900L
 
@@ -197,35 +188,10 @@ private fun MapScreen(
     onUseInDeclaration: (PlaceDto, ParishField) -> Unit,
     placeReports: (String) -> Flow<PlaceReportsDto>,
     loadStreetView: suspend (PlaceDto, Boolean) -> StreetViewPreview,
-    search: @Composable (onClose: () -> Unit, onPlaceClick: (PlaceDto) -> Unit) -> Unit,
+    focus: MapFocus,
 ) {
     val context = LocalContext.current
-    var searchOpen by rememberSaveable { mutableStateOf(false) }
     val scope = rememberCoroutineScope()
-    // The search morphs out of its FAB and back, like the declaration history. A seekable transition lets the
-    // back gesture shrink it into the button with the finger.
-    val searchTransitionState = remember { SeekableTransitionState(searchOpen) }
-    val searchTransition = rememberTransition(searchTransitionState, label = "search")
-    LaunchedEffect(searchOpen) {
-        if (searchTransitionState.currentState != searchOpen || searchTransitionState.targetState != searchOpen) {
-            searchTransitionState.animateTo(searchOpen)
-        }
-    }
-    PredictiveBackHandler(enabled = searchOpen) { events ->
-        try {
-            events.collect { event -> searchTransitionState.seekTo(event.progress, targetState = false) }
-            searchOpen = false
-        } catch (cancelled: CancellationException) {
-            // Back to fully open from wherever the finger left it.
-            scope.launch {
-                val from = searchTransitionState.fraction
-                animate(from, 0f, animationSpec = tween((from * NavMotion.DURATION).toInt())) { value, _ ->
-                    scope.launch { if (value > 0f) searchTransitionState.seekTo(value) else searchTransitionState.snapTo(true) }
-                }
-            }
-            throw cancelled
-        }
-    }
     var googleMap by remember { mutableStateOf<GoogleMap?>(null) }
     var mapSnapshot by remember { mutableStateOf<ImageBitmap?>(null) }
     val mapOnScreen = LocalMapOnScreen.current
@@ -246,6 +212,19 @@ private fun MapScreen(
     // The user moved the live map; the snapshot would now show the wrong place.
     LaunchedEffect(cameraState.isMoving) { if (cameraState.isMoving) mapSnapshot = null }
     var selectedPlace by remember { mutableStateOf<PlaceDto?>(null) }
+    // A parish picked in the search: open its sheet and fly to it.
+    LaunchedEffect(focus) {
+        focus.place.filterNotNull().collect { place ->
+            if (!focus.take(place)) return@collect
+            selectedPlace = place
+            scope.launch {
+                cameraState.animate(
+                    CameraUpdateFactory.newLatLngZoom(LatLng(place.latitude, place.longitude), PLACE_ZOOM),
+                    durationMs = 700,
+                )
+            }
+        }
+    }
     var nearbyPlaces by remember { mutableStateOf<List<PlaceDto>>(emptyList()) }
     val markerTransitions = remember(context) {
         val resolver = context.contentResolver
@@ -254,8 +233,6 @@ private fun MapScreen(
     }
     val motion = MaterialTheme.motionScheme
 
-    SharedTransitionLayout(Modifier.fillMaxSize()) {
-    CompositionLocalProvider(LocalSharedTransitionScope provides this) {
     BoxWithConstraints(Modifier.fillMaxSize()) {
         // The diagonal covers map rotation; the extra half preloads neighbours so short pans reveal no gaps.
         val clusterViewport = ceil(hypot(maxWidth.value, maxHeight.value) * 1.5f).toInt()
@@ -324,55 +301,6 @@ private fun MapScreen(
                 MapOverlayState.CONTENT -> Unit
             }
         }
-
-        AnimatedVisibility(
-            visible = !state.isLoading,
-            modifier = Modifier
-                .align(Alignment.BottomEnd)
-                .padding(16.dp),
-            enter = scaleIn(motion.fastSpatialSpec()) + fadeIn(motion.fastEffectsSpec()),
-            exit = scaleOut(motion.fastSpatialSpec()) + fadeOut(motion.fastEffectsSpec()),
-        ) {
-            searchTransition.AnimatedVisibility(
-                visible = { open -> !open },
-                enter = EnterTransition.None,
-                exit = ExitTransition.None,
-            ) {
-                FloatingActionButton(
-                    onClick = { searchOpen = true },
-                    modifier = Modifier.fabMorph(SEARCH_MORPH_KEY, FabMorphRole.Fab, visibilityScope = this),
-                ) {
-                    Icon(
-                        painter = painterResource(com.composables.icons.tabler.outline.R.drawable.tabler_ic_search_outline),
-                        contentDescription = stringResource(R.string.search_open),
-                    )
-                }
-            }
-        }
-
-        searchTransition.AnimatedVisibility(
-            visible = { open -> open },
-            enter = EnterTransition.None,
-            exit = ExitTransition.None,
-        ) {
-            Box(Modifier.fabMorph(SEARCH_MORPH_KEY, FabMorphRole.Screen, visibilityScope = this)) {
-            search(
-                { searchOpen = false },
-                { place ->
-                    searchOpen = false
-                    selectedPlace = place
-                    scope.launch {
-                        cameraState.animate(
-                            CameraUpdateFactory.newLatLngZoom(LatLng(place.latitude, place.longitude), PLACE_ZOOM),
-                            durationMs = 700,
-                        )
-                    }
-                },
-            )
-            }
-        }
-    }
-    }
     }
 
     // Sheets slide in with a tween: any spring overshoots visibly on a tall sheet.
@@ -908,6 +836,32 @@ private fun UseInDeclarationButton(onPick: (ParishField) -> Unit) {
                     menuOpen = false
                     onPick(ParishField.RESIDENCE)
                 },
+            )
+        }
+    }
+}
+
+/**
+ * The map's search FAB. It belongs to the map destination rather than the map underneath, like the declaration
+ * form's FAB belongs to the form, so both morph into the screen they open through the same NavHost transition.
+ */
+@Composable
+internal fun MapSearchFab(loading: Boolean, onClick: () -> Unit, modifier: Modifier = Modifier) {
+    val motion = MaterialTheme.motionScheme
+    AnimatedVisibility(
+        visible = !loading,
+        modifier = modifier,
+        enter = scaleIn(motion.fastSpatialSpec()) + fadeIn(motion.fastEffectsSpec()),
+        exit = scaleOut(motion.fastSpatialSpec()) + fadeOut(motion.fastEffectsSpec()),
+    ) {
+        FloatingActionButton(
+            onClick = onClick,
+            shape = fabMorphShape(),
+            modifier = Modifier.fabMorph(SEARCH_MORPH_KEY, FabMorphRole.Fab),
+        ) {
+            Icon(
+                painter = painterResource(com.composables.icons.tabler.outline.R.drawable.tabler_ic_search_outline),
+                contentDescription = stringResource(R.string.search_open),
             )
         }
     }

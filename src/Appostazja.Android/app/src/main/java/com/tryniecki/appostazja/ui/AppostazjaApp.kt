@@ -58,6 +58,18 @@ import com.tryniecki.appostazja.ui.declaration.DeclarationHistoryRoute
 import com.tryniecki.appostazja.ui.declaration.DeclarationPreviewRoute
 import androidx.navigation.toRoute
 import com.tryniecki.appostazja.ui.map.MapRoute
+import com.tryniecki.appostazja.ui.map.MapFocus
+import com.tryniecki.appostazja.ui.map.MapSearchFab
+import com.tryniecki.appostazja.ui.map.MapViewModel
+import com.tryniecki.appostazja.ui.map.SEARCH_MORPH_KEY
+import com.tryniecki.appostazja.ui.search.PlaceSearchRoute
+import com.tryniecki.appostazja.ui.search.PlaceSearchViewModel
+import com.tryniecki.appostazja.ui.components.FabMorphRole
+import com.tryniecki.appostazja.ui.components.fabMorph
+import androidx.lifecycle.viewmodel.compose.viewModel
+import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import androidx.compose.ui.Alignment
+import androidx.compose.ui.unit.dp
 import com.tryniecki.appostazja.ui.map.PersistentMapHost
 import com.tryniecki.appostazja.ui.more.MoreScreen
 import com.tryniecki.appostazja.ui.stats.StatsRoute
@@ -81,6 +93,10 @@ fun AppostazjaApp(
         withFrameNanos { }
         tabSwitch.inProgress = false
     }
+    // Outside the NavHost, so they live as long as the activity: the search keeps its query between openings.
+    val mapViewModel: MapViewModel = viewModel(factory = MapViewModel.factory(container.mapRepository))
+    val searchViewModel: PlaceSearchViewModel = viewModel(factory = PlaceSearchViewModel.factory(container.mapRepository))
+    val mapFocus = remember { MapFocus() }
     val navDirection = remember { NavDirection() }
     var mapEntryComposed by remember { mutableStateOf(false) }
     // True for the length of a tab switch animation; meanwhile NavHost may report the map entry as visible
@@ -152,9 +168,13 @@ fun AppostazjaApp(
             else cover.animateTo(1f, tween(NavMotion.TabFadeIn, delayMillis = NavMotion.TabFadeInDelay, easing = LinearEasing))
         }
         val mapVisible = coverHidden || cover.value < 1f
+        // One shared-transition layout over the map and the NavHost: a FAB morphs into the screen it opens.
+        SharedTransitionLayout(Modifier.fillMaxSize()) {
+        CompositionLocalProvider(LocalSharedTransitionScope provides this) {
         Box(contentModifier) {
             PersistentMapHost(visible = mapVisible) {
                 MapRoute(
+                    mapViewModel,
                     container.mapRepository,
                     container.streetViewRepository,
                     themeMode,
@@ -164,19 +184,17 @@ fun AppostazjaApp(
                         // The tab may come back on its history or a preview; the picked church belongs on the form.
                         navController.popBackStack<AppRoute.Declaration>(inclusive = false)
                     },
+                    focus = mapFocus,
                 )
             }
         }
         val coverColor = MaterialTheme.colorScheme.background
         Box(contentModifier.drawBehind { if (cover.value > 0f) drawRect(coverColor, alpha = cover.value) })
         val density = LocalDensity.current
-        // Shared elements: the declaration FAB morphs into the history screen and back.
-        SharedTransitionLayout(contentModifier) {
-        CompositionLocalProvider(LocalSharedTransitionScope provides this) {
         NavHost(
             navController = navController,
             startDestination = AppRoute.Map,
-            modifier = Modifier.fillMaxSize(),
+            modifier = contentModifier,
             // Between a FAB and the screen it opens the container transform is the whole animation: the screen
             // underneath stays in place and the opened one appears only through the morphing container.
             enterTransition = {
@@ -215,11 +233,30 @@ fun AppostazjaApp(
             },
         ) {
             screen<AppRoute.Map>(navDirection) {
-                // Drawn by PersistentMapHost underneath.
+                // The map itself is drawn by PersistentMapHost underneath; the destination carries its FAB.
                 DisposableEffect(Unit) {
                     mapEntryComposed = true
                     onDispose { mapEntryComposed = false }
                 }
+                val mapState by mapViewModel.uiState.collectAsStateWithLifecycle()
+                Box(Modifier.fillMaxSize(), contentAlignment = Alignment.BottomEnd) {
+                    MapSearchFab(
+                        loading = mapState.isLoading,
+                        onClick = { navController.navigate(AppRoute.Search) },
+                        modifier = Modifier.padding(16.dp),
+                    )
+                }
+            }
+            screen<AppRoute.Search>(navDirection) {
+                PlaceSearchRoute(
+                    viewModel = searchViewModel,
+                    onPlaceClick = { place ->
+                        mapFocus.show(place)
+                        navController.popBackStack()
+                    },
+                    onClose = navController::popBackStack,
+                    modifier = Modifier.fabMorph(SEARCH_MORPH_KEY, FabMorphRole.Screen),
+                )
             }
             screen<AppRoute.Stats>(navDirection) {
                 StatsRoute(container.mapRepository)
@@ -303,9 +340,22 @@ private fun NavHostController.navigateToTab(destination: AppDestination) {
 private const val TAB_SWITCH_START_MS = 300L
 private const val TAB_SWITCH_TIMEOUT_MS = 5_000L
 
-/** The declaration history opens from the form's FAB and closes back into it. */
-private fun isFabMorph(from: NavDestination, to: NavDestination): Boolean {
-    val form = from.hasRoute<AppRoute.Declaration>() && to.hasRoute<AppRoute.DeclarationHistory>()
-    val back = from.hasRoute<AppRoute.DeclarationHistory>() && to.hasRoute<AppRoute.Declaration>()
-    return form || back
+/** Screens opened from a FAB, with the destination that holds the FAB. */
+private fun NavDestination.fabParent(): AppRoute? = when {
+    hasRoute<AppRoute.Search>() -> AppRoute.Map
+    hasRoute<AppRoute.DeclarationHistory>() -> AppRoute.Declaration
+    else -> null
 }
+
+private fun NavDestination.isRoute(route: AppRoute): Boolean = when (route) {
+    AppRoute.Map -> hasRoute<AppRoute.Map>()
+    AppRoute.Declaration -> hasRoute<AppRoute.Declaration>()
+    else -> false
+}
+
+/**
+ * Between a FAB and the screen it opens, either way: the search from the map, the history from the declaration
+ * form. They all morph the same way.
+ */
+private fun isFabMorph(from: NavDestination, to: NavDestination): Boolean =
+    to.fabParent()?.let(from::isRoute) == true || from.fabParent()?.let(to::isRoute) == true

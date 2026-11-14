@@ -81,6 +81,7 @@ import com.tryniecki.appostazja.security.SecureDraftStore
 import com.tryniecki.appostazja.ui.components.ExpressiveLoadingIndicator
 import com.tryniecki.appostazja.ui.components.FabMorphRole
 import com.tryniecki.appostazja.ui.components.fabMorph
+import com.tryniecki.appostazja.ui.components.fabMorphShape
 import java.time.Instant
 import java.time.LocalDate
 import java.time.ZoneOffset
@@ -203,6 +204,7 @@ private fun DeclarationScreen(
         floatingActionButton = {
             FloatingActionButton(
                 onClick = onOpenHistory,
+                shape = fabMorphShape(),
                 modifier = Modifier.fabMorph(DECLARATION_HISTORY_MORPH_KEY, FabMorphRole.Fab),
             ) {
                 Icon(

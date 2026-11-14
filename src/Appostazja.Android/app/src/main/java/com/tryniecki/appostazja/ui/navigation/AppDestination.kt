@@ -8,6 +8,7 @@ import kotlinx.serialization.Serializable
 @Serializable
 sealed interface AppRoute {
     @Serializable data object Map : AppRoute
+    @Serializable data object Search : AppRoute
     @Serializable data object Stats : AppRoute
     @Serializable data object Declaration : AppRoute
     @Serializable data object DeclarationHistory : AppRoute
