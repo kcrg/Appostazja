@@ -70,6 +70,14 @@ class BaselineProfileGenerator {
         device.waitForIdle()
 
         openTab("Deklaracja")
+        // The history opens from the form's FAB with a container transform and closes back into it.
+        checkNotNull(device.wait(Until.findObject(By.desc("Wygenerowane deklaracje")), ScreenTimeoutMillis)) {
+            "History button not found."
+        }.click()
+        device.wait(Until.findObject(By.text("Wygenerowane deklaracje")), ScreenTimeoutMillis)
+        device.waitForIdle()
+        device.pressBack()
+        device.waitForIdle()
         openTab("Więcej")
         openTab("Mapa")
 

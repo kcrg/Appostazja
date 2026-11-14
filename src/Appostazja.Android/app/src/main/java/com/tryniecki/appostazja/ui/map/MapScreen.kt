@@ -178,6 +178,8 @@ private const val PLACE_ZOOM = 15f
 internal const val SEARCH_MORPH_KEY = "search"
 // How long the snapshot covers the map after it resumes, long enough for its surface to draw again.
 private const val MAP_RESTART_MS = 900L
+// After the tab fade (250 ms), before PersistentMapHost stops the hidden map (500 ms).
+private const val SNAPSHOT_DELAY_MS = 320L
 
 @OptIn(MapsComposeExperimentalApi::class, ExperimentalMaterial3Api::class)
 @Composable
@@ -198,8 +200,13 @@ private fun MapScreen(
     val mapLifecycle = LocalLifecycleOwner.current.lifecycle
     LaunchedEffect(mapOnScreen) {
         if (!mapOnScreen) {
-            // Only from a live map: a snapshot of one still restarting would be blank.
-            if (mapSnapshot == null) googleMap?.snapshot { bitmap -> mapSnapshot = bitmap?.asImageBitmap() }
+            // Only from a live map: a snapshot of one still restarting would be blank. Reading the GL surface back
+            // takes ~30 ms on the map's GL thread and stalls the GPU, so it waits for the tab transition to
+            // finish; the map keeps rendering until PersistentMapHost stops it a little later.
+            if (mapSnapshot == null) {
+                delay(SNAPSHOT_DELAY_MS)
+                googleMap?.snapshot { bitmap -> mapSnapshot = bitmap?.asImageBitmap() }
+            }
         } else if (mapSnapshot != null) {
             mapLifecycle.currentStateFlow.first { it.isAtLeast(Lifecycle.State.RESUMED) }
             delay(MAP_RESTART_MS)

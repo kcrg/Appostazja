@@ -168,9 +168,6 @@ fun AppostazjaApp(
             else cover.animateTo(1f, tween(NavMotion.TabFadeIn, delayMillis = NavMotion.TabFadeInDelay, easing = LinearEasing))
         }
         val mapVisible = coverHidden || cover.value < 1f
-        // One shared-transition layout over the map and the NavHost: a FAB morphs into the screen it opens.
-        SharedTransitionLayout(Modifier.fillMaxSize()) {
-        CompositionLocalProvider(LocalSharedTransitionScope provides this) {
         Box(contentModifier) {
             PersistentMapHost(visible = mapVisible) {
                 MapRoute(
@@ -188,6 +185,10 @@ fun AppostazjaApp(
                 )
             }
         }
+        // Shared elements (a FAB morphing into the screen it opens) live in the NavHost; the map stays outside,
+        // so its overlays do not go through the lookahead passes every frame.
+        SharedTransitionLayout(Modifier.fillMaxSize()) {
+        CompositionLocalProvider(LocalSharedTransitionScope provides this) {
         val coverColor = MaterialTheme.colorScheme.background
         Box(contentModifier.drawBehind { if (cover.value > 0f) drawRect(coverColor, alpha = cover.value) })
         val density = LocalDensity.current
