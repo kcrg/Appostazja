@@ -218,6 +218,8 @@ private fun MapScreen(
         }
         MarkerTransitionOverlay(markerTransitions, cameraState)
 
+        // Only the status card itself takes space: a full-size AnimatedContent would hand its minimum size to
+        // the Surface (propagateMinConstraints) and stretch the card over the whole map.
         AnimatedContent(
             targetState = when {
                 state.isLoading -> MapOverlayState.LOADING
@@ -225,7 +227,7 @@ private fun MapScreen(
                 else -> MapOverlayState.CONTENT
             },
             modifier = Modifier
-                .fillMaxSize()
+                .align(Alignment.TopCenter)
                 .windowInsetsPadding(WindowInsets.statusBars)
                 .padding(16.dp),
             contentAlignment = Alignment.TopCenter,
