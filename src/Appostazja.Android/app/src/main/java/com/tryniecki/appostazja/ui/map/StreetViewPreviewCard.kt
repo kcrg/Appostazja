@@ -29,6 +29,7 @@ import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.Stable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
@@ -65,29 +66,66 @@ private fun Modifier.minAspectRatio(ratio: Float) = layout { measurable, constra
     layout(placeable.width, placeable.height) { placeable.place(0, 0) }
 }
 
+/** The Street View preview of one parish; null while loading. Shared by the card and the sheet's action row. */
+@Stable
+class StreetViewPreviewState internal constructor() {
+    var preview by mutableStateOf<StreetViewPreview?>(null)
+        internal set
+    internal var attempt by mutableIntStateOf(0)
+
+    fun retry() {
+        attempt++
+    }
+
+    /**
+     * No thumbnail (refused, out of quota, or the Static API is not enabled), but the in-app panorama runs on the
+     * Maps SDK and still works, so a plain button next to the sheet's other actions opens it.
+     */
+    val offersButton: Boolean
+        get() = when (val current = preview) {
+            is StreetViewPreview.Available -> current.image == null
+            StreetViewPreview.PreviewDenied, StreetViewPreview.QuotaExceeded -> true
+            else -> false
+        }
+
+    /** Whether the card has anything to show: not without a key, and not when the action row has the button. */
+    val showsCard: Boolean
+        get() = preview != StreetViewPreview.Disabled && !offersButton
+
+    /** The panorama to open; null means it is looked up by the parish location. */
+    val panorama: StreetViewPreview.Available?
+        get() = preview as? StreetViewPreview.Available
+}
+
 @Composable
-fun StreetViewPreviewCard(
+fun rememberStreetViewPreview(
     place: PlaceDto,
     loadPreview: suspend (place: PlaceDto, userRetry: Boolean) -> StreetViewPreview,
-    /** Opens the in-app panorama; null when there is no preview and the panorama is looked up by location. */
-    onOpen: (StreetViewPreview.Available?) -> Unit,
-    modifier: Modifier = Modifier,
-) {
-    var attempt by remember(place.id) { mutableIntStateOf(0) }
-    var preview by remember(place.id) { mutableStateOf<StreetViewPreview?>(null) }
-    LaunchedEffect(place.id, attempt) {
-        preview = null
-        preview = try {
-            loadPreview(place, attempt > 0)
+): StreetViewPreviewState {
+    val state = remember(place.id) { StreetViewPreviewState() }
+    LaunchedEffect(state, state.attempt) {
+        state.preview = null
+        state.preview = try {
+            loadPreview(place, state.attempt > 0)
         } catch (cancelled: CancellationException) {
             throw cancelled
         } catch (_: Exception) {
             StreetViewPreview.Failed
         }
     }
+    return state
+}
 
-    // Nothing to show without a key; keep the sheet clean instead of displaying a dead card.
-    if (preview == StreetViewPreview.Disabled) return
+@Composable
+fun StreetViewPreviewCard(
+    state: StreetViewPreviewState,
+    /** Opens the in-app panorama; null when there is no preview and the panorama is looked up by location. */
+    onOpen: (StreetViewPreview.Available?) -> Unit,
+    modifier: Modifier = Modifier,
+) {
+    if (!state.showsCard) return
+    val preview = state.preview
+    val retry = state::retry
 
     val motion = MaterialTheme.motionScheme
     AnimatedContent(
@@ -96,17 +134,14 @@ fun StreetViewPreviewCard(
         transitionSpec = { fadeIn(motion.defaultEffectsSpec()) togetherWith fadeOut(motion.fastEffectsSpec()) },
         contentKey = { it?.javaClass },
         label = "street-view-preview",
-    ) { state ->
-        when (state) {
+    ) { current ->
+        when (val state = current) {
             null -> LoadingPreview()
-            is StreetViewPreview.Available -> if (state.image != null) {
-                AvailablePreview(preview = state, image = state.image, onOpen = { onOpen(state) })
-            } else {
-                StreetViewButton(onClick = { onOpen(state) })
+            is StreetViewPreview.Available -> state.image?.let { image ->
+                AvailablePreview(preview = state, image = image, onOpen = { onOpen(state) })
             }
-            // No thumbnail (out of quota or the Static API is not enabled), but the in-app panorama runs on the
-            // Maps SDK and still works, so a plain button opens it.
-            StreetViewPreview.PreviewDenied, StreetViewPreview.QuotaExceeded -> StreetViewButton(onClick = { onOpen(null) })
+            // Shown as a button in the sheet's action row instead.
+            StreetViewPreview.PreviewDenied, StreetViewPreview.QuotaExceeded -> Unit
             StreetViewPreview.NotAvailable -> MessagePreview(
                 icon = Tabler.drawable.tabler_ic_map_pin_off_outline,
                 title = stringResource(R.string.street_view_unavailable_title),
@@ -118,7 +153,7 @@ fun StreetViewPreviewCard(
                 title = stringResource(R.string.street_view_error_title),
                 body = stringResource(R.string.street_view_error_body),
             ) {
-                OutlinedButton(onClick = { attempt++ }) {
+                OutlinedButton(onClick = retry) {
                     Text(stringResource(R.string.action_retry))
                 }
             }
@@ -222,8 +257,7 @@ private fun AvailablePreview(preview: StreetViewPreview.Available, image: ImageB
 }
 
 @Composable
-private fun StreetViewButton(onClick: () -> Unit) {
-    Row(Modifier.fillMaxWidth()) {
+internal fun StreetViewButton(onClick: () -> Unit) {
         FilledTonalButton(onClick = onClick) {
             Icon(
                 painter = painterResource(Tabler.drawable.tabler_ic_panorama_horizontal_outline),
@@ -233,7 +267,6 @@ private fun StreetViewButton(onClick: () -> Unit) {
             Spacer(Modifier.size(ButtonDefaults.IconSpacing))
             Text(stringResource(R.string.street_view_label))
         }
-    }
 }
 
 @Composable

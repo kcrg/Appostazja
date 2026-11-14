@@ -29,6 +29,7 @@ import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.FlowRow
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.PaddingValues
@@ -470,6 +471,7 @@ private fun ChurchDetailsSheet(
     onNavigate: () -> Unit,
 ) {
     // Null while closed; open with the previewed panorama or, without a preview, a lookup by location.
+    val streetViewPreview = rememberStreetViewPreview(place, loadStreetView)
     var streetView by remember(place.id) { mutableStateOf<StreetViewRequest?>(null) }
     streetView?.let { request -> StreetViewScreen(place, request.preview, onClose = { streetView = null }) }
     val openCustomTab = rememberOpenCustomTab()
@@ -525,7 +527,11 @@ private fun ChurchDetailsSheet(
         }
 
         item(key = "actions") {
-            Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+            // Wraps on narrow screens once the Street View button joins Navigate and Website.
+            FlowRow(
+                horizontalArrangement = Arrangement.spacedBy(8.dp),
+                verticalArrangement = Arrangement.spacedBy(8.dp),
+            ) {
                 Button(onClick = onNavigate) {
                     Icon(
                         painter = painterResource(com.composables.icons.tabler.outline.R.drawable.tabler_ic_directions_outline),
@@ -546,11 +552,14 @@ private fun ChurchDetailsSheet(
                         Text(stringResource(R.string.church_website))
                     }
                 }
+                if (streetViewPreview.offersButton) {
+                    StreetViewButton(onClick = { streetView = StreetViewRequest(streetViewPreview.panorama) })
+                }
             }
         }
 
-        item(key = "street-view") {
-            StreetViewPreviewCard(place = place, loadPreview = loadStreetView, onOpen = { streetView = StreetViewRequest(it) })
+        if (streetViewPreview.showsCard) item(key = "street-view") {
+            StreetViewPreviewCard(state = streetViewPreview, onOpen = { streetView = StreetViewRequest(it) })
         }
 
         item { HorizontalDivider() }
