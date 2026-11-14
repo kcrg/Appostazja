@@ -20,6 +20,8 @@ class MainActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         enableEdgeToEdge()
+        // The bottom navigation bar paints its own background behind the gesture/3-button bar.
+        window.isNavigationBarContrastEnforced = false
 
         val themePreferences = ThemePreferences(this)
 

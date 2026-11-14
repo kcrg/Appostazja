@@ -27,8 +27,7 @@
     <string name="stats_tone_negative">Nieprzychylne</string>
     <string name="stats_source">Dane: mapaapostazji.pl. Statystyki obejmują wyłącznie zgłoszone relacje i nie są reprezentatywne dla wszystkich parafii.</string>
 
-    <string name="map_loading">Pobieram dane mapy…</string>
-    <string name="map_loaded_count">Załadowano %1$d parafii</string>
+    <string name="map_loading">Wczytuję parafie…</string>
     <string name="map_nearby_places">Parafie w tym miejscu</string>
     <plurals name="map_cluster_count">
         <item quantity="one">%d parafia</item>
@@ -36,18 +35,15 @@
         <item quantity="many">%d parafii</item>
         <item quantity="other">%d parafii</item>
     </plurals>
-    <string name="map_data_source">Źródło danych mapy: Mapa Apostazji</string>
     <string name="map_data_source_url" translatable="false">https://mapaapostazji.pl/</string>
     <string name="map_error_title">Nie udało się wczytać mapy</string>
-    <string name="map_error_body">Sprawdź połączenie z internetem i spróbuj ponownie.</string>
+    <string name="map_error_body">Sprawdź połączenie z internetem.</string>
     <string name="action_retry">Spróbuj ponownie</string>
-    <string name="action_refresh">Odśwież</string>
     <string name="church_relations">Relacje</string>
     <string name="church_positive">Łatwo</string>
     <string name="church_neutral">Średnio</string>
     <string name="church_negative">Trudno</string>
     <string name="church_no_relations">Brak ocenionych relacji</string>
-    <string name="church_reports_loading">Pobieram relacje…</string>
     <string name="church_reports_error">Nie udało się wczytać relacji.</string>
     <string name="church_report_before">Przed apostazją</string>
     <string name="church_report_apostasy">Apostazja</string>
@@ -72,8 +68,8 @@
     <string name="search_sort_reports">Najwięcej relacji</string>
     <string name="search_sort_name">A–Z</string>
     <string name="search_with_reports_only">Tylko z relacjami</string>
-    <string name="search_empty">Brak parafii pasujących do wyszukiwania.</string>
-    <string name="search_error">Nie udało się wyszukać. Sprawdź połączenie.</string>
+    <string name="search_empty">Brak pasujących parafii</string>
+    <string name="search_error">Nie udało się wyszukać. Sprawdź połączenie z internetem.</string>
     <plurals name="search_results_count">
         <item quantity="one">%d parafia</item>
         <item quantity="few">%d parafie</item>
@@ -82,8 +78,8 @@
     </plurals>
     <string name="church_stages_title">Według etapu</string>
     <string name="church_stage_summary">%1$s: łatwo %2$d, średnio %3$d, trudno %4$d</string>
-    <string name="church_website">Strona parafii</string>
-    <string name="church_navigate">Nawiguj w Google Maps</string>
+    <string name="church_website">Strona</string>
+    <string name="church_navigate_short">Nawiguj</string>
     <string name="street_view_label">Street View</string>
     <string name="street_view_loading">Wczytuję widok z ulicy…</string>
     <string name="street_view_open">Otwórz</string>

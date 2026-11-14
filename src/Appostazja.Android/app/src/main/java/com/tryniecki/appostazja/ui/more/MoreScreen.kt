@@ -24,6 +24,9 @@ import androidx.compose.material3.SegmentedButtonDefaults
 import androidx.compose.material3.SingleChoiceSegmentedButtonRow
 import androidx.compose.material3.Text
 import androidx.compose.material3.TopAppBar
+import androidx.compose.material3.TopAppBarDefaults
+import androidx.compose.ui.input.nestedscroll.nestedScroll
+import androidx.compose.foundation.layout.consumeWindowInsets
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.produceState
@@ -69,15 +72,18 @@ fun MoreScreen(
     val dataSourceBody = datasetStatus?.let { dataSourceDescription(it, LocalLocale.current.platformLocale) }
         ?: stringResource(R.string.more_data_source_body)
 
+    val scrollBehavior = TopAppBarDefaults.pinnedScrollBehavior()
     Scaffold(
-        topBar = { TopAppBar(title = { Text(stringResource(R.string.more_title)) }) },
+        modifier = Modifier.nestedScroll(scrollBehavior.nestedScrollConnection),
+        topBar = { TopAppBar(title = { Text(stringResource(R.string.more_title)) }, scrollBehavior = scrollBehavior) },
     ) { innerPadding ->
         Column(
             modifier = Modifier
                 .fillMaxSize()
                 .padding(innerPadding)
+                .consumeWindowInsets(innerPadding)
                 .verticalScroll(rememberScrollState())
-                .padding(horizontal = 16.dp, vertical = 12.dp),
+                .padding(start = 16.dp, end = 16.dp, top = 8.dp, bottom = 24.dp),
             verticalArrangement = Arrangement.spacedBy(16.dp),
         ) {
             MoreSection(stringResource(R.string.more_data_source)) {
@@ -107,9 +113,8 @@ fun MoreScreen(
                 }
             }
 
-            Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
-                SectionTitle(stringResource(R.string.more_theme))
-                SingleChoiceSegmentedButtonRow(modifier = Modifier.fillMaxWidth()) {
+            MoreSection(stringResource(R.string.more_theme)) {
+                SingleChoiceSegmentedButtonRow(modifier = Modifier.fillMaxWidth().padding(16.dp)) {
                     ThemeMode.entries.forEachIndexed { index, mode ->
                         SegmentedButton(
                             selected = themeMode == mode,

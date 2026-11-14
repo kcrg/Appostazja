@@ -9,6 +9,9 @@ import androidx.compose.animation.fadeOut
 import androidx.compose.animation.togetherWith
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Box
+import androidx.compose.ui.draw.clip
+import androidx.compose.ui.semantics.Role
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
@@ -35,6 +38,10 @@ import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.material3.TopAppBar
+import androidx.compose.material3.TopAppBarDefaults
+import androidx.compose.ui.input.nestedscroll.nestedScroll
+import androidx.compose.foundation.layout.consumeWindowInsets
+import androidx.compose.foundation.layout.imePadding
 import androidx.compose.material3.rememberDatePickerState
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.DisposableEffect
@@ -46,6 +53,7 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.platform.LocalResources
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.input.ImeAction
@@ -75,6 +83,7 @@ fun DeclarationRoute(
     val viewModel: DeclarationViewModel = viewModel(factory = DeclarationViewModel.factory(draftStore))
     val state by viewModel.uiState.collectAsStateWithLifecycle()
     val context = LocalContext.current
+    val resources = LocalResources.current
     val scope = rememberCoroutineScope()
     val snackbarHostState = remember { SnackbarHostState() }
     var pendingDeclaration by remember { mutableStateOf<ApostasyDeclaration?>(null) }
@@ -120,7 +129,7 @@ fun DeclarationRoute(
         onGenerate = {
             viewModel.buildDeclaration()?.let { declaration ->
                 pendingDeclaration = declaration
-                createDocument.launch(context.getString(R.string.declaration_file_name))
+                createDocument.launch(resources.getString(R.string.declaration_file_name))
             }
         },
     )
@@ -142,10 +151,13 @@ private fun DeclarationScreen(
     onGenerate: () -> Unit,
 ) {
     val motion = MaterialTheme.motionScheme
+    val scrollBehavior = TopAppBarDefaults.pinnedScrollBehavior()
     Scaffold(
+        modifier = Modifier.nestedScroll(scrollBehavior.nestedScrollConnection),
         topBar = {
             TopAppBar(
                 title = { Text(stringResource(R.string.declaration_title)) },
+                scrollBehavior = scrollBehavior,
                 actions = {
                     TextButton(onClick = onClear, enabled = state.isLoaded && !isGenerating) {
                         Text(stringResource(R.string.declaration_clear))
@@ -155,7 +167,7 @@ private fun DeclarationScreen(
         },
         snackbarHost = { SnackbarHost(snackbarHostState) },
         bottomBar = {
-            Surface(tonalElevation = 3.dp) {
+            Surface(color = MaterialTheme.colorScheme.surfaceContainer) {
                 Button(
                     onClick = onGenerate,
                     enabled = state.canGenerate && !isGenerating,
@@ -167,7 +179,7 @@ private fun DeclarationScreen(
                         ExpressiveLoadingIndicator(Modifier.size(24.dp))
                     } else {
                         Icon(
-                            painter = painterResource(com.composables.icons.tabler.outline.R.drawable.tabler_ic_list_outline),
+                            painter = painterResource(com.composables.icons.tabler.outline.R.drawable.tabler_ic_file_type_pdf_outline),
                             contentDescription = null,
                         )
                         Spacer(Modifier.size(8.dp))
@@ -181,7 +193,8 @@ private fun DeclarationScreen(
             targetState = state.isLoaded,
             modifier = Modifier
                 .fillMaxSize()
-                .padding(innerPadding),
+                .padding(innerPadding)
+                .consumeWindowInsets(innerPadding),
             transitionSpec = { fadeIn(motion.defaultEffectsSpec()) togetherWith fadeOut(motion.fastEffectsSpec()) },
             label = "declaration-load",
         ) { loaded ->
@@ -225,8 +238,10 @@ private fun DeclarationForm(
     Column(
         modifier = Modifier
             .fillMaxSize()
+            // Keeps the focused field above the keyboard; the window does not resize edge-to-edge.
+            .imePadding()
             .verticalScroll(scrollState)
-            .padding(horizontal = 20.dp, vertical = 12.dp),
+            .padding(horizontal = 16.dp, vertical = 12.dp),
         verticalArrangement = Arrangement.spacedBy(22.dp),
     ) {
         FormSection(title = stringResource(R.string.declaration_your_data)) {
@@ -254,24 +269,28 @@ private fun DeclarationForm(
         }
 
         FormSection(title = stringResource(R.string.declaration_baptism_data)) {
-            Surface(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .clickable { showDatePicker = true },
-                shape = MaterialTheme.shapes.large,
-                color = MaterialTheme.colorScheme.surfaceContainerLow,
-            ) {
-                Column(Modifier.padding(horizontal = 16.dp, vertical = 12.dp)) {
-                    Text(
-                        stringResource(R.string.declaration_baptism_date),
-                        style = MaterialTheme.typography.labelMedium,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant,
-                    )
-                    Text(
-                        state.baptismDate.format(DateTimeFormatter.ofPattern("dd.MM.yyyy")),
-                        style = MaterialTheme.typography.bodyLarge,
-                    )
-                }
+            Box {
+                OutlinedTextField(
+                    value = state.baptismDate.format(DateTimeFormatter.ofPattern("dd.MM.yyyy")),
+                    onValueChange = {},
+                    readOnly = true,
+                    label = { Text(stringResource(R.string.declaration_baptism_date)) },
+                    trailingIcon = {
+                        Icon(
+                            painter = painterResource(com.composables.icons.tabler.outline.R.drawable.tabler_ic_calendar_outline),
+                            contentDescription = null,
+                        )
+                    },
+                    modifier = Modifier.fillMaxWidth(),
+                    singleLine = true,
+                )
+                // A read-only field swallows taps; this layer opens the picker from anywhere on it.
+                Box(
+                    Modifier
+                        .matchParentSize()
+                        .clip(MaterialTheme.shapes.extraSmall)
+                        .clickable(role = Role.Button) { showDatePicker = true },
+                )
             }
             OutlinedTextField(
                 value = state.baptismParish,
@@ -350,7 +369,7 @@ private fun DeclarationForm(
 @Composable
 private fun FormSection(title: String, content: @Composable () -> Unit) {
     Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
-        Text(title, style = MaterialTheme.typography.titleLarge)
+        Text(title, style = MaterialTheme.typography.titleMedium, color = MaterialTheme.colorScheme.primary)
         content()
     }
 }
@@ -379,9 +398,9 @@ private fun BaptismDatePicker(
                 enabled = state.selectedDateMillis?.let { millis ->
                     !Instant.ofEpochMilli(millis).atZone(ZoneOffset.UTC).toLocalDate().isAfter(today)
                 } == true,
-            ) { Text("OK") }
+            ) { Text(stringResource(android.R.string.ok)) }
         },
-        dismissButton = { TextButton(onClick = onDismiss) { Text("Anuluj") } },
+        dismissButton = { TextButton(onClick = onDismiss) { Text(stringResource(android.R.string.cancel)) } },
     ) {
         DatePicker(state = state)
     }

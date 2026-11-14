@@ -25,7 +25,9 @@ import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.text.KeyboardActions
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material3.FilterChip
-import androidx.compose.material3.FilterChipDefaults
+import androidx.compose.material3.SearchBarDefaults
+import androidx.compose.foundation.layout.heightIn
+import com.tryniecki.appostazja.ui.components.EmptyState
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
@@ -114,11 +116,14 @@ internal fun PlaceSearchScreen(
                     onValueChange = onQueryChange,
                     modifier = Modifier
                         .weight(1f)
+                        .heightIn(min = SearchBarDefaults.InputFieldHeight)
                         .focusRequester(focusRequester),
                     placeholder = { Text(stringResource(R.string.search_placeholder)) },
                     singleLine = true,
-                    shape = CircleShape,
+                    shape = SearchBarDefaults.inputFieldShape,
                     colors = TextFieldDefaults.colors(
+                        focusedContainerColor = MaterialTheme.colorScheme.surfaceContainerHigh,
+                        unfocusedContainerColor = MaterialTheme.colorScheme.surfaceContainerHigh,
                         focusedIndicatorColor = Color.Transparent,
                         unfocusedIndicatorColor = Color.Transparent,
                     ),
@@ -158,9 +163,6 @@ internal fun PlaceSearchScreen(
                     selected = state.withReportsOnly,
                     onClick = { onWithReportsOnlyChange(!state.withReportsOnly) },
                     label = { Text(stringResource(R.string.search_with_reports_only)) },
-                    colors = FilterChipDefaults.filterChipColors(
-                        selectedContainerColor = MaterialTheme.colorScheme.tertiaryContainer,
-                    ),
                 )
             }
 
@@ -169,11 +171,16 @@ internal fun PlaceSearchScreen(
             }
 
             when {
-                state.error && state.results.isEmpty() -> Message(
-                    text = stringResource(R.string.search_error),
-                    action = { TextButton(onClick = onRetry) { Text(stringResource(R.string.action_retry)) } },
+                state.error && state.results.isEmpty() -> EmptyState(
+                    icon = TablerIcons.drawable.tabler_ic_wifi_off_outline,
+                    title = stringResource(R.string.search_error),
+                    actionLabel = stringResource(R.string.action_retry),
+                    onAction = onRetry,
                 )
-                !state.isLoading && state.results.isEmpty() -> Message(stringResource(R.string.search_empty))
+                !state.isLoading && state.results.isEmpty() -> EmptyState(
+                    icon = TablerIcons.drawable.tabler_ic_search_off_outline,
+                    title = stringResource(R.string.search_empty),
+                )
                 else -> LazyColumn(
                     state = listState,
                     contentPadding = PaddingValues(bottom = 24.dp),
@@ -248,16 +255,3 @@ private fun toneColor(tone: String?): Color = when (tone) {
     else -> RatingNeutral
 }
 
-@Composable
-private fun Message(text: String, action: (@Composable () -> Unit)? = null) {
-    Column(
-        modifier = Modifier
-            .fillMaxWidth()
-            .padding(32.dp),
-        horizontalAlignment = Alignment.CenterHorizontally,
-        verticalArrangement = Arrangement.spacedBy(8.dp),
-    ) {
-        Text(text, color = MaterialTheme.colorScheme.onSurfaceVariant)
-        action?.invoke()
-    }
-}

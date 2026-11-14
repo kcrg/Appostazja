@@ -30,14 +30,13 @@ import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
-import androidx.compose.foundation.layout.RowScope
 import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.WindowInsets
-import androidx.compose.foundation.layout.WindowInsetsSides
+import androidx.compose.foundation.layout.asPaddingValues
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
-import androidx.compose.foundation.layout.only
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.statusBars
@@ -46,12 +45,13 @@ import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.Button
-import androidx.compose.material3.Card
-import androidx.compose.material3.CardDefaults
+import androidx.compose.material3.ButtonDefaults
+import androidx.compose.material3.ListItem
+import androidx.compose.material3.ListItemDefaults
+import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
-import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.FloatingActionButton
 import androidx.compose.material3.ModalBottomSheet
@@ -180,8 +180,6 @@ private fun MapScreen(
         MarkerTransitions { Settings.Global.getFloat(resolver, Settings.Global.ANIMATOR_DURATION_SCALE, 1f) }
     }
     val motion = MaterialTheme.motionScheme
-    val openCustomTab = rememberOpenCustomTab()
-    val dataSourceUrl = stringResource(R.string.map_data_source_url)
 
     BoxWithConstraints(Modifier.fillMaxSize()) {
         // The diagonal covers map rotation; the extra half preloads neighbours so short pans reveal no gaps.
@@ -190,6 +188,7 @@ private fun MapScreen(
             modifier = Modifier.fillMaxSize(),
             cameraPositionState = cameraState,
             mapColorScheme = mapColors,
+            contentPadding = WindowInsets.statusBars.asPaddingValues(),
             uiSettings = MapUiSettings(
                 compassEnabled = true,
                 zoomControlsEnabled = false,
@@ -227,63 +226,19 @@ private fun MapScreen(
             },
             modifier = Modifier
                 .fillMaxSize()
-                .windowInsetsPadding(WindowInsets.statusBars.only(WindowInsetsSides.Top)),
-            contentAlignment = Alignment.Center,
-            transitionSpec = { fadeIn(motion.defaultEffectsSpec()) togetherWith fadeOut(motion.fastEffectsSpec()) },
+                .windowInsetsPadding(WindowInsets.statusBars)
+                .padding(16.dp),
+            contentAlignment = Alignment.TopCenter,
+            transitionSpec = {
+                (fadeIn(motion.defaultEffectsSpec()) + scaleIn(motion.defaultSpatialSpec(), initialScale = 0.9f))
+                    .togetherWith(fadeOut(motion.fastEffectsSpec()) + scaleOut(motion.fastSpatialSpec(), targetScale = 0.9f))
+            },
             label = "map-status",
         ) { overlay ->
             when (overlay) {
-                MapOverlayState.LOADING -> StatusCard(
-                    content = {
-                        ExpressiveLoadingIndicator(Modifier.size(32.dp))
-                        Text(stringResource(R.string.map_loading), style = MaterialTheme.typography.titleMedium)
-                    },
-                )
+                MapOverlayState.LOADING -> LoadingPill()
                 MapOverlayState.ERROR -> ErrorCard(errorDetails = state.errorDetails, onRetry = onRefresh)
                 MapOverlayState.CONTENT -> Unit
-            }
-        }
-
-        if (state.places.isNotEmpty()) {
-            Card(
-                modifier = Modifier
-                    .align(Alignment.TopCenter)
-                    .windowInsetsPadding(WindowInsets.statusBars.only(WindowInsetsSides.Top))
-                    .padding(16.dp)
-                    .fillMaxWidth(),
-                colors = CardDefaults.cardColors(
-                    containerColor = MaterialTheme.colorScheme.surfaceContainer.copy(alpha = 0.94f),
-                ),
-            ) {
-                Row(
-                    modifier = Modifier.padding(start = 16.dp, top = 10.dp, end = 8.dp, bottom = 10.dp),
-                    verticalAlignment = Alignment.CenterVertically,
-                ) {
-                    Column(Modifier.weight(1f)) {
-                        Text("Parafie na mapie", style = MaterialTheme.typography.titleMedium)
-                        Text(
-                            stringResource(R.string.map_loaded_count, state.places.size),
-                            style = MaterialTheme.typography.bodySmall,
-                            color = MaterialTheme.colorScheme.onSurfaceVariant,
-                        )
-                    }
-                    if (state.isRefreshing) {
-                        ExpressiveLoadingIndicator(Modifier.size(30.dp))
-                    } else {
-                        IconButton(onClick = onRefresh) {
-                            Icon(
-                                painter = painterResource(com.composables.icons.tabler.outline.R.drawable.tabler_ic_refresh_outline),
-                                contentDescription = stringResource(R.string.action_refresh),
-                            )
-                        }
-                    }
-                }
-                TextButton(
-                    onClick = { openCustomTab(dataSourceUrl) },
-                    modifier = Modifier.padding(horizontal = 8.dp),
-                ) {
-                    Text(stringResource(R.string.map_data_source))
-                }
             }
         }
 
@@ -327,23 +282,25 @@ private fun MapScreen(
 
     if (nearbyPlaces.isNotEmpty()) {
         ModalBottomSheet(onDismissRequest = { nearbyPlaces = emptyList() }) {
-            LazyColumn(
-                modifier = Modifier.padding(horizontal = 20.dp, vertical = 12.dp),
-            ) {
+            LazyColumn(contentPadding = PaddingValues(bottom = 16.dp)) {
                 item(key = "title", contentType = "title") {
-                    Text(stringResource(R.string.map_nearby_places), style = MaterialTheme.typography.titleMedium)
+                    Text(
+                        stringResource(R.string.map_nearby_places),
+                        style = MaterialTheme.typography.titleLarge,
+                        modifier = Modifier.padding(horizontal = 24.dp, vertical = 8.dp),
+                    )
                 }
                 items(nearbyPlaces, key = { it.id }, contentType = { "place" }) { place ->
-                    TextButton(
+                    ListItem(
                         onClick = {
                             nearbyPlaces = emptyList()
                             selectedPlace = place
                         },
+                        colors = ListItemDefaults.colors(containerColor = Color.Transparent),
+                        supportingContent = { Text(place.address, maxLines = 2, overflow = TextOverflow.Ellipsis) },
+                        leadingContent = { ToneDot(place.tone) },
                     ) {
-                        Column {
-                            Text(place.name)
-                            Text(place.address, style = MaterialTheme.typography.bodySmall)
-                        }
+                        Text(place.name, maxLines = 2, overflow = TextOverflow.Ellipsis)
                     }
                 }
             }
@@ -422,53 +379,77 @@ private fun ChurchClustering(
 }
 
 @Composable
-private fun StatusCard(
-    modifier: Modifier = Modifier,
-    content: @Composable RowScope.() -> Unit,
-) {
-    Card(modifier = modifier.padding(24.dp)) {
+private fun LoadingPill() {
+    Surface(
+        shape = CircleShape,
+        color = MaterialTheme.colorScheme.surfaceContainerHigh,
+        shadowElevation = 3.dp,
+    ) {
         Row(
-            modifier = Modifier.padding(horizontal = 18.dp, vertical = 14.dp),
-            horizontalArrangement = Arrangement.spacedBy(12.dp),
+            modifier = Modifier.padding(start = 8.dp, end = 16.dp, top = 6.dp, bottom = 6.dp),
+            horizontalArrangement = Arrangement.spacedBy(8.dp),
             verticalAlignment = Alignment.CenterVertically,
-            content = content,
-        )
+        ) {
+            ExpressiveLoadingIndicator(Modifier.size(28.dp))
+            Text(stringResource(R.string.map_loading), style = MaterialTheme.typography.labelLarge)
+        }
     }
 }
 
 @Composable
 private fun ErrorCard(
     errorDetails: String?,
-    modifier: Modifier = Modifier,
     onRetry: () -> Unit,
 ) {
-    Card(modifier = modifier.padding(24.dp)) {
-        Column(
-            modifier = Modifier.padding(20.dp),
-            horizontalAlignment = Alignment.CenterHorizontally,
-            verticalArrangement = Arrangement.spacedBy(10.dp),
-        ) {
-            Icon(
-                painter = painterResource(com.composables.icons.tabler.outline.R.drawable.tabler_ic_info_circle_outline),
-                contentDescription = null,
-                tint = MaterialTheme.colorScheme.error,
-            )
-            Text(stringResource(R.string.map_error_title), style = MaterialTheme.typography.titleLarge)
-            Text(
-                stringResource(R.string.map_error_body),
-                style = MaterialTheme.typography.bodyMedium,
-                color = MaterialTheme.colorScheme.onSurfaceVariant,
-            )
-            errorDetails?.let { details ->
-                Text(
-                    details,
-                    style = MaterialTheme.typography.bodySmall,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+    Surface(
+        modifier = Modifier.widthIn(max = 400.dp),
+        shape = MaterialTheme.shapes.extraLarge,
+        color = MaterialTheme.colorScheme.surfaceContainerHigh,
+        shadowElevation = 3.dp,
+    ) {
+        Column(Modifier.padding(start = 20.dp, top = 16.dp, end = 12.dp, bottom = 8.dp)) {
+            Row(horizontalArrangement = Arrangement.spacedBy(16.dp)) {
+                Icon(
+                    painter = painterResource(com.composables.icons.tabler.outline.R.drawable.tabler_ic_wifi_off_outline),
+                    contentDescription = null,
+                    tint = MaterialTheme.colorScheme.error,
+                    modifier = Modifier.padding(top = 2.dp),
                 )
+                Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(2.dp)) {
+                    Text(stringResource(R.string.map_error_title), style = MaterialTheme.typography.titleMedium)
+                    Text(
+                        stringResource(R.string.map_error_body),
+                        style = MaterialTheme.typography.bodyMedium,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    )
+                    // Debug builds only, to tell a dead local API from a bad response.
+                    errorDetails?.let { details ->
+                        Text(
+                            details,
+                            style = MaterialTheme.typography.bodySmall,
+                            color = MaterialTheme.colorScheme.outline,
+                            maxLines = 3,
+                            overflow = TextOverflow.Ellipsis,
+                        )
+                    }
+                }
             }
-            Button(onClick = onRetry) { Text(stringResource(R.string.action_retry)) }
+            TextButton(onClick = onRetry, modifier = Modifier.align(Alignment.End)) {
+                Text(stringResource(R.string.action_retry))
+            }
         }
     }
+}
+
+@Composable
+internal fun ToneDot(tone: String?) {
+    val color = when (tone) {
+        "positive" -> RatingGood
+        "mixed" -> RatingNeutral
+        "negative" -> RatingBad
+        else -> MaterialTheme.colorScheme.outlineVariant
+    }
+    Box(Modifier.size(10.dp).background(color, CircleShape))
 }
 
 @Composable
@@ -516,8 +497,7 @@ private fun ChurchDetailsSheet(
                 place.rating?.let { rating ->
                     Text(
                         stringResource(R.string.place_rating, formatRating(rating, LocalLocale.current.platformLocale)),
-                        style = MaterialTheme.typography.labelLarge,
-                        color = MaterialTheme.colorScheme.primary,
+                        style = MaterialTheme.typography.titleSmall,
                     )
                 }
                 place.lastActionDate?.let { date ->
@@ -526,6 +506,31 @@ private fun ChurchDetailsSheet(
                         style = MaterialTheme.typography.labelMedium,
                         color = MaterialTheme.colorScheme.onSurfaceVariant,
                     )
+                }
+            }
+        }
+
+        item(key = "actions") {
+            Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                Button(onClick = onNavigate) {
+                    Icon(
+                        painter = painterResource(com.composables.icons.tabler.outline.R.drawable.tabler_ic_directions_outline),
+                        contentDescription = null,
+                        modifier = Modifier.size(ButtonDefaults.IconSize),
+                    )
+                    Spacer(Modifier.size(ButtonDefaults.IconSpacing))
+                    Text(stringResource(R.string.church_navigate_short))
+                }
+                details?.website?.let { url ->
+                    OutlinedButton(onClick = { openCustomTab(url) }) {
+                        Icon(
+                            painter = painterResource(com.composables.icons.tabler.outline.R.drawable.tabler_ic_world_outline),
+                            contentDescription = null,
+                            modifier = Modifier.size(ButtonDefaults.IconSize),
+                        )
+                        Spacer(Modifier.size(ButtonDefaults.IconSpacing))
+                        Text(stringResource(R.string.church_website))
+                    }
                 }
             }
         }
@@ -575,33 +580,24 @@ private fun ChurchDetailsSheet(
             )
         }
 
-        details?.website?.let { url ->
-            item {
-                TextButton(onClick = { openCustomTab(url) }) {
-                    Text(stringResource(R.string.church_website))
-                }
-            }
-        }
-
-        item {
-            Button(onClick = onNavigate, modifier = Modifier.fillMaxWidth()) {
-                Icon(
-                    painter = painterResource(com.composables.icons.tabler.outline.R.drawable.tabler_ic_directions_outline),
-                    contentDescription = null,
-                )
-                Spacer(Modifier.size(8.dp))
-                Text(stringResource(R.string.church_navigate))
-            }
-        }
 
         when {
             failed -> item {
-                Column {
-                    Text(stringResource(R.string.church_reports_error))
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    Text(
+                        stringResource(R.string.church_reports_error),
+                        style = MaterialTheme.typography.bodyMedium,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        modifier = Modifier.weight(1f),
+                    )
                     TextButton(onClick = { attempt++ }) { Text(stringResource(R.string.action_retry)) }
                 }
             }
-            details == null -> item { Text(stringResource(R.string.church_reports_loading)) }
+            details == null -> item {
+                Box(Modifier.fillMaxWidth().padding(vertical = 16.dp), contentAlignment = Alignment.Center) {
+                    ExpressiveLoadingIndicator(Modifier.size(40.dp))
+                }
+            }
             else -> itemsIndexed(
                 details?.reports.orEmpty(),
                 key = { index, _ -> index },

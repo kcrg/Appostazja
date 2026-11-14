@@ -4,12 +4,15 @@ import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
 import androidx.compose.animation.slideInHorizontally
 import androidx.compose.animation.slideOutHorizontally
+import androidx.compose.foundation.layout.PaddingValues
+import androidx.compose.foundation.layout.consumeWindowInsets
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.padding
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.NavigationBar
-import androidx.compose.material3.NavigationBarItem
+import androidx.compose.material3.ExperimentalMaterial3ExpressiveApi
+import androidx.compose.material3.ShortNavigationBar
+import androidx.compose.material3.ShortNavigationBarItem
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
@@ -33,6 +36,7 @@ import com.tryniecki.appostazja.ui.navigation.AppDestination
 import com.tryniecki.appostazja.ui.navigation.AppRoute
 import com.tryniecki.appostazja.ui.theme.ThemeMode
 
+@OptIn(ExperimentalMaterial3ExpressiveApi::class)
 @Composable
 fun AppostazjaApp(
     container: AppContainer,
@@ -47,10 +51,10 @@ fun AppostazjaApp(
     Scaffold(
         modifier = Modifier.fillMaxSize(),
         bottomBar = {
-            NavigationBar {
+            ShortNavigationBar {
                 AppDestination.entries.forEach { destination ->
                     val label = stringResource(destination.labelResId)
-                    NavigationBarItem(
+                    ShortNavigationBarItem(
                         selected = currentDestination == destination,
                         onClick = {
                             if (currentDestination != destination) {
@@ -80,7 +84,9 @@ fun AppostazjaApp(
             startDestination = AppRoute.Map,
             modifier = Modifier
                 .fillMaxSize()
-                .padding(bottom = innerPadding.calculateBottomPadding()),
+                .padding(bottom = innerPadding.calculateBottomPadding())
+                // Screens with their own Scaffold must not add the navigation bar inset a second time.
+                .consumeWindowInsets(PaddingValues(bottom = innerPadding.calculateBottomPadding())),
             enterTransition = {
                 val direction = transitionDirection(initialState.destination, targetState.destination)
                 fadeIn(motion.fastEffectsSpec()) +
