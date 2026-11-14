@@ -106,7 +106,7 @@ import com.tryniecki.appostazja.data.MapRepository
 import com.tryniecki.appostazja.data.StreetViewPreview
 import com.tryniecki.appostazja.data.StreetViewRepository
 import com.tryniecki.appostazja.ui.components.ExpressiveLoadingIndicator
-import com.tryniecki.appostazja.ui.components.StandardMotion
+import com.tryniecki.appostazja.ui.components.SheetMotion
 import com.tryniecki.appostazja.ui.theme.RatingBad
 import com.tryniecki.appostazja.ui.theme.RatingGood
 import com.tryniecki.appostazja.ui.theme.RatingNeutral
@@ -286,8 +286,8 @@ private fun MapScreen(
     }
     BackHandler(enabled = searchOpen) { searchOpen = false }
 
-    // Sheets open with the standard spring: the expressive one bounces visibly on a tall sheet.
-    if (nearbyPlaces.isNotEmpty()) StandardMotion {
+    // Sheets slide in with a tween: any spring overshoots visibly on a tall sheet.
+    if (nearbyPlaces.isNotEmpty()) SheetMotion {
         ModalBottomSheet(onDismissRequest = { nearbyPlaces = emptyList() }) {
             LazyColumn(contentPadding = PaddingValues(bottom = 16.dp)) {
                 item(key = "title", contentType = "title") {
@@ -319,7 +319,7 @@ private fun MapScreen(
             initialValue = SheetValue.Hidden,
             enabledValues = setOf(SheetValue.Hidden, SheetValue.Expanded),
         )
-        StandardMotion {
+        SheetMotion {
             ModalBottomSheet(
                 onDismissRequest = { selectedPlace = null },
                 sheetState = sheetState,
