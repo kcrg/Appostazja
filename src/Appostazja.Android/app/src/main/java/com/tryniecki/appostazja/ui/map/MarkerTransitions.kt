@@ -1,6 +1,5 @@
 package com.tryniecki.appostazja.ui.map
 
-import android.animation.ValueAnimator
 import android.view.animation.OvershootInterpolator
 import android.view.animation.PathInterpolator
 import androidx.compose.foundation.Canvas
@@ -33,7 +32,8 @@ import kotlin.math.roundToInt
  *
  * All methods run on the main thread.
  */
-internal class MarkerTransitions {
+/** @param durationScale the system animator duration scale (developer options, battery saver); 0 disables motion. */
+internal class MarkerTransitions(private val durationScale: () -> Float) {
     /**
      * [Move]: a pin flies out of the cluster it split from (or a cluster glides to its new center).
      * [Exit]: a pin flies into the cluster it merged into. [Pop]: that cluster appears once they arrive.
@@ -75,7 +75,7 @@ internal class MarkerTransitions {
     var running by mutableStateOf(false)
         private set
 
-    val enabled: Boolean get() = ValueAnimator.areAnimatorsEnabled()
+    val enabled: Boolean get() = durationScale() > 0f
 
     fun canAdd(): Boolean = enabled && accepting && sprites.size < MAX_SPRITES
 
@@ -91,7 +91,7 @@ internal class MarkerTransitions {
         running = true
     }
 
-    fun scaled(millis: Long): Long = (millis * 1_000_000L * ValueAnimator.getDurationScale()).toLong()
+    fun scaled(millis: Long): Long = (millis * 1_000_000L * durationScale()).toLong()
 
     /**
      * Ends every flight immediately (the camera started moving or a new clustering arrived). Landed sprites

@@ -4,6 +4,7 @@ import android.content.ActivityNotFoundException
 import android.content.Context
 import android.content.Intent
 import android.net.Uri
+import android.provider.Settings
 import androidx.activity.compose.BackHandler
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.AnimatedContent
@@ -173,7 +174,11 @@ private fun MapScreen(
     }
     var selectedPlace by remember { mutableStateOf<PlaceDto?>(null) }
     var nearbyPlaces by remember { mutableStateOf<List<PlaceDto>>(emptyList()) }
-    val markerTransitions = remember { MarkerTransitions() }
+    val markerTransitions = remember(context) {
+        val resolver = context.contentResolver
+        // ValueAnimator.getDurationScale() needs API 33; the setting itself works everywhere.
+        MarkerTransitions { Settings.Global.getFloat(resolver, Settings.Global.ANIMATOR_DURATION_SCALE, 1f) }
+    }
     val motion = MaterialTheme.motionScheme
     val openCustomTab = rememberOpenCustomTab()
     val dataSourceUrl = stringResource(R.string.map_data_source_url)
