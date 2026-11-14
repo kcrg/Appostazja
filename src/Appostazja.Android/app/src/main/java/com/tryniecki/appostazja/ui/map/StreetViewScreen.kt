@@ -1,5 +1,17 @@
 package com.tryniecki.appostazja.ui.map
 
+import android.view.View
+import android.view.ViewGroup
+import android.view.ViewTreeObserver
+import android.widget.ImageView
+import android.widget.RelativeLayout
+import androidx.compose.runtime.DisposableEffect
+import androidx.compose.runtime.mutableIntStateOf
+import androidx.compose.ui.layout.onSizeChanged
+import androidx.compose.ui.platform.LocalView
+import androidx.core.view.children
+import androidx.core.view.updatePadding
+import com.google.android.gms.maps.StreetViewPanoramaView
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -152,10 +164,13 @@ internal fun StreetViewScreen(
                 )
             }
         }
+            var panelHeightPx by remember { mutableIntStateOf(0) }
+            LiftStreetViewAttribution(bottomPx = panelHeightPx)
             Surface(
                 modifier = Modifier
                     .align(Alignment.BottomCenter)
-                    .fillMaxWidth(),
+                    .fillMaxWidth()
+                    .onSizeChanged { panelHeightPx = it.height },
                 shape = RoundedCornerShape(topStart = 28.dp, topEnd = 28.dp),
                 color = MaterialTheme.colorScheme.surfaceContainer,
             ) {
@@ -182,6 +197,37 @@ internal fun StreetViewScreen(
             }
         }
     }
+}
+
+/**
+ * Keeps Google's logo, "Report a problem" and the copyright above the info panel. Unlike GoogleMap, the
+ * panorama has no padding API, so this pads the SDK's own attribution overlay (a RelativeLayout holding the
+ * logo). Best effort: if a future SDK lays it out differently, nothing is found and nothing changes.
+ */
+@Composable
+private fun LiftStreetViewAttribution(bottomPx: Int) {
+    val view = LocalView.current
+    DisposableEffect(view, bottomPx) {
+        val observer = view.viewTreeObserver
+        // The panorama builds its views asynchronously, so look again after each layout pass.
+        val listener = ViewTreeObserver.OnGlobalLayoutListener { padAttribution(view.rootView, bottomPx) }
+        observer.addOnGlobalLayoutListener(listener)
+        onDispose { if (observer.isAlive) observer.removeOnGlobalLayoutListener(listener) }
+    }
+}
+
+private fun padAttribution(root: View, bottomPx: Int) {
+    val panorama = root.findDescendant { it is StreetViewPanoramaView } ?: return
+    val overlay = panorama.findDescendant { view ->
+        view is RelativeLayout && view.children.any { it is ImageView }
+    } ?: return
+    if (overlay.paddingBottom != bottomPx) overlay.updatePadding(bottom = bottomPx)
+}
+
+private fun View.findDescendant(predicate: (View) -> Boolean): View? {
+    if (predicate(this)) return this
+    if (this is ViewGroup) children.forEach { child -> child.findDescendant(predicate)?.let { return it } }
+    return null
 }
 
 private const val SEARCH_RADIUS_METERS = 120
