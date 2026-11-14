@@ -34,16 +34,29 @@ public sealed class PlaceSearch
     public const int MaxLimit = 100;
     public const int MaxQueryLength = 100;
 
-    private readonly Entry[] _entries;
+    private const int MaxRelevance = 4;
+
+    // Every sort is a fixed order of the snapshot, so the places are sorted once per dataset instead of on every
+    // request; a search walks the order it needs and keeps only the requested page. Relevance groups the matches
+    // by how well the name matches, and inside a group it is the reports order.
+    private readonly Entry[] _byReports;
+    private readonly Entry[] _byName;
+    private readonly Entry[] _best;
+    private readonly Entry[] _worst;
 
     public PlaceSearch(IReadOnlyList<PlaceDto> places)
     {
-        _entries = new Entry[places.Count];
+        var entries = new Entry[places.Count];
         for (var i = 0; i < places.Count; i++)
         {
             var place = places[i];
-            _entries[i] = new Entry(place, Fold(place.Name), Fold(place.Address));
+            entries[i] = new Entry(place, Fold(place.Name), Fold(place.Address));
         }
+
+        _byReports = Sorted(entries, PlaceSort.Reports);
+        _byName = Sorted(entries, PlaceSort.Name);
+        _best = Sorted(entries, PlaceSort.Best);
+        _worst = Sorted(entries, PlaceSort.Worst);
     }
 
     public static PlaceSearch Empty { get; } = new([]);
@@ -51,34 +64,99 @@ public sealed class PlaceSearch
     public PlaceSearchResultDto Search(PlaceSearchQuery query)
     {
         var tokens = Tokenize(query.Text);
-        var phrase = string.Join(' ', tokens);
-        var matches = new List<(Entry Entry, int Relevance)>();
-        foreach (var entry in _entries)
+        var sort = query.Sort == PlaceSort.Relevance && tokens.Length == 0 ? PlaceSort.Reports : query.Sort;
+        return sort == PlaceSort.Relevance
+            ? SearchByRelevance(query, tokens)
+            : SearchInOrder(query, tokens, sort switch
+            {
+                PlaceSort.Best => _best,
+                PlaceSort.Worst => _worst,
+                PlaceSort.Name => _byName,
+                _ => _byReports
+            });
+    }
+
+    private static PlaceSearchResultDto SearchInOrder(PlaceSearchQuery query, string[] tokens, Entry[] order)
+    {
+        var items = new List<PlaceDto>(Math.Min(query.Limit, order.Length));
+        var total = 0;
+        foreach (var entry in order)
         {
-            if (query.WithReportsOnly && entry.Place.Ratings.Total == 0)
+            if (!Includes(query, entry, tokens))
             {
                 continue;
             }
 
-            if (tokens.Length == 0)
+            if (total >= query.Offset && items.Count < query.Limit)
             {
-                matches.Add((entry, 0));
+                items.Add(entry.Place);
             }
-            else if (Matches(entry, tokens))
+
+            total++;
+        }
+
+        return new PlaceSearchResultDto(total, query.Offset, query.Limit, [.. items]);
+    }
+
+    private PlaceSearchResultDto SearchByRelevance(PlaceSearchQuery query, string[] tokens)
+    {
+        var phrase = string.Join(' ', tokens);
+        var matches = new List<(Entry Entry, int Relevance)>();
+        Span<int> counts = stackalloc int[MaxRelevance + 1];
+        foreach (var entry in _byReports)
+        {
+            if (Includes(query, entry, tokens))
             {
-                matches.Add((entry, Relevance(entry, tokens, phrase)));
+                var relevance = Relevance(entry, tokens, phrase);
+                matches.Add((entry, relevance));
+                counts[relevance]++;
             }
         }
 
-        var sort = query.Sort == PlaceSort.Relevance && tokens.Length == 0 ? PlaceSort.Reports : query.Sort;
-        matches.Sort((a, b) => Compare(sort, a, b));
+        // The page is a window over the groups from the most relevant down; skip whole groups before it.
+        var items = new List<PlaceDto>(Math.Min(query.Limit, matches.Count));
+        var skip = query.Offset;
+        for (var relevance = MaxRelevance; relevance > 0 && items.Count < query.Limit; relevance--)
+        {
+            if (skip >= counts[relevance])
+            {
+                skip -= counts[relevance];
+                continue;
+            }
 
-        var items = matches
-            .Skip(query.Offset)
-            .Take(query.Limit)
-            .Select(match => match.Entry.Place)
-            .ToArray();
-        return new PlaceSearchResultDto(matches.Count, query.Offset, query.Limit, items);
+            foreach (var match in matches)
+            {
+                if (match.Relevance != relevance)
+                {
+                    continue;
+                }
+
+                if (skip > 0)
+                {
+                    skip--;
+                }
+                else if (items.Count < query.Limit)
+                {
+                    items.Add(match.Entry.Place);
+                }
+                else
+                {
+                    break;
+                }
+            }
+        }
+
+        return new PlaceSearchResultDto(matches.Count, query.Offset, query.Limit, [.. items]);
+    }
+
+    private static bool Includes(PlaceSearchQuery query, Entry entry, string[] tokens) =>
+        (!query.WithReportsOnly || entry.Place.Ratings.Total > 0) && (tokens.Length == 0 || Matches(entry, tokens));
+
+    private static Entry[] Sorted(Entry[] entries, PlaceSort sort)
+    {
+        var sorted = (Entry[])entries.Clone();
+        Array.Sort(sorted, (a, b) => Compare(sort, (a, 0), (b, 0)));
+        return sorted;
     }
 
     private static bool Matches(Entry entry, string[] tokens)

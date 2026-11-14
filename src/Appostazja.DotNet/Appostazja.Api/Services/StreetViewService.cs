@@ -38,9 +38,10 @@ public enum ThumbnailOutcome
     Failed
 }
 
+/// <param name="Content">The image when found, positioned at its start; whoever writes the response disposes it.</param>
 /// <param name="ETag">Changes with the panorama, heading and every new download.</param>
 public sealed record ThumbnailResult(
-    ThumbnailOutcome Outcome, byte[]? Bytes = null, string? ContentType = null, string? ETag = null);
+    ThumbnailOutcome Outcome, Stream? Content = null, string? ContentType = null, string? ETag = null);
 
 /// <summary>
 /// Finds a street-level Google panorama for a parish with the free metadata endpoint and serves its thumbnail
@@ -154,34 +155,41 @@ public sealed class StreetViewService(
             return Found(key, stored);
         }
 
+        // Closed while downloading: Windows cannot replace a file that is open, even for reading.
+        var hadCopy = stored is not null;
+        stored?.Dispose();
         var image = await DownloadOnceAsync(key, preview.PanoId, preview.Heading).WaitAsync(cancellationToken);
-        switch (image.Status)
+        if (image.Status is GoogleImageStatus.Refused or GoogleImageStatus.Failed && hadCopy &&
+            thumbnails.Get(key) is { } stale)
         {
-            case GoogleImageStatus.Ok:
-                return Found(key, new StoredThumbnail(image.Bytes!, image.FetchedAt));
-            case GoogleImageStatus.NoImagery:
-                // Google removed the panorama; the next lookup after expiry will find another one, if any.
-                return new ThumbnailResult(ThumbnailOutcome.None);
-            default:
-                if (stored is not null)
-                {
-                    return Found(key, stored);
-                }
-
-                return new ThumbnailResult(
-                    image.Status == GoogleImageStatus.Refused ? ThumbnailOutcome.Unavailable : ThumbnailOutcome.Failed);
+            return Found(key, stale);
         }
+
+        return image.Status switch
+        {
+            GoogleImageStatus.Ok =>
+                Found(key, new StoredThumbnail(new MemoryStream(image.Bytes!, writable: false), image.FetchedAt)),
+            // Google removed the panorama; the next lookup after expiry will find another one, if any.
+            GoogleImageStatus.NoImagery => new ThumbnailResult(ThumbnailOutcome.None),
+            GoogleImageStatus.Refused => new ThumbnailResult(ThumbnailOutcome.Unavailable),
+            _ => new ThumbnailResult(ThumbnailOutcome.Failed)
+        };
     }
 
     private static ThumbnailResult Found(string key, StoredThumbnail thumbnail) =>
         new(
             ThumbnailOutcome.Found,
-            thumbnail.Bytes,
-            ImageContentType(thumbnail.Bytes),
+            thumbnail.Content,
+            ImageContentType(thumbnail.Content),
             $"{key[..16]}-{thumbnail.FetchedAt.ToUnixTimeSeconds()}");
 
-    private static string ImageContentType(byte[] bytes) =>
-        bytes is [0x89, 0x50, 0x4E, 0x47, ..] ? "image/png" : "image/jpeg";
+    private static string ImageContentType(Stream image)
+    {
+        Span<byte> head = stackalloc byte[4];
+        var read = image.ReadAtLeast(head, head.Length, throwOnEndOfStream: false);
+        image.Position = 0;
+        return head[..read] is [0x89, 0x50, 0x4E, 0x47] ? "image/png" : "image/jpeg";
+    }
 
     /// <summary>
     /// Parishes opened at the same moment share one download per thumbnail. It runs to completion on its own
@@ -196,7 +204,7 @@ public sealed class StreetViewService(
                 var image = await DownloadAsync(panoId, heading);
                 if (image.Status == GoogleImageStatus.Ok)
                 {
-                    thumbnails.Save(key, image.Bytes!, image.FetchedAt);
+                    SaveQuietly(key, image);
                     PruneDaily(image.FetchedAt);
                 }
 
@@ -208,6 +216,22 @@ public sealed class StreetViewService(
             }
         }));
         return download.Value;
+    }
+
+    /// <summary>
+    /// The download is served either way. Saving fails on Windows while another request is still sending the
+    /// old copy; it is then downloaded again on a later request.
+    /// </summary>
+    private void SaveQuietly(string key, GoogleImage image)
+    {
+        try
+        {
+            thumbnails.Save(key, image.Bytes!, image.FetchedAt);
+        }
+        catch (Exception exception) when (exception is IOException or UnauthorizedAccessException)
+        {
+            logger.LogWarning(exception, "Could not store a Street View thumbnail");
+        }
     }
 
     private void PruneDaily(DateTimeOffset now)

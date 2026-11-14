@@ -2,8 +2,14 @@ using ApostasyMap.Api.Configuration;
 
 namespace ApostasyMap.Api.Data;
 
-/// <summary>A downloaded Street View thumbnail and when it was fetched from Google.</summary>
-public sealed record StoredThumbnail(byte[] Bytes, DateTimeOffset FetchedAt);
+/// <summary>
+/// A Street View thumbnail and when it was fetched from Google. The image is streamed from disk rather than
+/// loaded into memory, and a revalidation that ends in 304 never reads it.
+/// </summary>
+public sealed record StoredThumbnail(Stream Content, DateTimeOffset FetchedAt) : IDisposable
+{
+    public void Dispose() => Content.Dispose();
+}
 
 /// <summary>
 /// Street View thumbnails on disk, one file per panorama and heading in
@@ -17,17 +23,34 @@ public sealed class StreetViewThumbnailStore(AppSettings settings)
 
     public void Initialize() => System.IO.Directory.CreateDirectory(Directory);
 
+    /// <summary>The caller owns the returned stream.</summary>
     public StoredThumbnail? Get(string key)
     {
-        var path = PathFor(key);
+        FileStream stream;
         try
         {
-            var bytes = File.ReadAllBytes(path);
-            return new StoredThumbnail(bytes, new DateTimeOffset(File.GetLastWriteTimeUtc(path), TimeSpan.Zero));
+            // Shared for delete, so a new download or a prune can replace the file while a copy is being sent.
+            stream = new FileStream(PathFor(key), new FileStreamOptions
+            {
+                Mode = FileMode.Open,
+                Access = FileAccess.Read,
+                Share = FileShare.Read | FileShare.Delete,
+                Options = FileOptions.SequentialScan
+            });
         }
         catch (Exception exception) when (exception is FileNotFoundException or DirectoryNotFoundException)
         {
             return null;
+        }
+
+        try
+        {
+            return new StoredThumbnail(stream, new DateTimeOffset(File.GetLastWriteTimeUtc(stream.SafeFileHandle), TimeSpan.Zero));
+        }
+        catch
+        {
+            stream.Dispose();
+            throw;
         }
     }
 
@@ -38,8 +61,16 @@ public sealed class StreetViewThumbnailStore(AppSettings settings)
         var path = PathFor(key);
         var temporary = $"{path}.{Guid.NewGuid():N}.tmp";
         File.WriteAllBytes(temporary, bytes);
-        File.SetLastWriteTimeUtc(temporary, fetchedAt.UtcDateTime);
-        File.Move(temporary, path, overwrite: true);
+        try
+        {
+            File.SetLastWriteTimeUtc(temporary, fetchedAt.UtcDateTime);
+            File.Move(temporary, path, overwrite: true);
+        }
+        catch
+        {
+            File.Delete(temporary);
+            throw;
+        }
     }
 
     /// <summary>

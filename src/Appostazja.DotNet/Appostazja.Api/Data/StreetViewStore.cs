@@ -1,3 +1,4 @@
+using System.Collections.Concurrent;
 using ApostasyMap.Api.Configuration;
 using Microsoft.Data.Sqlite;
 
@@ -18,8 +19,14 @@ public sealed record StreetViewRow(
     string? Date,
     long CheckedAtUnixSeconds);
 
+/// <summary>
+/// Panoramas in SQLite, with every row also kept in memory: there is at most one per parish, and the preview
+/// endpoints read them on every request.
+/// </summary>
 public sealed class StreetViewStore(AppSettings settings)
 {
+    private readonly ConcurrentDictionary<string, StreetViewRow> _rows = new(StringComparer.Ordinal);
+
     private readonly string _connectionString = new SqliteConnectionStringBuilder
     {
         DataSource = settings.Database.Path,
@@ -45,35 +52,30 @@ public sealed class StreetViewStore(AppSettings settings)
             );
             """;
         command.ExecuteNonQuery();
-    }
 
-    public StreetViewRow? Get(string placeId)
-    {
-        using var connection = OpenConnection();
-        using var command = connection.CreateCommand();
         command.CommandText = """
             SELECT place_id, latitude, longitude, pano_id, pano_latitude, pano_longitude, copyright, date,
                    checked_at_unix_seconds
-            FROM street_view_panoramas WHERE place_id = $placeId;
+            FROM street_view_panoramas;
             """;
-        command.Parameters.AddWithValue("$placeId", placeId);
         using var reader = command.ExecuteReader();
-        if (!reader.Read())
+        while (reader.Read())
         {
-            return null;
+            var row = new StreetViewRow(
+                reader.GetString(0),
+                reader.GetDouble(1),
+                reader.GetDouble(2),
+                reader.IsDBNull(3) ? null : reader.GetString(3),
+                reader.GetDouble(4),
+                reader.GetDouble(5),
+                reader.IsDBNull(6) ? null : reader.GetString(6),
+                reader.IsDBNull(7) ? null : reader.GetString(7),
+                reader.GetInt64(8));
+            _rows[row.PlaceId] = row;
         }
-
-        return new StreetViewRow(
-            reader.GetString(0),
-            reader.GetDouble(1),
-            reader.GetDouble(2),
-            reader.IsDBNull(3) ? null : reader.GetString(3),
-            reader.GetDouble(4),
-            reader.GetDouble(5),
-            reader.IsDBNull(6) ? null : reader.GetString(6),
-            reader.IsDBNull(7) ? null : reader.GetString(7),
-            reader.GetInt64(8));
     }
+
+    public StreetViewRow? Get(string placeId) => _rows.GetValueOrDefault(placeId);
 
     public void Save(StreetViewRow row)
     {
@@ -96,6 +98,7 @@ public sealed class StreetViewStore(AppSettings settings)
         command.Parameters.AddWithValue("$date", (object?)row.Date ?? DBNull.Value);
         command.Parameters.AddWithValue("$checkedAt", row.CheckedAtUnixSeconds);
         command.ExecuteNonQuery();
+        _rows[row.PlaceId] = row;
     }
 
     private SqliteConnection OpenConnection()

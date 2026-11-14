@@ -357,9 +357,14 @@ public static class MapEndpoints
                 // also changes with every download for the ones that do ask.
                 context.Response.Headers.CacheControl = StreetViewCacheControl;
                 context.Response.Headers.ETag = $"\"{thumbnail.ETag}\"";
-                return MatchesIfNoneMatch(context.Request, thumbnail.ETag)
-                    ? Results.StatusCode(StatusCodes.Status304NotModified)
-                    : Results.Bytes(thumbnail.Bytes!, thumbnail.ContentType);
+                if (MatchesIfNoneMatch(context.Request, thumbnail.ETag))
+                {
+                    thumbnail.Content!.Dispose();
+                    return Results.StatusCode(StatusCodes.Status304NotModified);
+                }
+
+                // Streamed from the file and disposed once sent.
+                return Results.Stream(thumbnail.Content!, thumbnail.ContentType);
             case ThumbnailOutcome.None:
                 context.Response.Headers.CacheControl = StreetViewCacheControl;
                 return Results.Json(

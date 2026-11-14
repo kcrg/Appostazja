@@ -92,6 +92,32 @@ public class PlaceSearchTests
     }
 
     [Fact]
+    public void Pages_of_a_relevance_search_line_up_with_one_long_list()
+    {
+        // "a" starts a word only in "Anny"; the other names merely contain it, so they form a second, weaker
+        // group in reports order. Pages of one place must walk across the groups like a single long page.
+        var everything = Search.Search(new PlaceSearchQuery("a", Limit: 100));
+        var paged = Enumerable.Range(0, everything.Total)
+            .SelectMany(offset => Ids(Search.Search(new PlaceSearchQuery("a", Offset: offset, Limit: 1))))
+            .ToArray();
+        var acrossGroups = Search.Search(new PlaceSearchQuery("a", Offset: 0, Limit: 2));
+
+        Assert.Equal(["anna", "lukasz", "jozef-krk", "jozef-rze", "maria"], Ids(everything));
+        Assert.Equal(Ids(everything), paged);
+        Assert.Equal(5, acrossGroups.Total);
+        Assert.Equal(["anna", "lukasz"], Ids(acrossGroups));
+        Assert.Empty(Search.Search(new PlaceSearchQuery("a", Offset: 50)).Items);
+    }
+
+    [Fact]
+    public void Name_sort_ignores_case_and_diacritics()
+    {
+        var result = Search.Search(new PlaceSearchQuery(null, PlaceSort.Name));
+
+        Assert.Equal(["maria", "jozef-rze", "anna", "jozef-krk", "lukasz"], Ids(result));
+    }
+
+    [Fact]
     public void Overlong_query_is_rejected()
     {
         var (query, _) = MapEndpoints.CreateSearchQuery(new string('a', PlaceSearch.MaxQueryLength + 1), null, false, 0, 30);

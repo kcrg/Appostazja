@@ -144,9 +144,9 @@ public sealed class StreetViewServiceTests : IDisposable
         var again = await CreateService(apiKey: "test-key").ThumbnailAsync(Church, CancellationToken.None);
 
         Assert.Equal(ThumbnailOutcome.Found, first.Outcome);
-        Assert.Equal(Jpeg(7), first.Bytes);
+        Assert.Equal(Jpeg(7), Read(first));
         Assert.Equal("image/jpeg", first.ContentType);
-        Assert.Equal(first.Bytes, again.Bytes);
+        Assert.Equal(Jpeg(7), Read(again));
         Assert.Equal(first.ETag, again.ETag);
         var request = Assert.Single(_google.ImageRequests);
         Assert.Contains("pano=google-pano", request.Query);
@@ -165,15 +165,31 @@ public sealed class StreetViewServiceTests : IDisposable
         _time.Advance(TimeSpan.FromDays(31));
         _google.Image = () => ImageResponse(Jpeg(2));
         var refreshed = await _service.ThumbnailAsync(Church, CancellationToken.None);
-        Assert.Equal(Jpeg(2), refreshed.Bytes);
+        Assert.Equal(Jpeg(2), Read(refreshed));
         Assert.NotEqual(original.ETag, refreshed.ETag);
 
         _time.Advance(TimeSpan.FromDays(31));
         _google.Image = () => new HttpResponseMessage(HttpStatusCode.Forbidden);
         var stale = await _service.ThumbnailAsync(Church, CancellationToken.None);
         Assert.Equal(ThumbnailOutcome.Found, stale.Outcome);
-        Assert.Equal(Jpeg(2), stale.Bytes);
+        Assert.Equal(Jpeg(2), Read(stale));
         Assert.Equal(3, _google.ImageRequests.Count);
+    }
+
+    [Fact]
+    public async Task A_new_download_is_served_while_another_request_is_still_sending_the_old_copy()
+    {
+        _google.Nearest = Metadata("google-pano", 50.0618, 19.9396, "© Google");
+        _google.Image = () => ImageResponse(Jpeg(1));
+        await _service.ThumbnailAsync(Church, CancellationToken.None);
+        using var beingSent = (await _service.ThumbnailAsync(Church, CancellationToken.None)).Content;
+
+        _time.Advance(TimeSpan.FromDays(31));
+        _google.Image = () => ImageResponse(Jpeg(2));
+        var refreshed = await _service.ThumbnailAsync(Church, CancellationToken.None);
+
+        Assert.Equal(Jpeg(2), Read(refreshed));
+        Assert.Equal(Jpeg(1)[0], beingSent!.ReadByte());
     }
 
     [Theory]
@@ -190,7 +206,7 @@ public sealed class StreetViewServiceTests : IDisposable
         var thumbnail = await _service.ThumbnailAsync(Church, CancellationToken.None);
 
         Assert.Equal(expected, thumbnail.Outcome);
-        Assert.Null(thumbnail.Bytes);
+        Assert.Null(thumbnail.Content);
     }
 
     [Fact]
@@ -213,25 +229,27 @@ public sealed class StreetViewServiceTests : IDisposable
         _google.HoldImages.SetResult();
         var thumbnails = await Task.WhenAll(requests);
 
-        Assert.All(thumbnails, thumbnail => Assert.Equal(ThumbnailOutcome.Found, thumbnail.Outcome));
+        Assert.All(thumbnails, thumbnail => Assert.Equal(Jpeg(1), Read(thumbnail)));
         Assert.Single(_google.ImageRequests);
     }
 
     [Fact]
     public void Thumbnail_responses_carry_the_etag_and_answer_a_matching_request_with_304()
     {
-        var thumbnail = new ThumbnailResult(ThumbnailOutcome.Found, Jpeg(1), "image/jpeg", "abc-123");
+        ThumbnailResult Thumbnail(Stream content) => new(ThumbnailOutcome.Found, content, "image/jpeg", "abc-123");
 
         var fresh = new DefaultHttpContext();
-        var served = Assert.IsType<FileContentHttpResult>(MapEndpoints.ThumbnailResponse(fresh, thumbnail));
+        var served = Assert.IsType<FileStreamHttpResult>(MapEndpoints.ThumbnailResponse(fresh, Thumbnail(new MemoryStream(Jpeg(1)))));
         Assert.Equal("image/jpeg", served.ContentType);
         Assert.Equal("\"abc-123\"", fresh.Response.Headers.ETag.ToString());
         Assert.Equal(MapEndpoints.StreetViewCacheControl, fresh.Response.Headers.CacheControl.ToString());
 
         var revalidating = new DefaultHttpContext();
         revalidating.Request.Headers.IfNoneMatch = "\"abc-123\"";
-        var notModified = Assert.IsType<StatusCodeHttpResult>(MapEndpoints.ThumbnailResponse(revalidating, thumbnail));
+        var unread = new MemoryStream(Jpeg(1));
+        var notModified = Assert.IsType<StatusCodeHttpResult>(MapEndpoints.ThumbnailResponse(revalidating, Thumbnail(unread)));
         Assert.Equal(StatusCodes.Status304NotModified, notModified.StatusCode);
+        Assert.False(unread.CanRead); // the file is closed without being sent
     }
 
     [Theory]
@@ -250,6 +268,15 @@ public sealed class StreetViewServiceTests : IDisposable
         {
             Assert.Equal("no-store", context.Response.Headers.CacheControl.ToString());
         }
+    }
+
+    private static byte[] Read(ThumbnailResult thumbnail)
+    {
+        Assert.Equal(ThumbnailOutcome.Found, thumbnail.Outcome);
+        using var content = thumbnail.Content!;
+        using var copy = new MemoryStream();
+        content.CopyTo(copy);
+        return copy.ToArray();
     }
 
     private static byte[] Jpeg(byte marker) => [0xFF, 0xD8, 0xFF, 0xE0, marker, 0xFF, 0xD9];
