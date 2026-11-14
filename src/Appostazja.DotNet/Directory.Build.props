@@ -1,0 +1,7 @@
+<Project>
+  <PropertyGroup>
+    <!-- Async methods run on the runtime's own async support instead of compiler-generated state machines,
+         like the .NET 11 libraries themselves. Shared with the tests, so they run the same code. -->
+    <Features>$(Features);runtime-async=on</Features>
+  </PropertyGroup>
+</Project>
