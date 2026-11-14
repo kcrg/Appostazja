@@ -2,13 +2,13 @@ package com.tryniecki.appostazja.data
 
 import android.content.Context
 import android.content.pm.PackageManager
-import android.graphics.BitmapFactory
 import android.os.SystemClock
 import android.util.Log
 import android.util.LruCache
-import androidx.compose.ui.graphics.ImageBitmap
-import androidx.compose.ui.graphics.asImageBitmap
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.async
+import kotlinx.coroutines.awaitAll
+import kotlinx.coroutines.coroutineScope
 import kotlinx.coroutines.withContext
 import kotlinx.serialization.SerialName
 import kotlinx.serialization.Serializable
@@ -25,12 +25,14 @@ import java.security.MessageDigest
 import java.util.concurrent.TimeUnit
 import kotlin.math.atan2
 import kotlin.math.cos
+import kotlin.math.pow
 import kotlin.math.roundToInt
 import kotlin.math.sin
+import kotlin.math.sqrt
 
 sealed interface StreetViewPreview {
+    /** A Google panorama to open in the app; all of it comes from the free metadata endpoint. */
     data class Available(
-        val image: ImageBitmap,
         val panoId: String,
         val heading: Int,
         val copyright: String,
@@ -57,10 +59,9 @@ sealed interface StreetViewPreview {
 }
 
 /**
- * Loads Street View previews through the Street View Static API.
- *
- * The metadata endpoint is free and checked first, so the billed image request is only made when a
- * panorama exists. Results are cached in memory and over HTTP so reopening a parish does not spend quota.
+ * Finds a Street View panorama for a parish using only the free metadata endpoint of the Street View Static
+ * API; no billed thumbnail is downloaded. Only Google's own imagery is used: user photo spheres are often
+ * taken inside the church. Results are cached in memory and over HTTP so reopening a parish does not spend quota.
  */
 class StreetViewRepository(
     context: Context,
@@ -110,20 +111,8 @@ class StreetViewRepository(
         return result
     }
 
-    private fun fetch(latitude: Double, longitude: Double): StreetViewPreview {
-        val metadataUrl = baseUrl("metadata")
-            .addQueryParameter("location", "$latitude,$longitude")
-            .addQueryParameter("radius", SEARCH_RADIUS_METERS.toString())
-            .addQueryParameter("source", "outdoor")
-            .addQueryParameter("key", apiKey)
-            .build()
-        val metadata = execute(metadataUrl) { response ->
-            val body = response.body.string()
-            if (!response.isSuccessful) {
-                return@execute StreetViewMetadata(status = classifyHttpError(response.code, body))
-            }
-            json.decodeFromString<StreetViewMetadata>(body)
-        }
+    private suspend fun fetch(latitude: Double, longitude: Double): StreetViewPreview {
+        var metadata = metadata(latitude, longitude, SEARCH_RADIUS_METERS)
 
         when (metadata.status) {
             "OK" -> Unit
@@ -139,45 +128,55 @@ class StreetViewRepository(
                 return StreetViewPreview.Failed
             }
         }
+        // source=outdoor still returns user photo spheres, which are often taken inside the church. Look for
+        // Google's own street imagery around the parish instead (metadata requests are free).
+        if (!isGoogleImagery(metadata.copyright)) {
+            metadata = nearestGoogleImagery(latitude, longitude) ?: return StreetViewPreview.NotAvailable
+        }
         val panoId = metadata.panoId ?: return StreetViewPreview.NotAvailable
         val heading = metadata.location
             ?.let { bearing(it.lat, it.lng, latitude, longitude) }
             ?: 0
 
-        val imageUrl = baseUrl()
-            .addQueryParameter("size", "640x400")
-            .addQueryParameter("pano", panoId)
-            .addQueryParameter("heading", heading.toString())
-            .addQueryParameter("fov", "80")
-            .addQueryParameter("pitch", "8")
-            .addQueryParameter("return_error_code", "true")
+        return StreetViewPreview.Available(
+            panoId = panoId,
+            heading = heading,
+            copyright = metadata.copyright ?: "© Google",
+            date = metadata.date,
+        )
+    }
+
+    private fun metadata(latitude: Double, longitude: Double, radiusMeters: Int): StreetViewMetadata {
+        val url = baseUrl("metadata")
+            .addQueryParameter("location", "$latitude,$longitude")
+            .addQueryParameter("radius", radiusMeters.toString())
+            .addQueryParameter("source", "outdoor")
             .addQueryParameter("key", apiKey)
             .build()
-        return execute(imageUrl) { response ->
-            val isImage = response.body.contentType()?.type == "image"
-            if (!response.isSuccessful || !isImage) {
-                val body = if (isImage) "" else response.body.string()
-                return@execute when (classifyHttpError(response.code, body)) {
-                    "OVER_QUERY_LIMIT" -> StreetViewPreview.QuotaExceeded
-                    "ZERO_RESULTS" -> StreetViewPreview.NotAvailable
-                    else -> {
-                        Log.w(TAG, "Street View image HTTP ${response.code}: ${body.take(300)}")
-                        StreetViewPreview.Failed
-                    }
-                }
+        return execute(url) { response ->
+            val body = response.body.string()
+            if (!response.isSuccessful) {
+                return@execute StreetViewMetadata(status = classifyHttpError(response.code, body))
             }
-            val bytes = response.body.bytes()
-            val bitmap = BitmapFactory.decodeByteArray(bytes, 0, bytes.size)
-                ?: return@execute StreetViewPreview.Failed
-            StreetViewPreview.Available(
-                image = bitmap.asImageBitmap(),
-                panoId = panoId,
-                heading = heading,
-                copyright = metadata.copyright ?: "© Google",
-                date = metadata.date,
-            )
+            json.decodeFromString<StreetViewMetadata>(body)
         }
     }
+
+    /** Probes a ring of points around the parish in parallel and keeps the closest Google panorama. */
+    private suspend fun nearestGoogleImagery(latitude: Double, longitude: Double): StreetViewMetadata? =
+        coroutineScope {
+            val probes = probePoints(latitude, longitude).map { (lat, lng) ->
+                async {
+                    runCatching { metadata(lat, lng, PROBE_RADIUS_METERS) }.getOrNull()
+                        ?.takeIf { it.status == "OK" && it.panoId != null && it.location != null }
+                }
+            }.awaitAll().filterNotNull()
+            val candidates = probes.map {
+                PanoramaCandidate(it.panoId!!, it.location!!.lat, it.location.lng, it.copyright)
+            }
+            val chosen = pickGoogleImagery(latitude, longitude, candidates) ?: return@coroutineScope null
+            probes.first { it.panoId == chosen.panoId }
+        }
 
     private fun <T> execute(url: HttpUrl, handle: (Response) -> T): T {
         val request = Request.Builder()
@@ -196,6 +195,7 @@ class StreetViewRepository(
         const val TAG = "StreetView"
         const val STREET_VIEW_URL = "https://maps.googleapis.com/maps/api/streetview"
         const val SEARCH_RADIUS_METERS = 120
+        const val PROBE_RADIUS_METERS = 50
         const val QUOTA_BACKOFF_MS = 10 * 60 * 1000L
 
         val json = Json { ignoreUnknownKeys = true }
@@ -213,6 +213,37 @@ internal fun classifyHttpError(code: Int, body: String): String {
         else -> "HTTP_$code"
     }
 }
+
+internal data class PanoramaCandidate(val panoId: String, val latitude: Double, val longitude: Double, val copyright: String?)
+
+/** Google's own Street View imagery; user photo spheres carry the author's name instead. */
+internal fun isGoogleImagery(copyright: String?): Boolean = copyright?.contains("Google", ignoreCase = true) == true
+
+/** The Google panorama closest to the parish, ignoring user photo spheres even when they are closer. */
+internal fun pickGoogleImagery(latitude: Double, longitude: Double, candidates: List<PanoramaCandidate>) =
+    candidates
+        .filter { isGoogleImagery(it.copyright) }
+        .minByOrNull { distanceMeters(latitude, longitude, it.latitude, it.longitude) }
+
+/** Points around the parish to probe: 8 directions at 40 m and 80 m. */
+internal fun probePoints(latitude: Double, longitude: Double): List<Pair<Double, Double>> =
+    listOf(40.0, 80.0).flatMap { radius ->
+        (0 until 8).map { step ->
+            val angle = Math.toRadians(step * 45.0)
+            val dLat = radius * cos(angle) / EARTH_RADIUS_METERS
+            val dLng = radius * sin(angle) / (EARTH_RADIUS_METERS * cos(Math.toRadians(latitude)))
+            (latitude + Math.toDegrees(dLat)) to (longitude + Math.toDegrees(dLng))
+        }
+    }
+
+internal fun distanceMeters(lat1: Double, lng1: Double, lat2: Double, lng2: Double): Double {
+    val dLat = Math.toRadians(lat2 - lat1)
+    val dLng = Math.toRadians(lng2 - lng1)
+    val a = sin(dLat / 2).pow(2) + cos(Math.toRadians(lat1)) * cos(Math.toRadians(lat2)) * sin(dLng / 2).pow(2)
+    return 2 * EARTH_RADIUS_METERS * atan2(sqrt(a), sqrt(1 - a))
+}
+
+private const val EARTH_RADIUS_METERS = 6_371_000.0
 
 /** Initial compass bearing from the panorama to the parish, so the camera faces the church. */
 internal fun bearing(fromLat: Double, fromLng: Double, toLat: Double, toLng: Double): Int {

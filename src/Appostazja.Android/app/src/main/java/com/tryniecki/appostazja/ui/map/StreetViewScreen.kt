@@ -135,22 +135,28 @@ internal fun StreetViewScreen(
                 }
             }
 
-            Row(
+            FilledTonalIconButton(
+                onClick = onClose,
                 modifier = Modifier
-                    .fillMaxWidth()
+                    .align(Alignment.TopStart)
                     .windowInsetsPadding(WindowInsets.safeDrawing)
                     .padding(12.dp),
-                horizontalArrangement = Arrangement.spacedBy(8.dp),
-                verticalAlignment = Alignment.CenterVertically,
             ) {
-                FilledTonalIconButton(onClick = onClose) {
-                    Icon(
-                        painterResource(Tabler.drawable.tabler_ic_arrow_left_outline),
-                        contentDescription = stringResource(R.string.street_view_close),
-                    )
-                }
+                Icon(
+                    painterResource(Tabler.drawable.tabler_ic_arrow_left_outline),
+                    contentDescription = stringResource(R.string.street_view_close),
+                )
+            }
+            Box(
+                modifier = Modifier
+                    .align(Alignment.BottomCenter)
+                    .fillMaxWidth()
+                    .windowInsetsPadding(WindowInsets.safeDrawing)
+                    // Clear of the Google logo and "Report a problem" link the panorama draws at the bottom.
+                    .padding(start = 16.dp, end = 16.dp, bottom = 36.dp),
+                contentAlignment = Alignment.Center,
+            ) {
                 Surface(
-                    modifier = Modifier.weight(1f, fill = false),
                     shape = RoundedCornerShape(24.dp),
                     color = MaterialTheme.colorScheme.surfaceContainerHigh.copy(alpha = 0.92f),
                 ) {

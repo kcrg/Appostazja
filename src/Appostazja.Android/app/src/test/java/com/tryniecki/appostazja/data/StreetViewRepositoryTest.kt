@@ -27,4 +27,32 @@ class StreetViewRepositoryTest {
         assertEquals(180, bearing(52.001, 19.0, 52.0, 19.0))
         assertEquals(270, bearing(52.0, 19.001, 52.0, 19.0))
     }
+
+    @Test
+    fun `user photo spheres are skipped even when closer than Google imagery`() {
+        val church = 50.0616 to 19.9394
+        val candidates = listOf(
+            PanoramaCandidate("inside", 50.06161, 19.93941, "© Michał Kot"),
+            PanoramaCandidate("street-far", 50.0620, 19.9400, "© Google"),
+            PanoramaCandidate("street-near", 50.0618, 19.9396, "© Google"),
+        )
+
+        assertEquals("street-near", pickGoogleImagery(church.first, church.second, candidates)?.panoId)
+    }
+
+    @Test
+    fun `without any Google imagery nothing is chosen`() {
+        val candidates = listOf(PanoramaCandidate("sphere", 50.0617, 19.9395, "© Toño Piña"))
+
+        assertEquals(null, pickGoogleImagery(50.0616, 19.9394, candidates))
+    }
+
+    @Test
+    fun `probe points ring the parish at 40 and 80 metres`() {
+        val distances = probePoints(50.0616, 19.9394).map { (lat, lng) -> distanceMeters(50.0616, 19.9394, lat, lng) }
+
+        assertEquals(16, distances.size)
+        distances.take(8).forEach { assertEquals(40.0, it, 0.5) }
+        distances.drop(8).forEach { assertEquals(80.0, it, 0.5) }
+    }
 }

@@ -87,7 +87,6 @@
     <string name="street_view_close">Zamknij Street View</string>
     <string name="street_view_photo_date">Zdjęcie: %1$s</string>
     <string name="street_view_open_in_maps">Otwórz w Mapach</string>
-    <string name="street_view_image_description">Widok Street View okolicy parafii</string>
     <string name="street_view_unavailable_title">Brak widoku z ulicy</string>
     <string name="street_view_unavailable_body">Google nie ma zdjęć Street View w pobliżu tej parafii.</string>
     <string name="street_view_quota_title">Podgląd chwilowo niedostępny</string>

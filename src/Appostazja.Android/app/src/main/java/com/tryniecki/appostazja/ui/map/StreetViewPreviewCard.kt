@@ -40,9 +40,7 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
-import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.res.stringResource
@@ -57,7 +55,6 @@ import kotlinx.coroutines.CancellationException
 import com.composables.icons.tabler.outline.R as Tabler
 
 private val PreviewShape = RoundedCornerShape(24.dp)
-private const val PreviewAspectRatio = 16f / 10f
 
 @Composable
 fun StreetViewPreviewCard(
@@ -147,19 +144,13 @@ fun StreetViewPreviewCard(
 
 @Composable
 private fun LoadingPreview() {
-    Surface(
-        modifier = Modifier
-            .fillMaxWidth()
-            .aspectRatio(PreviewAspectRatio),
-        shape = PreviewShape,
-        color = MaterialTheme.colorScheme.surfaceContainerHigh,
-    ) {
-        Column(
-            modifier = Modifier.fillMaxSize(),
-            verticalArrangement = Arrangement.spacedBy(10.dp, Alignment.CenterVertically),
-            horizontalAlignment = Alignment.CenterHorizontally,
+    Surface(modifier = Modifier.fillMaxWidth(), shape = PreviewShape, color = MaterialTheme.colorScheme.surfaceContainerHigh) {
+        Row(
+            modifier = Modifier.padding(horizontal = 18.dp, vertical = 14.dp),
+            horizontalArrangement = Arrangement.spacedBy(14.dp),
+            verticalAlignment = Alignment.CenterVertically,
         ) {
-            ExpressiveLoadingIndicator(Modifier.size(36.dp))
+            ExpressiveLoadingIndicator(Modifier.size(24.dp))
             Text(
                 stringResource(R.string.street_view_loading),
                 style = MaterialTheme.typography.bodyMedium,
@@ -169,74 +160,19 @@ private fun LoadingPreview() {
     }
 }
 
+/** No thumbnail on purpose: the Static API image is the only billed Street View call, the panorama is free. */
 @Composable
 private fun AvailablePreview(preview: StreetViewPreview.Available, onOpen: () -> Unit) {
-    val openLabel = stringResource(R.string.street_view_open)
-    Box(
-        modifier = Modifier
-            .fillMaxWidth()
-            .aspectRatio(PreviewAspectRatio)
-            .clip(PreviewShape)
-            .clickable(onClickLabel = openLabel, role = Role.Button, onClick = onOpen),
-    ) {
-        Image(
-            bitmap = preview.image,
-            contentDescription = stringResource(R.string.street_view_image_description),
-            contentScale = ContentScale.Crop,
-            modifier = Modifier.fillMaxSize(),
-        )
-        Box(
-            Modifier
-                .fillMaxSize()
-                .background(
-                    Brush.verticalGradient(
-                        0.55f to Color.Transparent,
-                        1f to Color.Black.copy(alpha = 0.62f),
-                    ),
-                ),
-        )
-        Surface(
-            modifier = Modifier
-                .align(Alignment.TopStart)
-                .padding(12.dp),
-            shape = CircleShape,
-            color = MaterialTheme.colorScheme.surfaceContainerHighest.copy(alpha = 0.9f),
-        ) {
-            Text(
-                stringResource(R.string.street_view_label),
-                modifier = Modifier.padding(horizontal = 12.dp, vertical = 6.dp),
-                style = MaterialTheme.typography.labelLarge,
-            )
-        }
-        Row(
-            modifier = Modifier
-                .align(Alignment.BottomStart)
-                .fillMaxWidth()
-                .padding(start = 14.dp, end = 12.dp, bottom = 12.dp),
-            verticalAlignment = Alignment.Bottom,
-        ) {
-            Text(
-                listOfNotNull(preview.copyright, preview.date).joinToString(" · "),
-                modifier = Modifier.weight(1f),
-                style = MaterialTheme.typography.labelSmall,
-                color = Color.White.copy(alpha = 0.9f),
-            )
-            Surface(shape = CircleShape, color = MaterialTheme.colorScheme.primary) {
-                Row(
-                    modifier = Modifier.padding(start = 12.dp, end = 14.dp, top = 8.dp, bottom = 8.dp),
-                    verticalAlignment = Alignment.CenterVertically,
-                ) {
-                    Icon(
-                        painter = painterResource(Tabler.drawable.tabler_ic_arrows_maximize_outline),
-                        contentDescription = null,
-                        modifier = Modifier.size(18.dp),
-                    )
-                    Spacer(Modifier.size(6.dp))
-                    Text(openLabel, style = MaterialTheme.typography.labelLarge)
-                }
-            }
-        }
-    }
+    MessagePreview(
+        icon = Tabler.drawable.tabler_ic_panorama_horizontal_outline,
+        title = stringResource(R.string.street_view_label),
+        body = preview.date?.let { stringResource(R.string.street_view_photo_date, it) }
+            ?: stringResource(R.string.street_view_explore_body),
+        compact = true,
+        actions = {
+            FilledTonalButton(onClick = onOpen) { Text(stringResource(R.string.street_view_open)) }
+        },
+    )
 }
 
 @Composable
@@ -260,7 +196,7 @@ private fun MessagePreview(
                 verticalAlignment = Alignment.CenterVertically,
             ) {
                 Icon(painterResource(icon), contentDescription = null, tint = tint)
-                Column(verticalArrangement = Arrangement.spacedBy(2.dp)) {
+                Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(2.dp)) {
                     Text(title, style = MaterialTheme.typography.titleSmall)
                     Text(
                         body,
@@ -268,6 +204,7 @@ private fun MessagePreview(
                         color = MaterialTheme.colorScheme.onSurfaceVariant,
                     )
                 }
+                actions?.invoke()
             }
         } else {
             Column(
