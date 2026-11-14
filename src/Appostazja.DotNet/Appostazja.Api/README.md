@@ -38,7 +38,7 @@ The OpenAPI document is served at `GET /openapi/v1.json`.
 ## Tests
 
 ```bash
-dotnet test ../Appostazja.slnx
+dotnet test --solution ../Appostazja.slnx
 ```
 
 The tests cover the parser, sanitizing, import validation and status recording (temporary SQLite and a fake HTTP source), database upgrades, HTTP caching rules and readiness.
