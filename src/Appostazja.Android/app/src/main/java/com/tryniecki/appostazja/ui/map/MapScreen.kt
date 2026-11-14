@@ -5,7 +5,8 @@ import android.content.Context
 import android.content.Intent
 import android.net.Uri
 import android.provider.Settings
-import androidx.activity.compose.BackHandler
+import com.tryniecki.appostazja.ui.components.predictiveBack
+import com.tryniecki.appostazja.ui.components.rememberPredictiveBack
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.AnimatedContent
 import androidx.compose.animation.fadeIn
@@ -96,6 +97,15 @@ import com.google.maps.android.compose.ComposeMapColorScheme
 import com.google.maps.android.compose.GoogleMap
 import com.google.maps.android.compose.GoogleMapComposable
 import com.google.maps.android.compose.MapEffect
+import com.google.android.gms.maps.GoogleMap
+import androidx.compose.foundation.Image
+import androidx.compose.ui.layout.ContentScale
+import androidx.compose.ui.graphics.ImageBitmap
+import androidx.compose.ui.graphics.asImageBitmap
+import androidx.lifecycle.Lifecycle
+import androidx.lifecycle.compose.LocalLifecycleOwner
+import kotlinx.coroutines.delay
+import kotlinx.coroutines.flow.first
 import com.google.maps.android.compose.MapUiSettings
 import com.google.maps.android.compose.MapsComposeExperimentalApi
 import com.google.maps.android.compose.clustering.Clustering
@@ -163,6 +173,8 @@ fun MapRoute(
 }
 
 private const val PLACE_ZOOM = 15f
+// How long the snapshot covers the map after it resumes, long enough for its surface to draw again.
+private const val MAP_RESTART_MS = 900L
 
 @OptIn(MapsComposeExperimentalApi::class, ExperimentalMaterial3Api::class)
 @Composable
@@ -177,10 +189,27 @@ private fun MapScreen(
 ) {
     val context = LocalContext.current
     var searchOpen by rememberSaveable { mutableStateOf(false) }
+    val searchBack = rememberPredictiveBack(enabled = searchOpen) { searchOpen = false }
     val scope = rememberCoroutineScope()
+    var googleMap by remember { mutableStateOf<GoogleMap?>(null) }
+    var mapSnapshot by remember { mutableStateOf<ImageBitmap?>(null) }
+    val mapOnScreen = LocalMapOnScreen.current
+    val mapLifecycle = LocalLifecycleOwner.current.lifecycle
+    LaunchedEffect(mapOnScreen) {
+        if (!mapOnScreen) {
+            // Only from a live map: a snapshot of one still restarting would be blank.
+            if (mapSnapshot == null) googleMap?.snapshot { bitmap -> mapSnapshot = bitmap?.asImageBitmap() }
+        } else if (mapSnapshot != null) {
+            mapLifecycle.currentStateFlow.first { it.isAtLeast(Lifecycle.State.RESUMED) }
+            delay(MAP_RESTART_MS)
+            mapSnapshot = null
+        }
+    }
     val cameraState = rememberCameraPositionState {
         position = CameraPosition.fromLatLngZoom(LatLng(52.05, 19.20), 5.7f)
     }
+    // The user moved the live map; the snapshot would now show the wrong place.
+    LaunchedEffect(cameraState.isMoving) { if (cameraState.isMoving) mapSnapshot = null }
     var selectedPlace by remember { mutableStateOf<PlaceDto?>(null) }
     var nearbyPlaces by remember { mutableStateOf<List<PlaceDto>>(emptyList()) }
     val markerTransitions = remember(context) {
@@ -208,6 +237,7 @@ private fun MapScreen(
             ),
             onMapClick = { selectedPlace = null },
         ) {
+            MapEffect(Unit) { googleMap = it }
             ChurchClustering(
                 items = state.places,
                 viewport = clusterViewport,
@@ -227,6 +257,9 @@ private fun MapScreen(
                 },
             )
         }
+        // Stands in for the map while it restarts after another tab covered it (its GL surface takes a moment),
+        // so a back gesture from another tab reveals the map rather than an empty background.
+        mapSnapshot?.let { Image(it, contentDescription = null, Modifier.fillMaxSize(), contentScale = ContentScale.FillBounds) }
         MarkerTransitionOverlay(markerTransitions, cameraState, mapPadding)
 
         // Only the status card itself takes space: a full-size AnimatedContent would hand its minimum size to
@@ -273,6 +306,7 @@ private fun MapScreen(
 
         AnimatedVisibility(
             visible = searchOpen,
+            modifier = Modifier.predictiveBack(searchBack),
             enter = slideInVertically(motion.defaultSpatialSpec()) { it / 8 } + fadeIn(motion.defaultEffectsSpec()),
             exit = slideOutVertically(motion.fastSpatialSpec()) { it / 8 } + fadeOut(motion.fastEffectsSpec()),
         ) {
@@ -291,7 +325,6 @@ private fun MapScreen(
             )
         }
     }
-    BackHandler(enabled = searchOpen) { searchOpen = false }
 
     // Sheets slide in with a tween: any spring overshoots visibly on a tall sheet.
     if (nearbyPlaces.isNotEmpty()) SheetMotion {

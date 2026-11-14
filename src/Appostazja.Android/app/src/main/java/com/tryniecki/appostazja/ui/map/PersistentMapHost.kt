@@ -8,6 +8,7 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
+import androidx.compose.runtime.staticCompositionLocalOf
 import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.LifecycleEventObserver
 import androidx.lifecycle.LifecycleOwner
@@ -44,8 +45,11 @@ internal fun PersistentMapHost(visible: Boolean, content: @Composable () -> Unit
         onDispose { parent.lifecycle.removeObserver(observer) }
     }
 
-    CompositionLocalProvider(LocalLifecycleOwner provides owner, content = content)
+    CompositionLocalProvider(LocalLifecycleOwner provides owner, LocalMapOnScreen provides visible, content = content)
 }
+
+/** Whether the map is on screen, even partly (under a tab being swiped away); false while other tabs cover it. */
+internal val LocalMapOnScreen = staticCompositionLocalOf { true }
 
 private class CappedLifecycleOwner : LifecycleOwner {
     private val registry = LifecycleRegistry(this)
