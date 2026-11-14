@@ -48,6 +48,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.geometry.Rect
 import androidx.compose.ui.geometry.Size
+import androidx.compose.ui.graphics.Matrix
 import androidx.compose.ui.graphics.Outline
 import androidx.compose.ui.graphics.Path
 import androidx.compose.ui.graphics.PathOperation
@@ -81,6 +82,9 @@ import com.tryniecki.appostazja.ui.components.ExpressiveLoadingIndicator
 import com.tryniecki.appostazja.ui.formatDate
 import kotlinx.coroutines.CancellationException
 import java.util.Locale
+import kotlin.math.PI
+import kotlin.math.atan2
+import kotlin.math.sqrt
 import com.composables.icons.tabler.outline.R as Tabler
 
 /** How many articles the card on the More screen shows. */
@@ -180,8 +184,9 @@ private fun compactTeaserHeight(): Dp {
 private val TEASER_LINE_GAP = 4.dp
 private val TEASER_VERTICAL_PADDING = 12.dp
 private val TEASER_HORIZONTAL_PADDING = 16.dp
-private val UNREAD_DOT = 10.dp
-private val UNREAD_DOT_GAP = 3.dp
+private val UNREAD_DOT = 8.dp
+private val UNREAD_DOT_GAP = 5.dp
+private val NOTCH_FILLET = 4.dp
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -426,11 +431,37 @@ private class NotchedShape(private val base: Shape, private val notches: List<Dp
     override fun createOutline(size: Size, layoutDirection: LayoutDirection, density: Density): Outline {
         val outline = Path().apply { addOutline(base.createOutline(size, layoutDirection, density)) }
         val radius = with(density) { (UNREAD_DOT / 2 + UNREAD_DOT_GAP).toPx() }
-        val x = if (layoutDirection == LayoutDirection.Ltr) 0f else size.width
-        val cuts = Path().apply {
-            notches.forEach { y -> addOval(Rect(Offset(x, with(density) { y.toPx() }), radius)) }
+        val fillet = with(density) { NOTCH_FILLET.toPx() }
+        val cuts = Path()
+        notches.forEach { y -> cuts.addNotch(with(density) { y.toPx() }, radius, fillet) }
+        if (layoutDirection == LayoutDirection.Rtl) {
+            // Built against the left edge; mirrored onto the right one (x -> width - x).
+            cuts.transform(Matrix().apply { values[Matrix.ScaleX] = -1f; values[Matrix.TranslateX] = size.width })
         }
         return Outline.Generic(Path.combine(PathOperation.Difference, outline, cuts))
+    }
+
+    /**
+     * A circle of [radius] centred on the left edge at [centreY], widened where it meets the edge by two arcs of
+     * [fillet] that touch both the edge and the circle, so the cut has rounded rather than sharp corners.
+     */
+    private fun Path.addNotch(centreY: Float, radius: Float, fillet: Float) {
+        // A fillet circle at (fillet, centreY ± d) touches the edge and lies just outside the notch circle.
+        val d = sqrt((radius + fillet) * (radius + fillet) - fillet * fillet)
+        val toDegrees = 180f / PI.toFloat()
+        val upperFillet = Rect(Offset(fillet, centreY - d), fillet)
+        val lowerFillet = Rect(Offset(fillet, centreY + d), fillet)
+        // Where each fillet touches the notch circle, as angles around the fillet and around the notch.
+        val filletAngle = atan2(d, -fillet) * toDegrees
+        val notchAngle = atan2(-d, fillet) * toDegrees
+
+        moveTo(-1f, centreY - d)
+        lineTo(0f, centreY - d)
+        arcTo(upperFillet, 180f, filletAngle - 180f, forceMoveTo = false)
+        arcTo(Rect(Offset(0f, centreY), radius), notchAngle, -2 * notchAngle, forceMoveTo = false)
+        arcTo(lowerFillet, -filletAngle, filletAngle - 180f, forceMoveTo = false)
+        lineTo(-1f, centreY + d)
+        close()
     }
 }
 
