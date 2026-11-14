@@ -23,5 +23,6 @@ val AppDarkMuted = Color(0xFFBEC9C2)
 val AppDarkOutline = Color(0xFF89938D)
 
 val RatingGood = Color(0xFF2E7D32)
-val RatingNeutral = Color(0xFFF9A825)
+// Validated with the green and red for colour-vision deficiency and contrast in light and dark mode.
+val RatingNeutral = Color(0xFFC28400)
 val RatingBad = Color(0xFFC62828)

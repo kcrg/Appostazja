@@ -11,6 +11,8 @@ class MapRepository(private val api: AppostazjaApi) {
 
     suspend fun getDatasetStatus() = api.getDatasetStatus()
 
+    suspend fun getStats() = api.getStats()
+
     suspend fun searchPlaces(query: String, sort: String, withReportsOnly: Boolean, offset: Int, limit: Int) =
         api.searchPlaces(query.ifBlank { null }, sort, withReportsOnly, offset, limit)
 }

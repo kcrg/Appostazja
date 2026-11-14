@@ -28,6 +28,7 @@ import com.tryniecki.appostazja.AppContainer
 import com.tryniecki.appostazja.ui.declaration.DeclarationRoute
 import com.tryniecki.appostazja.ui.map.MapRoute
 import com.tryniecki.appostazja.ui.more.MoreScreen
+import com.tryniecki.appostazja.ui.stats.StatsRoute
 import com.tryniecki.appostazja.ui.navigation.AppDestination
 import com.tryniecki.appostazja.ui.navigation.AppRoute
 import com.tryniecki.appostazja.ui.theme.ThemeMode
@@ -112,6 +113,9 @@ fun AppostazjaApp(
             composable<AppRoute.Map> {
                 MapRoute(container.mapRepository, container.streetViewRepository, themeMode)
             }
+            composable<AppRoute.Stats> {
+                StatsRoute(container.mapRepository)
+            }
             composable<AppRoute.Declaration> {
                 DeclarationRoute(
                     draftStore = container.secureDraftStore,
@@ -130,6 +134,7 @@ fun AppostazjaApp(
 }
 
 private fun NavDestination?.topLevelDestination(): AppDestination = when {
+    this?.hasRoute<AppRoute.Stats>() == true -> AppDestination.STATS
     this?.hasRoute<AppRoute.Declaration>() == true -> AppDestination.DECLARATION
     this?.hasRoute<AppRoute.More>() == true -> AppDestination.MORE
     else -> AppDestination.MAP

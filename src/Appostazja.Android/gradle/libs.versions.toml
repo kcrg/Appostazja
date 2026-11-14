@@ -15,6 +15,7 @@ retrofit = "3.0.0"
 kotlinxSerialization = "1.13.0"
 okhttp = "5.5.1"
 tablerIcons = "2.2.1"
+vico = "3.3.1"
 browser = "1.10.0"
 mapsCompose = "9.0.1"
 benchmark = "1.5.0"
@@ -46,6 +47,7 @@ retrofit-kotlinx-serialization = { group = "com.squareup.retrofit2", name = "con
 kotlinx-serialization-json = { group = "org.jetbrains.kotlinx", name = "kotlinx-serialization-json", version.ref = "kotlinxSerialization" }
 okhttp = { group = "com.squareup.okhttp3", name = "okhttp", version.ref = "okhttp" }
 tabler-icons-outline-android = { group = "com.composables", name = "icons-tabler-outline-android", version.ref = "tablerIcons" }
+vico-compose = { group = "com.patrykandpatrick.vico", name = "compose", version.ref = "vico" }
 maps-compose = { group = "com.google.maps.android", name = "maps-compose", version.ref = "mapsCompose" }
 maps-compose-utils = { group = "com.google.maps.android", name = "maps-compose-utils", version.ref = "mapsCompose" }
 androidx-benchmark-macro-junit4 = { group = "androidx.benchmark", name = "benchmark-macro-junit4", version.ref = "benchmark" }

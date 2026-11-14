@@ -111,6 +111,7 @@ dependencies {
     implementation(libs.maps.compose.utils)
     implementation(libs.okhttp)
     implementation(libs.tabler.icons.outline.android)
+    implementation(libs.vico.compose)
 
     testImplementation(libs.junit)
     androidTestImplementation(platform(libs.androidx.compose.bom))

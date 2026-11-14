@@ -4,6 +4,7 @@ import com.tryniecki.appostazja.api.model.DatasetStatusDto
 import com.tryniecki.appostazja.api.model.PlaceDto
 import com.tryniecki.appostazja.api.model.PlaceReportsDto
 import com.tryniecki.appostazja.api.model.PlaceSearchResultDto
+import com.tryniecki.appostazja.api.model.StatsDto
 import retrofit2.http.GET
 import retrofit2.http.Header
 import retrofit2.http.Path
@@ -34,6 +35,9 @@ interface AppostazjaApi {
 
     @GET("places/{id}/reports")
     suspend fun getPlaceReports(@Path("id") id: String): PlaceReportsDto
+
+    @GET("stats")
+    suspend fun getStats(): StatsDto
 
     @GET("dataset")
     suspend fun getDatasetStatus(): DatasetStatusDto

@@ -8,6 +8,7 @@ import kotlinx.serialization.Serializable
 @Serializable
 sealed interface AppRoute {
     @Serializable data object Map : AppRoute
+    @Serializable data object Stats : AppRoute
     @Serializable data object Declaration : AppRoute
     @Serializable data object More : AppRoute
 }
@@ -21,6 +22,11 @@ enum class AppDestination(
         R.string.nav_map,
         com.composables.icons.tabler.outline.R.drawable.tabler_ic_map_2_outline,
         AppRoute.Map,
+    ),
+    STATS(
+        R.string.nav_stats,
+        com.composables.icons.tabler.outline.R.drawable.tabler_ic_chart_bar_outline,
+        AppRoute.Stats,
     ),
     DECLARATION(
         R.string.nav_declaration,

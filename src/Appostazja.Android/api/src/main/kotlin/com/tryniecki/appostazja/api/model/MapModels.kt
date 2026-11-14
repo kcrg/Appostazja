@@ -79,3 +79,31 @@ data class ImportStatusDto(
     val skippedRows: Int = 0,
     val unmatchedReports: Int = 0,
 )
+
+@Serializable
+data class StatsDto(
+    val placeCount: Int,
+    val reportCount: Int,
+    val commentCount: Int,
+    val datedReportCount: Int,
+    val ratings: RatingBreakdownDto,
+    val stages: StageRatingsDto,
+    val placeTones: ToneCountsDto,
+    /** Oldest first; a period spans several years when [PeriodStatsDto.fromYear] differs from [PeriodStatsDto.toYear]. */
+    val years: List<PeriodStatsDto>,
+    val topCities: List<CityStatsDto>,
+)
+
+@Serializable
+data class ToneCountsDto(val positive: Int, val mixed: Int, val negative: Int, val none: Int)
+
+@Serializable
+data class PeriodStatsDto(val fromYear: Int, val toYear: Int, val ratings: RatingBreakdownDto)
+
+@Serializable
+data class CityStatsDto(
+    val city: String,
+    val placeCount: Int,
+    val ratings: RatingBreakdownDto,
+    val rating: Double? = null,
+)

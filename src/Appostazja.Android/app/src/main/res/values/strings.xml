@@ -3,6 +3,29 @@
     <string name="nav_map">Mapa</string>
     <string name="nav_declaration">Deklaracja</string>
     <string name="nav_more">Więcej</string>
+    <string name="nav_stats">Statystyki</string>
+
+    <string name="stats_title">Statystyki</string>
+    <string name="stats_error_title">Nie udało się wczytać statystyk</string>
+    <string name="stats_error">Sprawdź połączenie z internetem.</string>
+    <string name="stats_places">Parafie</string>
+    <string name="stats_reports">Relacje</string>
+    <string name="stats_with_comment">Z opisem</string>
+    <string name="stats_ratings_title">Jak przebiega apostazja</string>
+    <string name="stats_ratings_subtitle">Oceny ze wszystkich relacji</string>
+    <string name="stats_stages_title">Oceny według etapu</string>
+    <string name="stats_stages_subtitle">Przed apostazją, w jej trakcie i po niej</string>
+    <string name="stats_years_title">Relacje w kolejnych latach</string>
+    <string name="stats_years_subtitle">Według daty zdarzenia, %1$s relacji z datą. Dotknij słupka, aby zobaczyć liczby.</string>
+    <string name="stats_years_up_to">do</string>
+    <string name="stats_cities_title">Miasta z największą liczbą relacji</string>
+    <string name="stats_cities_subtitle">Długość paska to liczba relacji, kolory to oceny</string>
+    <string name="stats_tones_title">Parafie według ogólnej oceny</string>
+    <string name="stats_tones_subtitle">Werdykt na podstawie wszystkich relacji danej parafii</string>
+    <string name="stats_tone_positive">Przychylne</string>
+    <string name="stats_tone_mixed">Różnie</string>
+    <string name="stats_tone_negative">Nieprzychylne</string>
+    <string name="stats_source">Dane: mapaapostazji.pl. Statystyki obejmują wyłącznie zgłoszone relacje i nie są reprezentatywne dla wszystkich parafii.</string>
 
     <string name="map_loading">Pobieram dane mapy…</string>
     <string name="map_loaded_count">Załadowano %1$d parafii</string>
