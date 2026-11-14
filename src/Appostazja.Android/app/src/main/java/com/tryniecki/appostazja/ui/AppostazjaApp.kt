@@ -2,14 +2,24 @@ package com.tryniecki.appostazja.ui
 
 import androidx.compose.animation.AnimatedContentScope
 import androidx.compose.runtime.LaunchedEffect
-import androidx.compose.runtime.collectAsState
+import androidx.compose.runtime.DisposableEffect
+import androidx.compose.runtime.snapshotFlow
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.withFrameNanos
 import androidx.compose.ui.platform.LocalDensity
 import androidx.navigation.NavBackStackEntry
 import androidx.navigation.NavGraphBuilder
 import com.tryniecki.appostazja.ui.navigation.NavMotion
-import com.tryniecki.appostazja.ui.navigation.leavingScreenClip
+import com.tryniecki.appostazja.ui.navigation.backNavigationDecoration
+import com.tryniecki.appostazja.ui.navigation.NavDirection
+import androidx.compose.animation.core.Animatable
+import androidx.compose.animation.core.LinearEasing
+import androidx.compose.animation.core.tween
+import androidx.compose.runtime.mutableIntStateOf
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.setValue
+import kotlinx.coroutines.flow.first
+import kotlinx.coroutines.withTimeoutOrNull
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.consumeWindowInsets
@@ -65,8 +75,30 @@ fun AppostazjaApp(
         withFrameNanos { }
         tabSwitch.inProgress = false
     }
+    val navDirection = remember { NavDirection() }
+    var mapEntryComposed by remember { mutableStateOf(false) }
+    // True for the length of a tab switch animation; meanwhile NavHost may report the map entry as visible
+    // although the map is not part of the switch.
+    var tabSwitches by remember { mutableIntStateOf(0) }
+    var tabSwitchRunning by remember { mutableStateOf(false) }
+    LaunchedEffect(tabSwitches) {
+        if (tabSwitches == 0) return@LaunchedEffect
+        // Over once NavHost shows a single screen again; the timeout covers a switch that animates nothing.
+        withTimeoutOrNull(TAB_SWITCH_TIMEOUT_MS) {
+            withTimeoutOrNull(TAB_SWITCH_START_MS) { navController.visibleEntries.first { it.size > 1 } }
+            navController.visibleEntries.first { it.size <= 1 }
+            // Leaving the map, its entry goes a moment later; until then it must not count as going back.
+            if (navController.currentDestination?.hasRoute<AppRoute.Map>() != true) {
+                snapshotFlow { mapEntryComposed }.first { !it }
+            }
+        }
+        tabSwitchRunning = false
+    }
     fun switchTab(destination: AppDestination) {
         tabSwitch.inProgress = true
+        // Set before navigating: the very first frame of the switch must already keep the map covered.
+        tabSwitchRunning = true
+        tabSwitches++
         navController.navigateToTab(destination)
     }
 
@@ -100,9 +132,20 @@ fun AppostazjaApp(
             .consumeWindowInsets(PaddingValues(bottom = innerPadding.calculateBottomPadding()))
         // The map lives under the NavHost instead of in it: a NavHost destination is disposed on every tab
         // switch, which recreated the MapView (about 40 ms frames each way). Other tabs are opaque and cover it.
-        // It counts as shown while its entry is visible at all, including under a screen being swiped away.
-        val visibleEntries by navController.visibleEntries.collectAsState()
-        val mapVisible = visibleEntries.any { it.destination.hasRoute<AppRoute.Map>() }
+        // Going back to the map (a back gesture or button from another tab): the map shows under the screen leaving.
+        // NavHost composes the map entry as soon as a back gesture starts but lists it in visibleEntries only once
+        // the gesture ends, so the entry reports itself. A tab switch away from the map composes it too, as the
+        // screen leaving; that is not going back.
+        val backToMap = !tabSwitchRunning && currentDestination != AppDestination.MAP && mapEntryComposed
+        // Covers the map whenever another tab is shown, including while two other tabs cross-fade. Leaving the map
+        // it fades in with the incoming tab; returning to it, it goes at once and the leaving tab fades over the map.
+        val coverHidden = currentDestination == AppDestination.MAP || backToMap
+        val cover = remember { Animatable(if (coverHidden) 0f else 1f) }
+        LaunchedEffect(coverHidden) {
+            if (coverHidden) cover.snapTo(0f)
+            else cover.animateTo(1f, tween(NavMotion.TabFadeIn, delayMillis = NavMotion.TabFadeInDelay, easing = LinearEasing))
+        }
+        val mapVisible = coverHidden || cover.value < 1f
         Box(contentModifier) {
             PersistentMapHost(visible = mapVisible) {
                 MapRoute(
@@ -118,38 +161,53 @@ fun AppostazjaApp(
                 )
             }
         }
-        // Covers the map while two other tabs cross-fade, so it never shows through between them. When the map
-        // is one side of a transition, the other side is an opaque screen and the map must show behind it.
         val coverColor = MaterialTheme.colorScheme.background
-        Box(contentModifier.drawBehind { if (!mapVisible) drawRect(coverColor) })
+        Box(contentModifier.drawBehind { if (cover.value > 0f) drawRect(coverColor, alpha = cover.value) })
         val density = LocalDensity.current
         NavHost(
             navController = navController,
             startDestination = AppRoute.Map,
             modifier = contentModifier,
             enterTransition = {
+                navDirection.goingBack = false
                 if (sameTab(initialState.destination, targetState.destination)) NavMotion.sharedAxisEnter(density)
                 else NavMotion.fadeThroughEnter()
             },
             exitTransition = {
+                navDirection.goingBack = false
                 if (sameTab(initialState.destination, targetState.destination)) NavMotion.sharedAxisExit(density)
                 else NavMotion.fadeThroughExit()
             },
             // Tapping a tab can also pop (back to the map is a pop), but it is a tab switch, not going back.
             popEnterTransition = {
+                navDirection.goingBack = !tabSwitch.inProgress
                 if (tabSwitch.inProgress) NavMotion.fadeThroughEnter() else NavMotion.backEnter()
             },
             popExitTransition = {
+                navDirection.goingBack = !tabSwitch.inProgress
                 if (tabSwitch.inProgress) NavMotion.fadeThroughExit() else NavMotion.backExit()
             },
+            // Used instead of the pop transitions while the finger is on the screen; they share the same motion.
+            predictivePopEnterTransition = { swipeEdge ->
+                navDirection.goingBack = true
+                NavMotion.backEnter(swipeEdge)
+            },
+            predictivePopExitTransition = { swipeEdge ->
+                navDirection.goingBack = true
+                NavMotion.backExit(swipeEdge)
+            },
         ) {
-            screen<AppRoute.Map> {
+            screen<AppRoute.Map>(navDirection) {
                 // Drawn by PersistentMapHost underneath.
+                DisposableEffect(Unit) {
+                    mapEntryComposed = true
+                    onDispose { mapEntryComposed = false }
+                }
             }
-            screen<AppRoute.Stats> {
+            screen<AppRoute.Stats>(navDirection) {
                 StatsRoute(container.mapRepository)
             }
-            screen<AppRoute.Declaration> {
+            screen<AppRoute.Declaration>(navDirection) {
                 DeclarationRoute(
                     draftStore = container.secureDraftStore,
                     pdfGenerator = container.pdfGenerator,
@@ -159,21 +217,21 @@ fun AppostazjaApp(
                     parishHandoff = container.parishHandoff,
                 )
             }
-            screen<AppRoute.DeclarationHistory> {
+            screen<AppRoute.DeclarationHistory>(navDirection) {
                 DeclarationHistoryRoute(
                     archive = container.declarationArchive,
                     onOpenPreview = { navController.navigate(AppRoute.DeclarationPreview(it)) },
                     onBack = navController::popBackStack,
                 )
             }
-            screen<AppRoute.DeclarationPreview> { entry ->
+            screen<AppRoute.DeclarationPreview>(navDirection) { entry ->
                 DeclarationPreviewRoute(
                     archive = container.declarationArchive,
                     declarationId = entry.toRoute<AppRoute.DeclarationPreview>().declarationId,
                     onBack = navController::popBackStack,
                 )
             }
-            screen<AppRoute.More> {
+            screen<AppRoute.More>(navDirection) {
                 MoreScreen(
                     themeMode = themeMode,
                     loadDatasetStatus = container.mapRepository::getDatasetStatus,
@@ -189,12 +247,13 @@ private class TabSwitch {
     var inProgress = false
 }
 
-/** A destination whose leaving frame gets rounded corners, see [leavingScreenClip]. */
+/** A destination decorated for going back, see [backNavigationDecoration]. */
 private inline fun <reified T : Any> NavGraphBuilder.screen(
+    direction: NavDirection,
     noinline content: @Composable AnimatedContentScope.(NavBackStackEntry) -> Unit,
 ) {
     composable<T> { entry ->
-        Box(Modifier.fillMaxSize().then(leavingScreenClip())) { content(entry) }
+        Box(Modifier.fillMaxSize().then(backNavigationDecoration(direction))) { content(entry) }
     }
 }
 
@@ -219,3 +278,6 @@ private fun NavHostController.navigateToTab(destination: AppDestination) {
         restoreState = true
     }
 }
+
+private const val TAB_SWITCH_START_MS = 300L
+private const val TAB_SWITCH_TIMEOUT_MS = 5_000L

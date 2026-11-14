@@ -46,7 +46,7 @@ fun rememberPredictiveBack(enabled: Boolean, onBack: () -> Unit): PredictiveBack
             }
             onBack()
         } catch (cancelled: CancellationException) {
-            scope.launch { state.progress.animateTo(0f, tween(NavMotion.Duration)) }
+            scope.launch { state.progress.animateTo(0f, tween(NavMotion.DURATION)) }
             throw cancelled
         }
     }
@@ -56,7 +56,7 @@ fun rememberPredictiveBack(enabled: Boolean, onBack: () -> Unit): PredictiveBack
 fun Modifier.predictiveBack(state: PredictiveBackState): Modifier = graphicsLayer {
     val progress = state.progress.value
     if (progress == 0f) return@graphicsLayer
-    val scale = 1f - (1f - NavMotion.BACK_SCALE) * progress
+    val scale = 1f - (1f - SEARCH_BACK_SCALE) * progress
     scaleX = scale
     scaleY = scale
     // Drifts a little away from the edge the gesture started at, as the system animation does.
@@ -65,3 +65,6 @@ fun Modifier.predictiveBack(state: PredictiveBackState): Modifier = graphicsLaye
     shape = RoundedCornerShape(NavMotion.BackCornerRadius * progress)
     clip = true
 }
+
+/** Material search view: the overlay shrinks to 90 % under the back gesture. */
+private const val SEARCH_BACK_SCALE = 0.9f
