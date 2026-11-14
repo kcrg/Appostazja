@@ -11,75 +11,71 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.flow.flowOn
+import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
-import kotlinx.coroutines.withContext
 import kotlinx.serialization.SerializationException
 import java.io.IOException
 
 internal data class MapUiState(
     val places: List<ChurchClusterItem> = emptyList(),
-    val isLoading: Boolean = true,
+    /** True until the cache has been read once, so an empty first frame is not mistaken for "no data". */
+    val cacheRead: Boolean = false,
     val isRefreshing: Boolean = false,
-    val error: Boolean = false,
+    val refreshFailed: Boolean = false,
     val errorDetails: String? = null,
-)
+) {
+    val isLoading: Boolean get() = places.isEmpty() && (!cacheRead || isRefreshing)
+
+    /** Only a map with nothing to show is an error; with cached places the app simply works offline. */
+    val error: Boolean get() = places.isEmpty() && cacheRead && refreshFailed && !isRefreshing
+}
 
 internal class MapViewModel(private val repository: MapRepository) : ViewModel() {
     private val _uiState = MutableStateFlow(MapUiState())
     val uiState: StateFlow<MapUiState> = _uiState.asStateFlow()
 
     init {
-        load(revalidate = false)
-    }
-
-    fun refresh() = load(revalidate = true)
-
-    private fun load(revalidate: Boolean) {
-        if (_uiState.value.isRefreshing) return
         viewModelScope.launch {
-            _uiState.update {
-                it.copy(
-                    isLoading = it.places.isEmpty(),
-                    isRefreshing = true,
-                    error = false,
-                    errorDetails = null,
-                )
-            }
-            val currentPlaces = _uiState.value.places
-            runCatching {
-                val places = repository.getPlaces(revalidate)
-                withContext(Dispatchers.Default) {
-                    if (places.size == currentPlaces.size &&
-                        places.indices.all { places[it] == currentPlaces[it].place }
-                    ) currentPlaces else places.map(::ChurchClusterItem)
-                }
-            }
-                .onSuccess { places ->
-                    _uiState.value = MapUiState(
-                        places = places,
-                        isLoading = false,
-                        isRefreshing = false,
-                        error = false,
-                        errorDetails = null,
-                    )
-                }
-                .onFailure { throwable ->
-                    if (throwable is CancellationException) throw throwable
-                    Log.e(
-                        TAG,
-                        "Failed to load places from ${BuildConfig.APPOSTAZJA_API_BASE_URL}",
-                        throwable,
-                    )
-                    _uiState.update { current ->
-                        current.copy(
-                            isLoading = false,
-                            isRefreshing = false,
-                            error = current.places.isEmpty(),
-                            errorDetails = if (BuildConfig.DEBUG) throwable.toDebugMessage() else null,
-                        )
+            var current = emptyList<ChurchClusterItem>()
+            repository.places
+                .map { places ->
+                    // Keep the same items when nothing changed, so clustering does not run again.
+                    if (places.size == current.size && places.indices.all { places[it] == current[it].place }) {
+                        current
+                    } else {
+                        places.map(::ChurchClusterItem)
                     }
                 }
+                .flowOn(Dispatchers.Default)
+                .collect { items ->
+                    current = items
+                    _uiState.update { it.copy(places = items, cacheRead = true) }
+                }
+        }
+        refresh()
+    }
+
+    fun refresh() {
+        if (_uiState.value.isRefreshing) return
+        _uiState.update { it.copy(isRefreshing = true, refreshFailed = false, errorDetails = null) }
+        viewModelScope.launch {
+            try {
+                repository.refreshPlaces()
+                _uiState.update { it.copy(isRefreshing = false) }
+            } catch (cancelled: CancellationException) {
+                throw cancelled
+            } catch (failure: Exception) {
+                Log.w(TAG, "Refreshing places from ${BuildConfig.APPOSTAZJA_API_BASE_URL} failed", failure)
+                _uiState.update {
+                    it.copy(
+                        isRefreshing = false,
+                        refreshFailed = true,
+                        errorDetails = if (BuildConfig.DEBUG) failure.toDebugMessage() else null,
+                    )
+                }
+            }
         }
     }
 

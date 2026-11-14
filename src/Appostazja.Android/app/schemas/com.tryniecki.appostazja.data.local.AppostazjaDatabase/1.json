@@ -1,0 +1,281 @@
+{
+  "formatVersion": 1,
+  "database": {
+    "version": 1,
+    "identityHash": "074abf9a82e29eb12e14939709207799",
+    "entities": [
+      {
+        "tableName": "places",
+        "createSql": "CREATE TABLE IF NOT EXISTS `${TABLE_NAME}` (`id` TEXT NOT NULL, `position` INTEGER NOT NULL, `name` TEXT NOT NULL, `address` TEXT NOT NULL, `latitude` REAL NOT NULL, `longitude` REAL NOT NULL, `score` REAL NOT NULL, `lastActionDate` TEXT, `rating` REAL, `tone` TEXT, `ratings_positive` INTEGER NOT NULL, `ratings_neutral` INTEGER NOT NULL, `ratings_negative` INTEGER NOT NULL, `ratings_total` INTEGER NOT NULL, `before_positive` INTEGER, `before_neutral` INTEGER, `before_negative` INTEGER, `before_total` INTEGER, `apostasy_positive` INTEGER, `apostasy_neutral` INTEGER, `apostasy_negative` INTEGER, `apostasy_total` INTEGER, `after_positive` INTEGER, `after_neutral` INTEGER, `after_negative` INTEGER, `after_total` INTEGER, PRIMARY KEY(`id`))",
+        "fields": [
+          {
+            "fieldPath": "id",
+            "columnName": "id",
+            "affinity": "TEXT",
+            "notNull": true
+          },
+          {
+            "fieldPath": "position",
+            "columnName": "position",
+            "affinity": "INTEGER",
+            "notNull": true
+          },
+          {
+            "fieldPath": "name",
+            "columnName": "name",
+            "affinity": "TEXT",
+            "notNull": true
+          },
+          {
+            "fieldPath": "address",
+            "columnName": "address",
+            "affinity": "TEXT",
+            "notNull": true
+          },
+          {
+            "fieldPath": "latitude",
+            "columnName": "latitude",
+            "affinity": "REAL",
+            "notNull": true
+          },
+          {
+            "fieldPath": "longitude",
+            "columnName": "longitude",
+            "affinity": "REAL",
+            "notNull": true
+          },
+          {
+            "fieldPath": "score",
+            "columnName": "score",
+            "affinity": "REAL",
+            "notNull": true
+          },
+          {
+            "fieldPath": "lastActionDate",
+            "columnName": "lastActionDate",
+            "affinity": "TEXT"
+          },
+          {
+            "fieldPath": "rating",
+            "columnName": "rating",
+            "affinity": "REAL"
+          },
+          {
+            "fieldPath": "tone",
+            "columnName": "tone",
+            "affinity": "TEXT"
+          },
+          {
+            "fieldPath": "ratings.positive",
+            "columnName": "ratings_positive",
+            "affinity": "INTEGER",
+            "notNull": true
+          },
+          {
+            "fieldPath": "ratings.neutral",
+            "columnName": "ratings_neutral",
+            "affinity": "INTEGER",
+            "notNull": true
+          },
+          {
+            "fieldPath": "ratings.negative",
+            "columnName": "ratings_negative",
+            "affinity": "INTEGER",
+            "notNull": true
+          },
+          {
+            "fieldPath": "ratings.total",
+            "columnName": "ratings_total",
+            "affinity": "INTEGER",
+            "notNull": true
+          },
+          {
+            "fieldPath": "beforeApostasy.positive",
+            "columnName": "before_positive",
+            "affinity": "INTEGER"
+          },
+          {
+            "fieldPath": "beforeApostasy.neutral",
+            "columnName": "before_neutral",
+            "affinity": "INTEGER"
+          },
+          {
+            "fieldPath": "beforeApostasy.negative",
+            "columnName": "before_negative",
+            "affinity": "INTEGER"
+          },
+          {
+            "fieldPath": "beforeApostasy.total",
+            "columnName": "before_total",
+            "affinity": "INTEGER"
+          },
+          {
+            "fieldPath": "apostasy.positive",
+            "columnName": "apostasy_positive",
+            "affinity": "INTEGER"
+          },
+          {
+            "fieldPath": "apostasy.neutral",
+            "columnName": "apostasy_neutral",
+            "affinity": "INTEGER"
+          },
+          {
+            "fieldPath": "apostasy.negative",
+            "columnName": "apostasy_negative",
+            "affinity": "INTEGER"
+          },
+          {
+            "fieldPath": "apostasy.total",
+            "columnName": "apostasy_total",
+            "affinity": "INTEGER"
+          },
+          {
+            "fieldPath": "afterApostasy.positive",
+            "columnName": "after_positive",
+            "affinity": "INTEGER"
+          },
+          {
+            "fieldPath": "afterApostasy.neutral",
+            "columnName": "after_neutral",
+            "affinity": "INTEGER"
+          },
+          {
+            "fieldPath": "afterApostasy.negative",
+            "columnName": "after_negative",
+            "affinity": "INTEGER"
+          },
+          {
+            "fieldPath": "afterApostasy.total",
+            "columnName": "after_total",
+            "affinity": "INTEGER"
+          }
+        ],
+        "primaryKey": {
+          "autoGenerate": false,
+          "columnNames": [
+            "id"
+          ]
+        }
+      },
+      {
+        "tableName": "place_details",
+        "createSql": "CREATE TABLE IF NOT EXISTS `${TABLE_NAME}` (`placeId` TEXT NOT NULL, `website` TEXT, `etag` TEXT, `syncedAtMillis` INTEGER NOT NULL, PRIMARY KEY(`placeId`))",
+        "fields": [
+          {
+            "fieldPath": "placeId",
+            "columnName": "placeId",
+            "affinity": "TEXT",
+            "notNull": true
+          },
+          {
+            "fieldPath": "website",
+            "columnName": "website",
+            "affinity": "TEXT"
+          },
+          {
+            "fieldPath": "etag",
+            "columnName": "etag",
+            "affinity": "TEXT"
+          },
+          {
+            "fieldPath": "syncedAtMillis",
+            "columnName": "syncedAtMillis",
+            "affinity": "INTEGER",
+            "notNull": true
+          }
+        ],
+        "primaryKey": {
+          "autoGenerate": false,
+          "columnNames": [
+            "placeId"
+          ]
+        }
+      },
+      {
+        "tableName": "reports",
+        "createSql": "CREATE TABLE IF NOT EXISTS `${TABLE_NAME}` (`placeId` TEXT NOT NULL, `position` INTEGER NOT NULL, `stage` TEXT NOT NULL, `rating` TEXT NOT NULL, `date` TEXT, `comment` TEXT, PRIMARY KEY(`placeId`, `position`))",
+        "fields": [
+          {
+            "fieldPath": "placeId",
+            "columnName": "placeId",
+            "affinity": "TEXT",
+            "notNull": true
+          },
+          {
+            "fieldPath": "position",
+            "columnName": "position",
+            "affinity": "INTEGER",
+            "notNull": true
+          },
+          {
+            "fieldPath": "stage",
+            "columnName": "stage",
+            "affinity": "TEXT",
+            "notNull": true
+          },
+          {
+            "fieldPath": "rating",
+            "columnName": "rating",
+            "affinity": "TEXT",
+            "notNull": true
+          },
+          {
+            "fieldPath": "date",
+            "columnName": "date",
+            "affinity": "TEXT"
+          },
+          {
+            "fieldPath": "comment",
+            "columnName": "comment",
+            "affinity": "TEXT"
+          }
+        ],
+        "primaryKey": {
+          "autoGenerate": false,
+          "columnNames": [
+            "placeId",
+            "position"
+          ]
+        }
+      },
+      {
+        "tableName": "cached_responses",
+        "createSql": "CREATE TABLE IF NOT EXISTS `${TABLE_NAME}` (`key` TEXT NOT NULL, `etag` TEXT, `body` TEXT, `syncedAtMillis` INTEGER NOT NULL, PRIMARY KEY(`key`))",
+        "fields": [
+          {
+            "fieldPath": "key",
+            "columnName": "key",
+            "affinity": "TEXT",
+            "notNull": true
+          },
+          {
+            "fieldPath": "etag",
+            "columnName": "etag",
+            "affinity": "TEXT"
+          },
+          {
+            "fieldPath": "body",
+            "columnName": "body",
+            "affinity": "TEXT"
+          },
+          {
+            "fieldPath": "syncedAtMillis",
+            "columnName": "syncedAtMillis",
+            "affinity": "INTEGER",
+            "notNull": true
+          }
+        ],
+        "primaryKey": {
+          "autoGenerate": false,
+          "columnNames": [
+            "key"
+          ]
+        }
+      }
+    ],
+    "setupQueries": [
+      "CREATE TABLE IF NOT EXISTS room_master_table (id INTEGER PRIMARY KEY,identity_hash TEXT)",
+      "INSERT OR REPLACE INTO room_master_table (id,identity_hash) VALUES(42, '074abf9a82e29eb12e14939709207799')"
+    ]
+  }
+}

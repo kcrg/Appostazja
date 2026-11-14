@@ -6,6 +6,8 @@ plugins {
     alias(libs.plugins.androidx.baselineprofile)
     alias(libs.plugins.kotlin.compose)
     alias(libs.plugins.kotlin.serialization)
+    alias(libs.plugins.ksp)
+    alias(libs.plugins.room3)
 }
 
 val localProperties = Properties().apply {
@@ -89,6 +91,10 @@ baselineProfile {
     saveInSrc = true
 }
 
+room3 {
+    schemaDirectory("$projectDir/schemas")
+}
+
 dependencies {
     baselineProfile(project(":baseline-profile"))
     implementation(project(":api"))
@@ -112,8 +118,11 @@ dependencies {
     implementation(libs.okhttp)
     implementation(libs.tabler.icons.outline.android)
     implementation(libs.vico.compose)
+    implementation(libs.room3.runtime)
+    ksp(libs.room3.compiler)
 
     testImplementation(libs.junit)
+    testImplementation(libs.sqlite.bundled.jvm)
     androidTestImplementation(platform(libs.androidx.compose.bom))
     androidTestImplementation(libs.androidx.compose.ui.test.junit4)
     androidTestImplementation(libs.androidx.espresso.core)

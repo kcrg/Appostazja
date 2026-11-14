@@ -111,6 +111,7 @@ import com.tryniecki.appostazja.ui.theme.RatingGood
 import com.tryniecki.appostazja.ui.theme.RatingNeutral
 import com.tryniecki.appostazja.ui.theme.ThemeMode
 import kotlinx.coroutines.CancellationException
+import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.launch
 import kotlin.math.ceil
 import kotlin.math.hypot
@@ -133,7 +134,7 @@ fun MapRoute(
         state = state,
         mapColors = mapColors,
         onRefresh = viewModel::refresh,
-        loadReports = repository::getPlaceReports,
+        placeReports = repository::placeReports,
         loadStreetView = { place, userRetry ->
             streetViewRepository.load(place.id, place.latitude, place.longitude, userRetry)
         },
@@ -162,7 +163,7 @@ private fun MapScreen(
     state: MapUiState,
     mapColors: ComposeMapColorScheme,
     onRefresh: () -> Unit,
-    loadReports: suspend (String) -> PlaceReportsDto,
+    placeReports: (String) -> Flow<PlaceReportsDto>,
     loadStreetView: suspend (PlaceDto, Boolean) -> StreetViewPreview,
     search: @Composable (onClose: () -> Unit, onPlaceClick: (PlaceDto) -> Unit) -> Unit,
 ) {
@@ -320,7 +321,7 @@ private fun MapScreen(
         ) {
             ChurchDetailsSheet(
                 place = place,
-                loadReports = loadReports,
+                placeReports = placeReports,
                 loadStreetView = loadStreetView,
                 onNavigate = { openGoogleMapsNavigation(context, place) },
             )
@@ -457,7 +458,7 @@ internal fun ToneDot(tone: String?) {
 @Composable
 private fun ChurchDetailsSheet(
     place: PlaceDto,
-    loadReports: suspend (String) -> PlaceReportsDto,
+    placeReports: (String) -> Flow<PlaceReportsDto>,
     loadStreetView: suspend (PlaceDto, Boolean) -> StreetViewPreview,
     onNavigate: () -> Unit,
 ) {
@@ -468,11 +469,12 @@ private fun ChurchDetailsSheet(
     LaunchedEffect(place.id, attempt) {
         failed = false
         try {
-            details = loadReports(place.id)
+            // Cached reports arrive first, current ones follow when they changed.
+            placeReports(place.id).collect { details = it }
         } catch (cancelled: CancellationException) {
             throw cancelled
         } catch (_: Exception) {
-            failed = true
+            failed = details == null
         }
     }
 

@@ -16,6 +16,9 @@ kotlinxSerialization = "1.13.0"
 okhttp = "5.5.1"
 tablerIcons = "2.2.1"
 vico = "3.3.1"
+room3 = "3.0.3"
+sqlite = "2.7.1"
+ksp = "2.3.14"
 browser = "1.10.0"
 mapsCompose = "9.0.1"
 benchmark = "1.5.0"
@@ -48,6 +51,9 @@ kotlinx-serialization-json = { group = "org.jetbrains.kotlinx", name = "kotlinx-
 okhttp = { group = "com.squareup.okhttp3", name = "okhttp", version.ref = "okhttp" }
 tabler-icons-outline-android = { group = "com.composables", name = "icons-tabler-outline-android", version.ref = "tablerIcons" }
 vico-compose = { group = "com.patrykandpatrick.vico", name = "compose", version.ref = "vico" }
+room3-runtime = { group = "androidx.room3", name = "room3-runtime", version.ref = "room3" }
+room3-compiler = { group = "androidx.room3", name = "room3-compiler", version.ref = "room3" }
+sqlite-bundled-jvm = { group = "androidx.sqlite", name = "sqlite-bundled-jvm", version.ref = "sqlite" }
 maps-compose = { group = "com.google.maps.android", name = "maps-compose", version.ref = "mapsCompose" }
 maps-compose-utils = { group = "com.google.maps.android", name = "maps-compose-utils", version.ref = "mapsCompose" }
 androidx-benchmark-macro-junit4 = { group = "androidx.benchmark", name = "benchmark-macro-junit4", version.ref = "benchmark" }
@@ -61,3 +67,5 @@ androidx-baselineprofile = { id = "androidx.baselineprofile", version.ref = "ben
 kotlin-compose = { id = "org.jetbrains.kotlin.plugin.compose", version.ref = "kotlin" }
 kotlin-jvm = { id = "org.jetbrains.kotlin.jvm", version.ref = "kotlin" }
 kotlin-serialization = { id = "org.jetbrains.kotlin.plugin.serialization", version.ref = "kotlin" }
+ksp = { id = "com.google.devtools.ksp", version.ref = "ksp" }
+room3 = { id = "androidx.room3", version.ref = "room3" }

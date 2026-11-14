@@ -19,7 +19,7 @@ internal data class StatsUiState(
     val error: Boolean = false,
 )
 
-/** Loads `GET /stats`; every aggregate comes from the API. */
+/** Shows `GET /stats` through the offline cache; every aggregate comes from the API. */
 internal class StatsViewModel(private val repository: MapRepository) : ViewModel() {
     private val _uiState = MutableStateFlow(StatsUiState())
     val uiState: StateFlow<StatsUiState> = _uiState.asStateFlow()
@@ -32,13 +32,14 @@ internal class StatsViewModel(private val repository: MapRepository) : ViewModel
         _uiState.update { it.copy(isLoading = true, error = false) }
         viewModelScope.launch {
             try {
-                val stats = repository.getStats()
-                _uiState.value = StatsUiState(stats = stats, isLoading = false)
+                // Cached statistics first, then current ones when they changed.
+                repository.stats().collect { stats -> _uiState.update { it.copy(stats = stats) } }
+                _uiState.update { it.copy(isLoading = false) }
             } catch (cancelled: CancellationException) {
                 throw cancelled
             } catch (exception: Exception) {
                 Log.w("Stats", "Loading statistics failed", exception)
-                _uiState.update { it.copy(isLoading = false, error = true) }
+                _uiState.update { it.copy(isLoading = false, error = it.stats == null) }
             }
         }
     }
