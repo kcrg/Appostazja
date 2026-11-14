@@ -13,6 +13,8 @@
     <Http3Support>false</Http3Support>
 
     <UseSystemResourceKeys>true</UseSystemResourceKeys>
+    <!-- All text handling is ordinal or invariant (see PlaceSearch.Fold), so no ICU is needed on the server. -->
+    <InvariantGlobalization>true</InvariantGlobalization>
 
     <DebuggerSupport>false</DebuggerSupport>
     <TrimmerRemoveSymbols>true</TrimmerRemoveSymbols>

@@ -52,6 +52,21 @@ class StreetViewRepositoryTest {
     }
 
     @Test
+    fun `thumbnails resolve under the api root however the base url was configured`() {
+        val thumbnail = "api/v1/places/mariacki/street-view/thumbnail?v=abc"
+        val expected = "https://api.example/appostazja/$thumbnail"
+
+        for (configured in listOf(
+            "https://api.example/appostazja",
+            "https://api.example/appostazja/",
+            "https://api.example/appostazja/api/v1",
+            "https://api.example/appostazja/api/v1/",
+        )) {
+            assertEquals(configured, expected, apiRoot(configured).resolve(thumbnail).toString())
+        }
+    }
+
+    @Test
     fun `a thumbnail Google refused still offers the panorama`() = runBlocking {
         // Our API answers 503 when Google refuses the image and it has no copy.
         api.streetView = { ok(panorama) }

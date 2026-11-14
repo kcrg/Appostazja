@@ -69,8 +69,7 @@ class StreetViewRepository(
     constructor(api: AppostazjaApi, enabled: Boolean, baseUrl: String, cacheDirectory: File) : this(
         api,
         enabled,
-        // Relative URLs resolve under the base path only when it ends with a slash.
-        (if (baseUrl.endsWith("/")) baseUrl else "$baseUrl/").toHttpUrl(),
+        apiRoot(baseUrl),
         OkHttpClient.Builder()
             .connectTimeout(10, TimeUnit.SECONDS)
             .readTimeout(20, TimeUnit.SECONDS)
@@ -151,6 +150,16 @@ class StreetViewRepository(
         private const val TAG = "StreetView"
         const val MEMORY_CACHE_SIZE = 24
     }
+}
+
+/**
+ * Where thumbnail URLs (`api/v1/places/...`) are relative to. The configured base URL may name the API root or
+ * end in `/api/v1`, as the API client accepts both; relative URLs resolve under it only with a trailing slash.
+ */
+internal fun apiRoot(baseUrl: String): HttpUrl {
+    val root = baseUrl.trim().trimEnd('/')
+    val withoutVersion = if (root.endsWith("/api/v1", ignoreCase = true)) root.dropLast("/api/v1".length) else root
+    return "$withoutVersion/".toHttpUrl()
 }
 
 internal enum class ImageFailure { ThumbnailRefused, NoPanorama, Other }
