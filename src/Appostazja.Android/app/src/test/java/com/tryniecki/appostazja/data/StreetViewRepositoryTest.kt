@@ -21,6 +21,15 @@ class StreetViewRepositoryTest {
     }
 
     @Test
+    fun `refused thumbnails still offer the panorama while server errors ask for a retry`() {
+        // Google answers an unsigned request it will not serve with a 403 and an error PNG, not a message.
+        assertEquals(ImageFailure.ThumbnailRefused, classifyImageFailure(403, ""))
+        assertEquals(ImageFailure.ThumbnailRefused, classifyImageFailure(429, ""))
+        assertEquals(ImageFailure.NoPanorama, classifyImageFailure(404, ""))
+        assertEquals(ImageFailure.Other, classifyImageFailure(500, ""))
+    }
+
+    @Test
     fun `bearing points from panorama towards the parish`() {
         assertEquals(0, bearing(52.0, 19.0, 52.001, 19.0))
         assertEquals(90, bearing(52.0, 19.0, 52.0, 19.001))

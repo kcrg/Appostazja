@@ -165,11 +165,14 @@ class StreetViewRepository(
             val isImage = response.body.contentType()?.type == "image"
             if (!response.isSuccessful || !isImage) {
                 val body = if (isImage) "" else response.body.string()
-                return@execute when (classifyHttpError(response.code, body)) {
-                    // The panorama is known and free to open; only the thumbnail is out of quota.
-                    "OVER_QUERY_LIMIT" -> available(image = null)
-                    "ZERO_RESULTS" -> StreetViewPreview.NotAvailable
-                    else -> {
+                return@execute when (classifyImageFailure(response.code, body)) {
+                    // The panorama is known and free to open in the app; only the thumbnail was refused.
+                    ImageFailure.ThumbnailRefused -> {
+                        Log.w(TAG, "Street View image refused, HTTP ${response.code}: ${body.take(300)}")
+                        available(image = null)
+                    }
+                    ImageFailure.NoPanorama -> StreetViewPreview.NotAvailable
+                    ImageFailure.Other -> {
                         Log.w(TAG, "Street View image HTTP ${response.code}: ${body.take(300)}")
                         StreetViewPreview.Failed
                     }
@@ -236,6 +239,20 @@ class StreetViewRepository(
 
         val json = Json { ignoreUnknownKeys = true }
     }
+}
+
+internal enum class ImageFailure { ThumbnailRefused, NoPanorama, Other }
+
+/**
+ * Why the billed thumbnail failed after the free metadata found a panorama. Quota, rate limits and 403s
+ * (billing, API restrictions, or Google demanding signed URLs) only take the thumbnail away: the in-app
+ * panorama does not depend on the Static API, so the sheet still offers it. Only network and server
+ * errors are worth a retry.
+ */
+internal fun classifyImageFailure(code: Int, body: String): ImageFailure = when {
+    code == 403 || classifyHttpError(code, body) == "OVER_QUERY_LIMIT" -> ImageFailure.ThumbnailRefused
+    code == 404 -> ImageFailure.NoPanorama
+    else -> ImageFailure.Other
 }
 
 /** Maps an HTTP failure to a metadata-style status so both endpoints share one decision table. */
