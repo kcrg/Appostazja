@@ -9,6 +9,7 @@ import com.tryniecki.appostazja.api.model.PlaceSearchResultDto
 import com.tryniecki.appostazja.api.model.StatsDto
 import com.tryniecki.appostazja.api.model.StreetViewDto
 import kotlinx.coroutines.runBlocking
+import okhttp3.HttpUrl.Companion.toHttpUrl
 import okhttp3.MediaType.Companion.toMediaType
 import okhttp3.OkHttpClient
 import okhttp3.Protocol
@@ -29,6 +30,7 @@ class StreetViewRepositoryTest {
     private val repository = StreetViewRepository(
         api = api,
         enabled = true,
+        baseUrl = "https://api.example/appostazja/".toHttpUrl(),
         images = OkHttpClient.Builder().addInterceptor { google.respond(it.request()) }.build(),
         decode = { bytes -> decoded += bytes; FakeBitmap },
         warn = { _, _ -> },
@@ -46,14 +48,14 @@ class StreetViewRepositoryTest {
         assertEquals("pano-1", first.panoId)
         assertEquals(first, again)
         assertEquals(1, api.calls)
-        assertEquals(listOf(panorama.thumbnailUrl), google.requested)
+        assertEquals(listOf("https://api.example/appostazja/api/v1/places/mariacki/street-view/thumbnail?v=abc"), google.requested)
     }
 
     @Test
-    fun `a thumbnail refused by Google still offers the panorama`() = runBlocking {
-        // An unsigned or over-quota request gets a 403 with an error PNG, not a message.
+    fun `a thumbnail Google refused still offers the panorama`() = runBlocking {
+        // Our API answers 503 when Google refuses the image and it has no copy.
         api.streetView = { ok(panorama) }
-        google.image = image(403)
+        google.image = image(503)
 
         val preview = repository.load("mariacki") as StreetViewPreview.Available
 
@@ -87,10 +89,12 @@ class StreetViewRepositoryTest {
 
     @Test
     fun `refusals still offer the panorama while server errors ask for a retry`() {
+        assertEquals(ImageFailure.ThumbnailRefused, classifyImageFailure(503, ""))
         assertEquals(ImageFailure.ThumbnailRefused, classifyImageFailure(403, ""))
         assertEquals(ImageFailure.ThumbnailRefused, classifyImageFailure(429, ""))
         assertEquals(ImageFailure.ThumbnailRefused, classifyImageFailure(400, "You have exceeded your daily request quota"))
         assertEquals(ImageFailure.NoPanorama, classifyImageFailure(404, ""))
+        assertEquals(ImageFailure.Other, classifyImageFailure(502, ""))
         assertEquals(ImageFailure.Other, classifyImageFailure(500, ""))
     }
 
@@ -107,7 +111,7 @@ class StreetViewRepositoryTest {
         heading = 120,
         copyright = "© 2026 Google",
         date = "2025-07",
-        thumbnailUrl = "https://maps.googleapis.com/maps/api/streetview?pano=pano-1&key=k&signature=s",
+        thumbnailUrl = "api/v1/places/mariacki/street-view/thumbnail?v=abc",
     )
 
     private fun ok(body: StreetViewDto) = retrofit2.Response.success(body)

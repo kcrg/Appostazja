@@ -23,8 +23,9 @@ class AppContainer(context: Context) {
     val streetViewRepository by lazy(LazyThreadSafetyMode.SYNCHRONIZED) {
         StreetViewRepository(
             api,
-            // The in-app panorama needs the Maps SDK key; thumbnails are signed by our API.
+            // The in-app panorama needs the Maps SDK key; thumbnails come from our API.
             enabled = BuildConfig.MAPS_API_KEY.isNotBlank(),
+            baseUrl = BuildConfig.APPOSTAZJA_API_BASE_URL,
             cacheDirectory = applicationContext.cacheDir.resolve("street-view-http"),
         )
     }

@@ -9,6 +9,8 @@ import com.tryniecki.appostazja.api.model.StreetViewDto
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 import okhttp3.Cache
+import okhttp3.HttpUrl
+import okhttp3.HttpUrl.Companion.toHttpUrl
 import okhttp3.OkHttpClient
 import okhttp3.Request
 import java.io.File
@@ -49,23 +51,26 @@ sealed interface StreetViewPreview {
 }
 
 /**
- * Street View previews through our API, which picks a street-level Google panorama and signs the thumbnail URL
- * (the signing secret must not ship in the app). The thumbnail itself comes from Google: its policies do not let
- * our server store the images, so they are cached here over HTTP as Google's headers allow. Results are also
- * kept in memory, so reopening a parish costs nothing.
+ * Street View previews through our API, which picks a street-level Google panorama and serves its thumbnail (kept
+ * on the server, so the Maps key and signing secret never ship in the app). Thumbnails are also cached here over
+ * HTTP: their URL changes with the image. Results are kept in memory too, so reopening a parish costs nothing.
  */
 class StreetViewRepository(
     private val api: AppostazjaApi,
     private val enabled: Boolean,
+    /** The API base URL, which thumbnail URLs are relative to. */
+    private val baseUrl: HttpUrl,
     private val images: OkHttpClient,
     private val decode: (ByteArray) -> ImageBitmap? = { bytes ->
         BitmapFactory.decodeByteArray(bytes, 0, bytes.size)?.asImageBitmap()
     },
     private val warn: (String, Throwable?) -> Unit = { message, error -> Log.w(TAG, message, error) },
 ) {
-    constructor(api: AppostazjaApi, enabled: Boolean, cacheDirectory: File) : this(
+    constructor(api: AppostazjaApi, enabled: Boolean, baseUrl: String, cacheDirectory: File) : this(
         api,
         enabled,
+        // Relative URLs resolve under the base path only when it ends with a slash.
+        (if (baseUrl.endsWith("/")) baseUrl else "$baseUrl/").toHttpUrl(),
         OkHttpClient.Builder()
             .connectTimeout(10, TimeUnit.SECONDS)
             .readTimeout(20, TimeUnit.SECONDS)
@@ -119,10 +124,11 @@ class StreetViewRepository(
             date = panorama.date,
         )
 
-        images.newCall(Request.Builder().url(panorama.thumbnailUrl).build()).execute().use { response ->
+        val url = baseUrl.resolve(panorama.thumbnailUrl) ?: return StreetViewPreview.Failed
+        images.newCall(Request.Builder().url(url).build()).execute().use { response ->
             val isImage = response.body.contentType()?.type == "image"
             if (!response.isSuccessful || !isImage) {
-                // Google answers refusals with an error PNG, so only the status code says what happened.
+                // Only the status code says what happened.
                 val body = if (isImage) "" else response.body.string()
                 return when (classifyImageFailure(response.code, body)) {
                     ImageFailure.ThumbnailRefused -> {
@@ -150,14 +156,14 @@ class StreetViewRepository(
 internal enum class ImageFailure { ThumbnailRefused, NoPanorama, Other }
 
 /**
- * Why Google did not return the thumbnail. Quota, rate limits and 403s (billing, API restrictions, or a missing
- * or invalid signature) only take the thumbnail away: the in-app panorama does not depend on the Static API, so
- * the sheet still offers it. Only network and server errors are worth a retry.
+ * Why our API did not return the thumbnail. 503 means Google refused it (billing, API restrictions, signature,
+ * quota) and the server has no copy: that only takes the thumbnail away, as the in-app panorama does not depend on
+ * the Static API, so the sheet still offers it. Only network and server errors (502 included) are worth a retry.
  */
 internal fun classifyImageFailure(code: Int, body: String): ImageFailure {
     val text = body.lowercase()
     return when {
-        code == 403 || code == 429 || "quota" in text || "over_query_limit" in text -> ImageFailure.ThumbnailRefused
+        code == 503 || code == 403 || code == 429 || "quota" in text || "over_query_limit" in text -> ImageFailure.ThumbnailRefused
         code == 404 -> ImageFailure.NoPanorama
         else -> ImageFailure.Other
     }

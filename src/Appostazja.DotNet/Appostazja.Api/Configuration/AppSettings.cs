@@ -41,11 +41,11 @@ public sealed record AppSettings(
                 ReadInt(configuration, "Import:MaxSkippedRowPercent", 5, 0, 100) / 100.0,
                 ReadInt(configuration, "Import:MaxPlaceDropPercent", 30, 0, 100) / 100.0,
                 TimeSpan.FromHours(ReadInt(configuration, "Import:ReadyMaxAgeHours", 48, 1, 720))),
-            ReadStreetView(configuration));
+            ReadStreetView(configuration, contentRootPath, databasePath));
     }
 
     /// <summary>Street View is optional: without an API key the endpoint reports it as unavailable.</summary>
-    private static StreetViewSettings ReadStreetView(IConfiguration configuration)
+    private static StreetViewSettings ReadStreetView(IConfiguration configuration, string contentRootPath, string databasePath)
     {
         var apiKey = configuration["StreetView:ApiKey"];
         var secret = configuration["StreetView:SigningSecret"];
@@ -62,10 +62,16 @@ public sealed record AppSettings(
             }
         }
 
+        var thumbnails = configuration["StreetView:ThumbnailDirectory"];
+        thumbnails = string.IsNullOrWhiteSpace(thumbnails)
+            ? Path.Combine(Path.GetDirectoryName(databasePath)!, "street-view-thumbnails")
+            : Path.GetFullPath(Path.Combine(contentRootPath, thumbnails));
+
         return new StreetViewSettings(
             string.IsNullOrWhiteSpace(apiKey) ? null : apiKey,
             signingSecret,
-            TimeSpan.FromDays(ReadInt(configuration, "StreetView:CacheDays", 30, 1, 365)));
+            TimeSpan.FromDays(ReadInt(configuration, "StreetView:CacheDays", 30, 1, 365)),
+            thumbnails);
     }
 
     private static Uri ReadUrl(IConfiguration configuration, string key, string fallback)
@@ -117,8 +123,9 @@ public sealed record DatabaseSettings(string Path);
 
 /// <param name="ApiKey">Server key for the Street View Static API; null disables Street View.</param>
 /// <param name="SigningSecret">URL signing secret; image URLs are signed when it is set.</param>
-/// <param name="CacheFor">How long a looked-up panorama is reused before it is looked up again.</param>
-public sealed record StreetViewSettings(string? ApiKey, byte[]? SigningSecret, TimeSpan CacheFor);
+/// <param name="CacheFor">How long a looked-up panorama and its thumbnail are reused before they are fetched again.</param>
+/// <param name="ThumbnailDirectory">Where downloaded thumbnails are kept; next to the database by default.</param>
+public sealed record StreetViewSettings(string? ApiKey, byte[]? SigningSecret, TimeSpan CacheFor, string ThumbnailDirectory);
 
 /// <param name="MaxSkippedRowRatio">Import is rejected when more invalid source rows than this are skipped.</param>
 /// <param name="MaxPlaceDropRatio">Import is rejected when the place count shrinks by more than this.</param>

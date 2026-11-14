@@ -148,9 +148,15 @@ Returns the optional parish website and its reports from the same snapshot. Each
 
 ### `GET /api/v1/places/{id}/street-view`
 
-A street-level Google panorama of the parish for a preview: `panoId`, `heading` (bearing from the panorama towards the church), `copyright`, `date` and a signed `thumbnailUrl`. Clients load the thumbnail from Google directly; the signing secret never leaves the server. Returns `204` when there is no panorama nearby and `503` when Street View is not configured or Google refuses, so clients can fall back to their own panorama lookup by location.
+A street-level Google panorama of the parish for a preview: `panoId`, `heading` (bearing from the panorama towards the church), `copyright`, `date` and `thumbnailUrl`, the thumbnail endpoint below relative to the API base URL (for example `api/v1/places/{id}/street-view/thumbnail?v=3f2a9c01b7e4`; `v` changes with the image). Returns `204` when there is no panorama nearby and `503` when Street View is not configured or Google refuses, so clients can fall back to their own panorama lookup by location.
 
-Only Google's own imagery is used: when the nearest panorama is a user photo sphere (often inside the church), 16 free metadata probes 40 m and 80 m around the parish pick the closest Google panorama. Lookups are stored in SQLite for `StreetView__CacheDays` (30 by default) and responses carry `Cache-Control: public, max-age=86400`. Thumbnails are not stored on the server: Google's Street View policies allow storing panorama IDs, not images.
+Only Google's own imagery is used: when the nearest panorama is a user photo sphere (often inside the church), 16 free metadata probes 40 m and 80 m around the parish pick the closest Google panorama. Lookups are stored in SQLite for `StreetView__CacheDays` (30 by default) and responses carry `Cache-Control: public, max-age=86400`.
+
+### `GET /api/v1/places/{id}/street-view/thumbnail`
+
+The parish's Street View thumbnail (640×400 JPEG facing the church). The server downloads it from Google once, with the signed URL, so the API key and signing secret never reach clients, and keeps it in `StreetView__ThumbnailDirectory` (`street-view-thumbnails` next to the database by default) for `StreetView__CacheDays`. Simultaneous requests for one thumbnail share a single download. When Google refuses or cannot be reached, an expired copy is served instead. Responses carry `Cache-Control: public, max-age=86400` and an `ETag` (`If-None-Match` answers `304`). Without a usable copy it returns `404` when there is no panorama (or Google removed it), `503` when Street View is not configured or Google refuses, and `502` when Google cannot be reached. Thumbnails no parish has used for twice the cache period are deleted.
+
+> Google's Street View policies allow storing panorama IDs but not the images themselves. Keeping the thumbnails on the server goes against them; the project owner made that choice knowingly, and it can get the API key or billing account suspended.
 
 ### `GET /api/v1/stats`
 
@@ -181,11 +187,12 @@ Import__ReadyMaxAgeHours
 StreetView__ApiKey
 StreetView__SigningSecret
 StreetView__CacheDays
+StreetView__ThumbnailDirectory
 ```
 
 Default forced-refresh cooldown is 360 minutes. The accepted range is 5 minutes to 7 days.
 
-Street View needs a server key with the Street View Static API enabled and the URL signing secret from the Cloud console (Google Maps Platform, Credentials, URL signing secret). Keep both out of the repository, for example in environment variables. With the secret set, the key's unsigned requests quota can be set to 0, so the key alone is useless to anyone who copies it from a thumbnail URL. Without `StreetView__ApiKey` the endpoint returns `503`.
+Street View needs a server key with the Street View Static API enabled and the URL signing secret from the Cloud console (Google Maps Platform, Credentials, URL signing secret). Keep both out of the repository, for example in environment variables. With the secret set, the key's unsigned requests quota can be set to 0, so the key alone is useless to anyone who gets hold of it. Without `StreetView__ApiKey` the endpoint returns `503`.
 
 ## Run
 

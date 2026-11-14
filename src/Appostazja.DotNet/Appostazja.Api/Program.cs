@@ -41,6 +41,7 @@ builder.Services.AddSingleton<MapStore>();
 builder.Services.AddSingleton<MapMemoryCache>();
 builder.Services.AddSingleton<MapRefreshService>();
 builder.Services.AddSingleton<StreetViewStore>();
+builder.Services.AddSingleton<StreetViewThumbnailStore>();
 builder.Services.AddSingleton<StreetViewService>();
 builder.Services.AddHostedService<NightlyRefreshWorker>();
 
@@ -49,9 +50,10 @@ var app = builder.Build();
 var store = app.Services.GetRequiredService<MapStore>();
 store.Initialize();
 app.Services.GetRequiredService<StreetViewStore>().Initialize();
+app.Services.GetRequiredService<StreetViewThumbnailStore>().Initialize();
 if (settings.StreetView.ApiKey is not null && settings.StreetView.SigningSecret is null)
 {
-    app.Logger.LogWarning("StreetView:SigningSecret is not set; thumbnail URLs are unsigned and may be refused.");
+    app.Logger.LogWarning("StreetView:SigningSecret is not set; thumbnail requests to Google are unsigned and may be refused.");
 }
 // Databases created by older versions cached the full responses CSV, including private columns.
 if (store.RewriteInput(settings.Source.Url, ResponsesCsv.Sanitize))

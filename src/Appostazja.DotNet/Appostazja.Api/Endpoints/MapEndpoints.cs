@@ -43,12 +43,22 @@ public static class MapEndpoints
             .Produces<ApiError>(StatusCodes.Status404NotFound);
         api.MapGet("/places/{id}/street-view", GetStreetView)
             .WithName("GetPlaceStreetView")
-            .WithSummary("Street-level Google panorama of the parish with a signed thumbnail URL.")
+            .WithSummary("Street-level Google panorama of the parish with the URL of its thumbnail.")
             .WithDescription("204 when there is no panorama nearby; 503 when Street View is not configured or "
                 + "Google refuses, in which case clients can still open their own panorama by location.")
             .Produces<StreetViewDto>()
             .Produces(StatusCodes.Status204NoContent)
             .Produces<ApiError>(StatusCodes.Status404NotFound)
+            .Produces<ApiError>(StatusCodes.Status503ServiceUnavailable);
+        api.MapGet("/places/{id}/street-view/thumbnail", GetStreetViewThumbnail)
+            .WithName("GetPlaceStreetViewThumbnail")
+            .WithSummary("Street View thumbnail of the parish, downloaded from Google once and kept on the server.")
+            .WithDescription("404 when there is no panorama nearby; 503 when Street View is not configured or Google "
+                + "refuses; 502 when Google cannot be reached. A stored copy is served instead of 502/503 when there is one.")
+            .Produces(StatusCodes.Status200OK, contentType: "image/jpeg")
+            .Produces(StatusCodes.Status304NotModified)
+            .Produces<ApiError>(StatusCodes.Status404NotFound)
+            .Produces<ApiError>(StatusCodes.Status502BadGateway)
             .Produces<ApiError>(StatusCodes.Status503ServiceUnavailable);
         api.MapGet("/stats", GetStats)
             .WithName("GetStats")
@@ -319,6 +329,50 @@ public static class MapEndpoints
                     new ApiError("Street View is unavailable."),
                     AppJsonSerializerContext.Default.ApiError,
                     statusCode: StatusCodes.Status503ServiceUnavailable);
+        }
+    }
+
+    private static async Task<IResult> GetStreetViewThumbnail(
+        HttpContext context,
+        MapMemoryCache memoryCache,
+        StreetViewService streetView,
+        string id,
+        CancellationToken cancellationToken)
+    {
+        var (_, place, _) = memoryCache.GetPlace(id);
+        if (place is null)
+        {
+            return PlaceNotFound(id);
+        }
+
+        return ThumbnailResponse(context, await streetView.ThumbnailAsync(place, cancellationToken));
+    }
+
+    internal static IResult ThumbnailResponse(HttpContext context, ThumbnailResult thumbnail)
+    {
+        switch (thumbnail.Outcome)
+        {
+            case ThumbnailOutcome.Found:
+                // The URL carries a version of the image, so clients mostly reuse it without asking; the ETag
+                // also changes with every download for the ones that do ask.
+                context.Response.Headers.CacheControl = StreetViewCacheControl;
+                context.Response.Headers.ETag = $"\"{thumbnail.ETag}\"";
+                return MatchesIfNoneMatch(context.Request, thumbnail.ETag)
+                    ? Results.StatusCode(StatusCodes.Status304NotModified)
+                    : Results.Bytes(thumbnail.Bytes!, thumbnail.ContentType);
+            case ThumbnailOutcome.None:
+                context.Response.Headers.CacheControl = StreetViewCacheControl;
+                return Results.Json(
+                    new ApiError("No Street View panorama near this place."),
+                    AppJsonSerializerContext.Default.ApiError,
+                    statusCode: StatusCodes.Status404NotFound);
+            default:
+                context.Response.Headers.CacheControl = "no-store";
+                var failed = thumbnail.Outcome == ThumbnailOutcome.Failed;
+                return Results.Json(
+                    new ApiError(failed ? "Google Street View could not be reached." : "Street View is unavailable."),
+                    AppJsonSerializerContext.Default.ApiError,
+                    statusCode: failed ? StatusCodes.Status502BadGateway : StatusCodes.Status503ServiceUnavailable);
         }
     }
 

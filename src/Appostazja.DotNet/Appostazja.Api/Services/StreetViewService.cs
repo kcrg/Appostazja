@@ -1,4 +1,7 @@
+using System.Collections.Concurrent;
 using System.Globalization;
+using System.Security.Cryptography;
+using System.Text;
 using System.Net.Http.Json;
 using System.Text.Json.Serialization;
 using ApostasyMap.Api.Configuration;
@@ -21,22 +24,47 @@ public enum StreetViewOutcome
 
 public sealed record StreetViewLookup(StreetViewOutcome Outcome, StreetViewDto? Preview = null);
 
+public enum ThumbnailOutcome
+{
+    Found,
+
+    /// <summary>No Google panorama near the parish, or Google no longer has its imagery.</summary>
+    None,
+
+    /// <summary>Not configured, or Google refused, and no stored copy to fall back on.</summary>
+    Unavailable,
+
+    /// <summary>Google could not be reached or failed, and no stored copy to fall back on.</summary>
+    Failed
+}
+
+/// <param name="ETag">Changes with the panorama, heading and every new download.</param>
+public sealed record ThumbnailResult(
+    ThumbnailOutcome Outcome, byte[]? Bytes = null, string? ContentType = null, string? ETag = null);
+
 /// <summary>
-/// Finds a street-level Google panorama for a parish with the free metadata endpoint and hands out a signed
-/// thumbnail URL, so the signing secret stays on the server. Lookups are stored for
-/// <see cref="StreetViewSettings.CacheFor"/>; the images are not, as Google's policies do not allow it, so
-/// clients load them from Google and cache them per Google's HTTP headers.
+/// Finds a street-level Google panorama for a parish with the free metadata endpoint and serves its thumbnail
+/// from our server: each one is downloaded from Google once (with the signed URL, so the key and signing secret
+/// stay here) and kept for <see cref="StreetViewSettings.CacheFor"/>, like the lookups. Google's Street View
+/// policies only allow storing panorama IDs, not images; keeping the thumbnails was a deliberate choice of the
+/// project owner, see the README.
 /// </summary>
 public sealed class StreetViewService(
     AppSettings settings,
     HttpClient http,
     StreetViewStore store,
+    StreetViewThumbnailStore thumbnails,
     TimeProvider time,
     ILogger<StreetViewService> logger)
 {
     internal const string BaseUrl = "https://maps.googleapis.com/maps/api/streetview";
     private const int SearchRadiusMeters = 120;
     private const int ProbeRadiusMeters = 50;
+    private const string ThumbnailParameters = "size=640x400&fov=80&pitch=8";
+    private const long MaxThumbnailBytes = 4 * 1024 * 1024;
+
+    private readonly ConcurrentDictionary<string, Lazy<Task<GoogleImage>>> _downloads = new();
+    private DateTimeOffset _lastPrune = DateTimeOffset.MinValue;
 
     public async Task<StreetViewLookup> LookupAsync(PlaceDto place, CancellationToken cancellationToken)
     {
@@ -86,15 +114,157 @@ public sealed class StreetViewService(
         var heading = StreetViewGeometry.Bearing(row.PanoLatitude, row.PanoLongitude, place.Latitude, place.Longitude);
         return new StreetViewLookup(
             StreetViewOutcome.Found,
-            new StreetViewDto(row.PanoId, heading, row.Copyright ?? "© Google", row.Date, ThumbnailUrl(row.PanoId, heading)));
+            new StreetViewDto(
+                row.PanoId, heading, row.Copyright ?? "© Google", row.Date, ThumbnailPath(place.Id, row.PanoId, heading)));
     }
 
-    internal string ThumbnailUrl(string panoId, int heading) =>
+    /// <summary>Relative to the API base URL; the version changes with the image, so clients can cache by URL.</summary>
+    internal static string ThumbnailPath(string placeId, string panoId, int heading) =>
+        $"api/v1/places/{Uri.EscapeDataString(placeId)}/street-view/thumbnail?v={ThumbnailKey(panoId, heading)[..12]}";
+
+    /// <summary>One file per panorama, heading and image parameters (a change of size or framing refetches all).</summary>
+    internal static string ThumbnailKey(string panoId, int heading) =>
+        Convert.ToHexStringLower(SHA256.HashData(Encoding.UTF8.GetBytes($"{panoId}|{heading}|{ThumbnailParameters}")));
+
+    internal string GoogleThumbnailUrl(string panoId, int heading) =>
         UrlSigner.Sign(
-            $"{BaseUrl}?size=640x400&pano={Uri.EscapeDataString(panoId)}" +
-            $"&heading={heading.ToString(CultureInfo.InvariantCulture)}&fov=80&pitch=8&return_error_code=true" +
+            $"{BaseUrl}?{ThumbnailParameters}&pano={Uri.EscapeDataString(panoId)}" +
+            $"&heading={heading.ToString(CultureInfo.InvariantCulture)}&return_error_code=true" +
             $"&key={Uri.EscapeDataString(settings.StreetView.ApiKey!)}",
             settings.StreetView.SigningSecret);
+
+    /// <summary>
+    /// The parish's thumbnail: the stored copy while it is fresh, otherwise downloaded from Google again. An
+    /// expired copy is still served while Google refuses or is unreachable.
+    /// </summary>
+    public async Task<ThumbnailResult> ThumbnailAsync(PlaceDto place, CancellationToken cancellationToken)
+    {
+        var lookup = await LookupAsync(place, cancellationToken);
+        if (lookup.Outcome != StreetViewOutcome.Found)
+        {
+            return new ThumbnailResult(
+                lookup.Outcome == StreetViewOutcome.None ? ThumbnailOutcome.None : ThumbnailOutcome.Unavailable);
+        }
+
+        var preview = lookup.Preview!;
+        var key = ThumbnailKey(preview.PanoId, preview.Heading);
+        var stored = thumbnails.Get(key);
+        if (stored is not null && time.GetUtcNow() - stored.FetchedAt < settings.StreetView.CacheFor)
+        {
+            return Found(key, stored);
+        }
+
+        var image = await DownloadOnceAsync(key, preview.PanoId, preview.Heading).WaitAsync(cancellationToken);
+        switch (image.Status)
+        {
+            case GoogleImageStatus.Ok:
+                return Found(key, new StoredThumbnail(image.Bytes!, image.FetchedAt));
+            case GoogleImageStatus.NoImagery:
+                // Google removed the panorama; the next lookup after expiry will find another one, if any.
+                return new ThumbnailResult(ThumbnailOutcome.None);
+            default:
+                if (stored is not null)
+                {
+                    return Found(key, stored);
+                }
+
+                return new ThumbnailResult(
+                    image.Status == GoogleImageStatus.Refused ? ThumbnailOutcome.Unavailable : ThumbnailOutcome.Failed);
+        }
+    }
+
+    private static ThumbnailResult Found(string key, StoredThumbnail thumbnail) =>
+        new(
+            ThumbnailOutcome.Found,
+            thumbnail.Bytes,
+            ImageContentType(thumbnail.Bytes),
+            $"{key[..16]}-{thumbnail.FetchedAt.ToUnixTimeSeconds()}");
+
+    private static string ImageContentType(byte[] bytes) =>
+        bytes is [0x89, 0x50, 0x4E, 0x47, ..] ? "image/png" : "image/jpeg";
+
+    /// <summary>
+    /// Parishes opened at the same moment share one download per thumbnail. It runs to completion on its own
+    /// (bounded by the HttpClient timeout), so one client giving up does not fail the others.
+    /// </summary>
+    private Task<GoogleImage> DownloadOnceAsync(string key, string panoId, int heading)
+    {
+        var download = _downloads.GetOrAdd(key, _ => new Lazy<Task<GoogleImage>>(async () =>
+        {
+            try
+            {
+                var image = await DownloadAsync(panoId, heading);
+                if (image.Status == GoogleImageStatus.Ok)
+                {
+                    thumbnails.Save(key, image.Bytes!, image.FetchedAt);
+                    PruneDaily(image.FetchedAt);
+                }
+
+                return image;
+            }
+            finally
+            {
+                _downloads.TryRemove(key, out Lazy<Task<GoogleImage>>? _);
+            }
+        }));
+        return download.Value;
+    }
+
+    private void PruneDaily(DateTimeOffset now)
+    {
+        if (now - _lastPrune < TimeSpan.FromDays(1))
+        {
+            return;
+        }
+
+        _lastPrune = now;
+        var deleted = thumbnails.Prune(now - 2 * settings.StreetView.CacheFor);
+        if (deleted > 0)
+        {
+            logger.LogInformation("Deleted {Count} Street View thumbnails no parish uses any more", deleted);
+        }
+    }
+
+    private async Task<GoogleImage> DownloadAsync(string panoId, int heading)
+    {
+        try
+        {
+            using var response = await http.GetAsync(
+                GoogleThumbnailUrl(panoId, heading), HttpCompletionOption.ResponseHeadersRead);
+            var status = (int)response.StatusCode;
+            if (response.IsSuccessStatusCode && response.Content.Headers.ContentType?.MediaType?.StartsWith("image/") == true)
+            {
+                if (response.Content.Headers.ContentLength > MaxThumbnailBytes)
+                {
+                    logger.LogWarning("Street View thumbnail too large: {Bytes} bytes", response.Content.Headers.ContentLength);
+                    return new GoogleImage(GoogleImageStatus.Failed);
+                }
+
+                var bytes = await response.Content.ReadAsByteArrayAsync();
+                return bytes.Length is > 0 and <= (int)MaxThumbnailBytes
+                    ? new GoogleImage(GoogleImageStatus.Ok, bytes, time.GetUtcNow())
+                    : new GoogleImage(GoogleImageStatus.Failed);
+            }
+
+            logger.LogWarning("Street View thumbnail HTTP {Status}", status);
+            return status switch
+            {
+                404 => new GoogleImage(GoogleImageStatus.NoImagery),
+                // Billing, API restrictions, a bad signature, quota or rate limits.
+                >= 400 and < 500 => new GoogleImage(GoogleImageStatus.Refused),
+                _ => new GoogleImage(GoogleImageStatus.Failed)
+            };
+        }
+        catch (Exception exception) when (exception is HttpRequestException or OperationCanceledException)
+        {
+            logger.LogWarning(exception, "Street View thumbnail request failed");
+            return new GoogleImage(GoogleImageStatus.Failed);
+        }
+    }
+
+    private enum GoogleImageStatus { Ok, NoImagery, Refused, Failed }
+
+    private sealed record GoogleImage(GoogleImageStatus Status, byte[]? Bytes = null, DateTimeOffset FetchedAt = default);
 
     private async Task<(StreetViewMetadata? Panorama, bool Failed)> FindGoogleImageryAsync(
         double latitude, double longitude, CancellationToken cancellationToken)
