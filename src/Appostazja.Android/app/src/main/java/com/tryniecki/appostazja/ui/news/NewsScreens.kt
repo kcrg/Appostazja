@@ -24,6 +24,8 @@ import androidx.compose.material3.FilledTonalButton
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.MediumFlexibleTopAppBar
+import androidx.compose.material3.ExperimentalMaterial3ExpressiveApi
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
@@ -214,7 +216,7 @@ fun NewsListScreen(
     }
 }
 
-@OptIn(ExperimentalMaterial3Api::class)
+@OptIn(ExperimentalMaterial3Api::class, ExperimentalMaterial3ExpressiveApi::class)
 @Composable
 fun NewsArticleScreen(
     articleId: String,
@@ -224,12 +226,21 @@ fun NewsArticleScreen(
     val (state, retry) = rememberNewsState { listOfNotNull(load(articleId)) }
     val article = (state as? NewsState.Loaded)?.articles?.firstOrNull()
     val openCustomTab = rememberOpenCustomTab()
-    val scrollBehavior = TopAppBarDefaults.pinnedScrollBehavior()
+    // The title of the article is the page title: shown in full above the text, kept on one line once scrolled.
+    val scrollBehavior = TopAppBarDefaults.exitUntilCollapsedScrollBehavior()
+    val locale = LocalLocale.current.platformLocale
     Scaffold(
         modifier = Modifier.nestedScroll(scrollBehavior.nestedScrollConnection),
         topBar = {
-            TopAppBar(
-                title = { Text(stringResource(R.string.news_title)) },
+            MediumFlexibleTopAppBar(
+                title = {
+                    Text(
+                        article?.title ?: stringResource(R.string.news_title),
+                        maxLines = 2,
+                        overflow = TextOverflow.Ellipsis,
+                    )
+                },
+                subtitle = article?.published?.let { published -> { Text(formatDate(published, locale)) } },
                 navigationIcon = { BackButton(onBack) },
                 actions = {
                     if (article != null) {
@@ -287,16 +298,6 @@ private fun ArticleBody(article: NewsArticle, openCustomTab: (String) -> Unit, m
             .verticalScroll(rememberScrollState())
             .padding(start = 16.dp, end = 16.dp, top = 8.dp, bottom = 24.dp),
     ) {
-        Text(article.title, style = MaterialTheme.typography.headlineSmall)
-        article.published?.let {
-            Spacer(Modifier.height(4.dp))
-            Text(
-                formatDate(it, LocalLocale.current.platformLocale),
-                style = MaterialTheme.typography.labelLarge,
-                color = MaterialTheme.colorScheme.onSurfaceVariant,
-            )
-        }
-        Spacer(Modifier.height(16.dp))
         Text(content, style = MaterialTheme.typography.bodyLarge)
         Spacer(Modifier.height(24.dp))
         FilledTonalButton(onClick = { openCustomTab(article.url) }) {
