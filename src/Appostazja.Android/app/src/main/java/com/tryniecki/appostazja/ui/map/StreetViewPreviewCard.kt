@@ -53,11 +53,14 @@ import com.tryniecki.appostazja.api.model.PlaceDto
 import com.tryniecki.appostazja.data.StreetViewPreview
 import com.tryniecki.appostazja.ui.components.ExpressiveLoadingIndicator
 import kotlinx.coroutines.CancellationException
+import kotlinx.coroutines.delay
+import kotlinx.coroutines.launch
 import kotlin.math.roundToInt
 import com.composables.icons.tabler.outline.R as Tabler
 
 private val PreviewShape = RoundedCornerShape(24.dp)
 private const val PreviewAspectRatio = 16f / 10f
+private const val LOADING_PLACEHOLDER_DELAY_MS = 600L
 
 /** At least as tall as [ratio] at the available width, taller when the content needs it (large fonts). */
 private fun Modifier.minAspectRatio(ratio: Float) = layout { measurable, constraints ->
@@ -72,6 +75,9 @@ class StreetViewPreviewState internal constructor() {
     var preview by mutableStateOf<StreetViewPreview?>(null)
         internal set
     internal var attempt by mutableIntStateOf(0)
+
+    /** Set once loading takes long enough to be worth a placeholder; fast loads never show one. */
+    internal var slowLoad by mutableStateOf(false)
 
     fun retry() {
         attempt++
@@ -88,9 +94,17 @@ class StreetViewPreviewState internal constructor() {
             else -> false
         }
 
-    /** Whether the card has anything to show: not without a key, and not when the action row has the button. */
+    /**
+     * The card only appears for something worth looking at: a thumbnail, a slow load, or a failure the user can
+     * retry. Without a thumbnail it never shows, so opening a sheet does not flash a card that then disappears.
+     */
     val showsCard: Boolean
-        get() = preview != StreetViewPreview.Disabled && !offersButton
+        get() = when (val current = preview) {
+            null -> slowLoad
+            is StreetViewPreview.Available -> current.image != null
+            StreetViewPreview.Failed -> true
+            else -> false
+        }
 
     /** The panorama to open; null means it is looked up by the parish location. */
     val panorama: StreetViewPreview.Available?
@@ -104,13 +118,22 @@ fun rememberStreetViewPreview(
 ): StreetViewPreviewState {
     val state = remember(place.id) { StreetViewPreviewState() }
     LaunchedEffect(state, state.attempt) {
+        val userRetry = state.attempt > 0
         state.preview = null
+        // A retry comes from the visible card, so it shows progress at once.
+        state.slowLoad = userRetry
+        val placeholder = launch {
+            delay(LOADING_PLACEHOLDER_DELAY_MS)
+            state.slowLoad = true
+        }
         state.preview = try {
-            loadPreview(place, state.attempt > 0)
+            loadPreview(place, userRetry)
         } catch (cancelled: CancellationException) {
             throw cancelled
         } catch (_: Exception) {
             StreetViewPreview.Failed
+        } finally {
+            placeholder.cancel()
         }
     }
     return state
@@ -142,12 +165,8 @@ fun StreetViewPreviewCard(
             }
             // Shown as a button in the sheet's action row instead.
             StreetViewPreview.PreviewDenied, StreetViewPreview.QuotaExceeded -> Unit
-            StreetViewPreview.NotAvailable -> MessagePreview(
-                icon = Tabler.drawable.tabler_ic_map_pin_off_outline,
-                title = stringResource(R.string.street_view_unavailable_title),
-                body = stringResource(R.string.street_view_unavailable_body),
-                compact = true,
-            )
+            // No panorama at all: the card is not shown.
+            StreetViewPreview.NotAvailable -> Unit
             StreetViewPreview.Failed -> MessagePreview(
                 icon = Tabler.drawable.tabler_ic_wifi_off_outline,
                 title = stringResource(R.string.street_view_error_title),

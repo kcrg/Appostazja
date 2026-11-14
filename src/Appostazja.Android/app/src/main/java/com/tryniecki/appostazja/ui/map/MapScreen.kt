@@ -559,7 +559,12 @@ private fun ChurchDetailsSheet(
         }
 
         if (streetViewPreview.showsCard) item(key = "street-view") {
-            StreetViewPreviewCard(state = streetViewPreview, onOpen = { streetView = StreetViewRequest(it) })
+            StreetViewPreviewCard(
+                state = streetViewPreview,
+                onOpen = { streetView = StreetViewRequest(it) },
+                // Fades in, and the reports below slide down to make room instead of jumping.
+                modifier = Modifier.animateItem(),
+            )
         }
 
         item { HorizontalDivider() }
