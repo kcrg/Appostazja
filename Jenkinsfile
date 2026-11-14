@@ -2,7 +2,7 @@
 // The agent only needs git and Docker: the .NET SDK and the native toolchain come from the build image.
 
 pipeline {
-    agent any
+    agent { label 'proxmox-01' }
 
     options {
         buildDiscarder(logRotator(numToKeepStr: '30', artifactNumToKeepStr: '10'))
