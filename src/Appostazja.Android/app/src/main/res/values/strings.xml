@@ -46,6 +46,7 @@
     <string name="church_no_relations">Brak ocenionych relacji</string>
     <string name="church_reports_error">Nie udało się wczytać relacji.</string>
     <string name="church_report_before">Przed apostazją</string>
+    <string name="church_report_no_comment">Autor relacji nie dodał komentarza.</string>
     <string name="church_report_apostasy">Apostazja</string>
     <string name="church_report_after">Po apostazji</string>
     <string name="church_report_heading">%1$s · %2$s</string>

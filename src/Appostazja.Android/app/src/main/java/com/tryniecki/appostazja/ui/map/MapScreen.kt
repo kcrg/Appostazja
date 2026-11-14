@@ -78,6 +78,7 @@ import androidx.compose.ui.platform.LocalLocale
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.font.FontStyle
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
@@ -646,7 +647,17 @@ private fun ReportCard(report: ReportDto) {
             report.date?.let {
                 Text(formatApiDate(it, LocalLocale.current.platformLocale), style = MaterialTheme.typography.labelSmall)
             }
-            report.comment?.let { Text(it, style = MaterialTheme.typography.bodyMedium) }
+            val comment = report.comment?.takeIf { it.isNotBlank() }
+            if (comment != null) {
+                Text(comment, style = MaterialTheme.typography.bodyMedium)
+            } else {
+                Text(
+                    stringResource(R.string.church_report_no_comment),
+                    style = MaterialTheme.typography.bodyMedium,
+                    fontStyle = FontStyle.Italic,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                )
+            }
         }
     }
 }

@@ -1,13 +1,13 @@
 package com.tryniecki.appostazja.ui.map
 
-import androidx.compose.animation.AnimatedVisibility
-import androidx.compose.animation.fadeOut
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
-import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.WindowInsets
+import androidx.compose.foundation.layout.WindowInsetsSides
+import androidx.compose.foundation.layout.only
+import androidx.compose.foundation.layout.plus
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
@@ -74,11 +74,13 @@ internal fun StreetViewScreen(
             delay(LOAD_TIMEOUT_MS)
             timedOut = camera.location == null
         }
-        Box(
+        Column(
             Modifier
                 .fillMaxSize()
                 .background(Color.Black),
         ) {
+        // The panorama ends above the info panel, so Google's logo and "Report a problem" stay visible.
+        Box(Modifier.weight(1f).fillMaxWidth()) {
             StreetView(
                 modifier = Modifier.fillMaxSize(),
                 cameraPositionState = camera,
@@ -115,12 +117,12 @@ internal fun StreetViewScreen(
                 }
             }
 
-            AnimatedVisibility(
-                visible = location == null && !timedOut,
-                modifier = Modifier.align(Alignment.Center),
-                exit = fadeOut(MaterialTheme.motionScheme.defaultEffectsSpec()),
-            ) {
-                ExpressiveLoadingIndicator(Modifier.size(48.dp))
+            if (location == null && !timedOut) {
+                ExpressiveLoadingIndicator(
+                    Modifier
+                        .align(Alignment.Center)
+                        .size(48.dp),
+                )
             }
 
             if (location == null && timedOut) {
@@ -147,33 +149,30 @@ internal fun StreetViewScreen(
                     contentDescription = stringResource(R.string.street_view_close),
                 )
             }
-            Box(
-                modifier = Modifier
-                    .align(Alignment.BottomCenter)
-                    .fillMaxWidth()
-                    .windowInsetsPadding(WindowInsets.safeDrawing)
-                    // Clear of the Google logo and "Report a problem" link the panorama draws at the bottom.
-                    .padding(start = 16.dp, end = 16.dp, bottom = 36.dp),
-                contentAlignment = Alignment.Center,
+        }
+            Surface(
+                modifier = Modifier.fillMaxWidth(),
+                shape = RoundedCornerShape(topStart = 28.dp, topEnd = 28.dp),
+                color = MaterialTheme.colorScheme.surfaceContainer,
             ) {
-                Surface(
-                    shape = RoundedCornerShape(24.dp),
-                    color = MaterialTheme.colorScheme.surfaceContainerHigh.copy(alpha = 0.92f),
+                Column(
+                    Modifier
+                        .windowInsetsPadding(WindowInsets.safeDrawing.only(WindowInsetsSides.Horizontal + WindowInsetsSides.Bottom))
+                        .padding(horizontal = 24.dp, vertical = 16.dp),
+                    verticalArrangement = Arrangement.spacedBy(2.dp),
                 ) {
-                    Column(Modifier.padding(horizontal = 16.dp, vertical = 8.dp)) {
+                    Text(
+                        place.name,
+                        style = MaterialTheme.typography.titleMedium,
+                        maxLines = 2,
+                        overflow = TextOverflow.Ellipsis,
+                    )
+                    preview?.date?.let { date ->
                         Text(
-                            place.name,
-                            style = MaterialTheme.typography.titleSmall,
-                            maxLines = 1,
-                            overflow = TextOverflow.Ellipsis,
+                            stringResource(R.string.street_view_photo_date, date),
+                            style = MaterialTheme.typography.bodyMedium,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
                         )
-                        preview?.date?.let { date ->
-                            Text(
-                                stringResource(R.string.street_view_photo_date, date),
-                                style = MaterialTheme.typography.labelSmall,
-                                color = MaterialTheme.colorScheme.onSurfaceVariant,
-                            )
-                        }
                     }
                 }
             }
