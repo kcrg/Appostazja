@@ -34,6 +34,9 @@ import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.SnackbarHost
 import androidx.compose.material3.SnackbarHostState
+import androidx.compose.material3.SnackbarDuration
+import androidx.compose.material3.SnackbarResult
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
@@ -59,7 +62,6 @@ import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalResources
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.res.stringResource
@@ -92,13 +94,35 @@ fun DeclarationRoute(
     archive: DeclarationArchive,
     onOpenPreview: (declarationId: String) -> Unit,
     onOpenHistory: () -> Unit,
+    parishHandoff: ParishHandoff,
 ) {
-    val viewModel: DeclarationViewModel = viewModel(factory = DeclarationViewModel.factory(draftStore))
+    val viewModel: DeclarationViewModel = viewModel(factory = DeclarationViewModel.factory(draftStore, parishHandoff))
     val state by viewModel.uiState.collectAsStateWithLifecycle()
-    val context = LocalContext.current
+    val appliedParish by viewModel.appliedParish.collectAsStateWithLifecycle()
     val resources = LocalResources.current
     val scope = rememberCoroutineScope()
     val snackbarHostState = remember { SnackbarHostState() }
+
+    // A church sent from the map: say which field it filled, with an undo in case it was the wrong one.
+    appliedParish?.let { applied ->
+        LaunchedEffect(applied) {
+            val message = resources.getString(
+                when (applied.pick.field) {
+                    ParishField.BAPTISM -> R.string.declaration_parish_filled_baptism
+                    ParishField.RESIDENCE -> R.string.declaration_parish_filled_residence
+                },
+                applied.pick.churchName,
+            )
+            val result = snackbarHostState.showSnackbar(
+                message = message,
+                actionLabel = resources.getString(R.string.action_undo),
+                withDismissAction = true,
+                duration = SnackbarDuration.Long,
+            )
+            if (result == SnackbarResult.ActionPerformed) viewModel.undoParish(applied)
+            else viewModel.parishMessageShown(applied)
+        }
+    }
     var isGenerating by remember { mutableStateOf(false) }
 
     val errorMessage = stringResource(R.string.declaration_save_error)

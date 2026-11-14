@@ -27,6 +27,7 @@ import androidx.navigation.NavDestination
 import androidx.navigation.NavDestination.Companion.hasRoute
 import androidx.navigation.NavGraph.Companion.findStartDestination
 import androidx.navigation.compose.NavHost
+import androidx.navigation.NavHostController
 import androidx.navigation.compose.composable
 import androidx.navigation.compose.currentBackStackEntryAsState
 import androidx.navigation.compose.rememberNavController
@@ -64,15 +65,7 @@ fun AppostazjaApp(
                     ShortNavigationBarItem(
                         selected = currentDestination == destination,
                         onClick = {
-                            if (currentDestination != destination) {
-                                navController.navigate(destination.route) {
-                                    popUpTo(navController.graph.findStartDestination().id) {
-                                        saveState = true
-                                    }
-                                    launchSingleTop = true
-                                    restoreState = true
-                                }
-                            }
+                            if (currentDestination != destination) navController.navigateToTab(destination)
                         },
                         icon = {
                             Icon(
@@ -96,7 +89,17 @@ fun AppostazjaApp(
         val mapVisible = currentDestination == AppDestination.MAP
         Box(contentModifier) {
             PersistentMapHost(visible = mapVisible) {
-                MapRoute(container.mapRepository, container.streetViewRepository, themeMode)
+                MapRoute(
+                    container.mapRepository,
+                    container.streetViewRepository,
+                    themeMode,
+                    onUseInDeclaration = { place, field ->
+                        container.parishHandoff.send(place, field)
+                        navController.navigateToTab(AppDestination.DECLARATION)
+                        // The tab may come back on its history or a preview; the picked church belongs on the form.
+                        navController.popBackStack<AppRoute.Declaration>(inclusive = false)
+                    },
+                )
             }
         }
         // Covers the map whenever another tab is current, so crossfades between two other tabs never show it.
@@ -149,6 +152,7 @@ fun AppostazjaApp(
                     archive = container.declarationArchive,
                     onOpenPreview = { navController.navigate(AppRoute.DeclarationPreview(it)) },
                     onOpenHistory = { navController.navigate(AppRoute.DeclarationHistory) },
+                    parishHandoff = container.parishHandoff,
                 )
             }
             composable<AppRoute.DeclarationHistory> {
@@ -197,4 +201,14 @@ private fun NavDestination.depth(): Int = when {
     hasRoute<AppRoute.DeclarationPreview>() -> 2
     hasRoute<AppRoute.DeclarationHistory>() -> 1
     else -> 0
+}
+
+private fun NavHostController.navigateToTab(destination: AppDestination) {
+    navigate(destination.route) {
+        popUpTo(graph.findStartDestination().id) {
+            saveState = true
+        }
+        launchSingleTop = true
+        restoreState = true
+    }
 }

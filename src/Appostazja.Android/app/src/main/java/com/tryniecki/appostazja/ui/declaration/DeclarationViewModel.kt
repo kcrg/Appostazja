@@ -12,6 +12,7 @@ import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.flow.filterNotNull
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
 
@@ -34,16 +35,46 @@ internal data class DeclarationUiState(
             !baptismDate.isAfter(LocalDate.now())
 }
 
-internal class DeclarationViewModel(private val store: SecureDraftStore) : ViewModel() {
+/** A church from the map written into the form, with what the field held before so it can be undone. */
+internal data class AppliedParish(val pick: ParishPick, val previous: String)
+
+internal class DeclarationViewModel(
+    private val store: SecureDraftStore,
+    private val handoff: ParishHandoff,
+) : ViewModel() {
     private val _uiState = MutableStateFlow(DeclarationUiState())
     val uiState: StateFlow<DeclarationUiState> = _uiState.asStateFlow()
+    private val _appliedParish = MutableStateFlow<AppliedParish?>(null)
+    val appliedParish: StateFlow<AppliedParish?> = _appliedParish.asStateFlow()
     private var saveJob: Job? = null
 
     init {
         viewModelScope.launch {
             val restored = store.load()
             _uiState.value = restored?.toUiState() ?: DeclarationUiState(isLoaded = true)
+            // Only after the draft is restored, or the restored draft would overwrite the picked church.
+            handoff.pending.filterNotNull().collect { pick ->
+                if (handoff.take(pick)) applyParish(pick)
+            }
         }
+    }
+
+    private fun applyParish(pick: ParishPick) {
+        val previous = _uiState.value.parish(pick.field)
+        mutate { withParish(pick.field, pick.text) }
+        _appliedParish.value = AppliedParish(pick, previous)
+    }
+
+    fun undoParish(applied: AppliedParish) {
+        // Only while the field still holds the picked church; a later edit by hand wins.
+        if (_uiState.value.parish(applied.pick.field) == applied.pick.text) {
+            mutate { withParish(applied.pick.field, applied.previous) }
+        }
+        parishMessageShown(applied)
+    }
+
+    fun parishMessageShown(applied: AppliedParish) {
+        _appliedParish.compareAndSet(applied, null)
     }
 
     fun updateFullName(value: String) = mutate { copy(fullName = value.take(200)) }
@@ -110,13 +141,23 @@ internal class DeclarationViewModel(private val store: SecureDraftStore) : ViewM
     }
 
     companion object {
-        fun factory(store: SecureDraftStore): ViewModelProvider.Factory =
+        fun factory(store: SecureDraftStore, handoff: ParishHandoff): ViewModelProvider.Factory =
             object : ViewModelProvider.Factory {
                 @Suppress("UNCHECKED_CAST")
                 override fun <T : ViewModel> create(modelClass: Class<T>): T =
-                    DeclarationViewModel(store) as T
+                    DeclarationViewModel(store, handoff) as T
             }
     }
+}
+
+private fun DeclarationUiState.parish(field: ParishField) = when (field) {
+    ParishField.BAPTISM -> baptismParish
+    ParishField.RESIDENCE -> residenceParish
+}
+
+private fun DeclarationUiState.withParish(field: ParishField, value: String) = when (field) {
+    ParishField.BAPTISM -> copy(baptismParish = value.take(PARISH_MAX_LENGTH))
+    ParishField.RESIDENCE -> copy(residenceParish = value.take(PARISH_MAX_LENGTH))
 }
 
 private fun DeclarationDraft.toUiState() = DeclarationUiState(

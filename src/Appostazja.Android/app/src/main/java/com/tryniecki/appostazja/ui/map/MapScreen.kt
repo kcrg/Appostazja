@@ -21,6 +21,7 @@ import androidx.compose.ui.semantics.clearAndSetSemantics
 import androidx.compose.ui.semantics.contentDescription
 import com.tryniecki.appostazja.ui.formatApiDate
 import com.tryniecki.appostazja.ui.formatRating
+import com.tryniecki.appostazja.ui.declaration.ParishField
 import com.tryniecki.appostazja.ui.search.PlaceSearchScreen
 import com.tryniecki.appostazja.ui.search.PlaceSearchViewModel
 import androidx.compose.foundation.lazy.LazyColumn
@@ -50,6 +51,8 @@ import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.ListItem
 import androidx.compose.material3.ListItemDefaults
 import androidx.compose.material3.OutlinedButton
+import androidx.compose.material3.DropdownMenu
+import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
@@ -124,6 +127,7 @@ fun MapRoute(
     repository: MapRepository,
     streetViewRepository: StreetViewRepository,
     themeMode: ThemeMode,
+    onUseInDeclaration: (PlaceDto, ParishField) -> Unit,
 ) {
     val viewModel: MapViewModel = viewModel(factory = MapViewModel.factory(repository))
     val searchViewModel: PlaceSearchViewModel = viewModel(factory = PlaceSearchViewModel.factory(repository))
@@ -137,6 +141,7 @@ fun MapRoute(
         state = state,
         mapColors = mapColors,
         onRefresh = viewModel::refresh,
+        onUseInDeclaration = onUseInDeclaration,
         placeReports = repository::placeReports,
         // Failures are not cached, so a retry simply loads again.
         loadStreetView = { place, _ -> streetViewRepository.load(place.id) },
@@ -165,6 +170,7 @@ private fun MapScreen(
     state: MapUiState,
     mapColors: ComposeMapColorScheme,
     onRefresh: () -> Unit,
+    onUseInDeclaration: (PlaceDto, ParishField) -> Unit,
     placeReports: (String) -> Flow<PlaceReportsDto>,
     loadStreetView: suspend (PlaceDto, Boolean) -> StreetViewPreview,
     search: @Composable (onClose: () -> Unit, onPlaceClick: (PlaceDto) -> Unit) -> Unit,
@@ -330,6 +336,10 @@ private fun MapScreen(
                     placeReports = placeReports,
                     loadStreetView = loadStreetView,
                     onNavigate = { openGoogleMapsNavigation(context, place) },
+                    onUseInDeclaration = { field ->
+                        selectedPlace = null
+                        onUseInDeclaration(place, field)
+                    },
                 )
             }
         }
@@ -468,6 +478,7 @@ private fun ChurchDetailsSheet(
     placeReports: (String) -> Flow<PlaceReportsDto>,
     loadStreetView: suspend (PlaceDto, Boolean) -> StreetViewPreview,
     onNavigate: () -> Unit,
+    onUseInDeclaration: (ParishField) -> Unit,
 ) {
     // Null while closed; open with the previewed panorama or, without a preview, a lookup by location.
     val streetViewPreview = rememberStreetViewPreview(place, loadStreetView)
@@ -554,6 +565,7 @@ private fun ChurchDetailsSheet(
                 if (streetViewPreview.offersButton) {
                     StreetViewButton(onClick = { streetView = StreetViewRequest(streetViewPreview.panorama) })
                 }
+                UseInDeclarationButton(onPick = onUseInDeclaration)
             }
         }
 
@@ -779,3 +791,42 @@ private fun openGoogleMapsNavigation(context: Context, place: PlaceDto) {
 private data class StreetViewRequest(val preview: StreetViewPreview.Available?)
 
 private enum class MapOverlayState { LOADING, ERROR, CONTENT }
+
+/** Sends this church to the declaration form; the menu asks which of its two parish fields it fills. */
+@Composable
+private fun UseInDeclarationButton(onPick: (ParishField) -> Unit) {
+    var menuOpen by remember { mutableStateOf(false) }
+    Box {
+        OutlinedButton(onClick = { menuOpen = true }) {
+            Icon(
+                painter = painterResource(com.composables.icons.tabler.outline.R.drawable.tabler_ic_file_description_outline),
+                contentDescription = null,
+                modifier = Modifier.size(ButtonDefaults.IconSize),
+            )
+            Spacer(Modifier.size(ButtonDefaults.IconSpacing))
+            Text(stringResource(R.string.church_use_in_declaration))
+        }
+        DropdownMenu(expanded = menuOpen, onDismissRequest = { menuOpen = false }) {
+            DropdownMenuItem(
+                text = { Text(stringResource(R.string.church_use_as_baptism)) },
+                leadingIcon = {
+                    Icon(painterResource(com.composables.icons.tabler.outline.R.drawable.tabler_ic_droplet_outline), null)
+                },
+                onClick = {
+                    menuOpen = false
+                    onPick(ParishField.BAPTISM)
+                },
+            )
+            DropdownMenuItem(
+                text = { Text(stringResource(R.string.church_use_as_residence)) },
+                leadingIcon = {
+                    Icon(painterResource(com.composables.icons.tabler.outline.R.drawable.tabler_ic_home_outline), null)
+                },
+                onClick = {
+                    menuOpen = false
+                    onPick(ParishField.RESIDENCE)
+                },
+            )
+        }
+    }
+}

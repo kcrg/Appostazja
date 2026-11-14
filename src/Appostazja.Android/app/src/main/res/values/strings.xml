@@ -122,6 +122,12 @@
     <string name="declaration_delete_title">Usunąć deklarację?</string>
     <string name="declaration_delete_body">Deklaracja z %1$s zostanie usunięta z aplikacji. Zapisane wcześniej kopie pozostaną.</string>
     <string name="action_back">Wstecz</string>
+    <string name="action_undo">Cofnij</string>
+    <string name="declaration_parish_filled_baptism">Wpisano %1$s jako parafię chrztu</string>
+    <string name="declaration_parish_filled_residence">Wpisano %1$s jako parafię zamieszkania</string>
+    <string name="church_use_in_declaration">Do deklaracji</string>
+    <string name="church_use_as_baptism">Jako parafia chrztu</string>
+    <string name="church_use_as_residence">Jako parafia zamieszkania</string>
     <string name="declaration_file_name">deklaracja-apostazji.pdf</string>
 
     <string name="more_title">Więcej</string>
