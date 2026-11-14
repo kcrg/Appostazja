@@ -3,33 +3,20 @@ package com.tryniecki.appostazja.ui.map
 import android.content.ActivityNotFoundException
 import android.content.Context
 import android.content.Intent
-import android.net.Uri
+import androidx.core.net.toUri
 import android.provider.Settings
 import com.tryniecki.appostazja.ui.components.FabMorphRole
-import com.tryniecki.appostazja.ui.components.LocalSharedTransitionScope
 import com.tryniecki.appostazja.ui.components.fabMorph
 import com.tryniecki.appostazja.ui.components.fabMorphShape
-import androidx.compose.animation.AnimatedVisibilityScope
-import androidx.compose.animation.EnterExitState
 import kotlinx.coroutines.flow.filterNotNull
-import androidx.activity.compose.PredictiveBackHandler
-import androidx.compose.animation.EnterTransition
-import androidx.compose.animation.SharedTransitionLayout
-import androidx.compose.animation.core.SeekableTransitionState
 import androidx.compose.animation.core.animate
-import androidx.compose.animation.core.rememberTransition
 import androidx.compose.animation.core.tween
-import androidx.compose.runtime.CompositionLocalProvider
-import com.tryniecki.appostazja.ui.navigation.NavMotion
-import androidx.compose.animation.ExitTransition
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.AnimatedContent
 import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
 import androidx.compose.animation.scaleIn
 import androidx.compose.animation.scaleOut
-import androidx.compose.animation.slideInVertically
-import androidx.compose.animation.slideOutVertically
 import androidx.compose.animation.togetherWith
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.widthIn
@@ -38,8 +25,6 @@ import androidx.compose.ui.semantics.contentDescription
 import com.tryniecki.appostazja.ui.formatApiDate
 import com.tryniecki.appostazja.ui.formatRating
 import com.tryniecki.appostazja.ui.declaration.ParishField
-import com.tryniecki.appostazja.ui.search.PlaceSearchScreen
-import com.tryniecki.appostazja.ui.search.PlaceSearchViewModel
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.foundation.layout.Arrangement
@@ -84,12 +69,12 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.SideEffect
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
-import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.toArgb
@@ -504,7 +489,7 @@ private fun ChurchDetailsSheet(
     val openCustomTab = rememberOpenCustomTab()
     var details by remember(place.id) { mutableStateOf<PlaceReportsDto?>(null) }
     var failed by remember(place.id) { mutableStateOf(false) }
-    var attempt by remember(place.id) { mutableStateOf(0) }
+    var attempt by remember(place.id) { mutableIntStateOf(0) }
     LaunchedEffect(place.id, attempt) {
         failed = false
         try {
@@ -793,14 +778,12 @@ private suspend fun zoomIntoCluster(
 }
 
 private fun openGoogleMapsNavigation(context: Context, place: PlaceDto) {
-    val navigationUri = Uri.parse("google.navigation:q=${place.latitude},${place.longitude}&mode=d")
+    val navigationUri = "google.navigation:q=${place.latitude},${place.longitude}&mode=d".toUri()
     val mapsIntent = Intent(Intent.ACTION_VIEW, navigationUri).setPackage("com.google.android.apps.maps")
     try {
         context.startActivity(mapsIntent)
     } catch (_: ActivityNotFoundException) {
-        val fallback = Uri.parse(
-            "https://www.google.com/maps/dir/?api=1&destination=${place.latitude},${place.longitude}",
-        )
+        val fallback = "https://www.google.com/maps/dir/?api=1&destination=${place.latitude},${place.longitude}".toUri()
         context.startActivity(Intent(Intent.ACTION_VIEW, fallback))
     }
 }

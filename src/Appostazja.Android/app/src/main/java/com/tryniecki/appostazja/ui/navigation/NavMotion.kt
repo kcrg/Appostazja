@@ -100,17 +100,17 @@ internal class NavDirection {
  * underneath that clears as it comes in, so the two read as separate layers.
  */
 @Composable
-internal fun AnimatedContentScope.backNavigationDecoration(direction: NavDirection): Modifier {
-    val radius by transition.animateDp(
+internal fun Modifier.backNavigationDecoration(scope: AnimatedContentScope, direction: NavDirection): Modifier {
+    val radius by scope.transition.animateDp(
         transitionSpec = { tween(NavMotion.DURATION, easing = LinearEasing) },
         label = "screen-corners",
     ) { state -> if (state == EnterExitState.PostExit && direction.goingBack) NavMotion.BackCornerRadius else 0.dp }
-    val scrim by transition.animateFloat(
+    val scrim by scope.transition.animateFloat(
         transitionSpec = { tween(NavMotion.DURATION, easing = LinearEasing) },
         label = "screen-scrim",
     ) { state -> if (state == EnterExitState.PreEnter && direction.goingBack) NavMotion.BACK_SCRIM else 0f }
     val clipped = if (radius > 0.dp) Modifier.clip(RoundedCornerShape(radius)) else Modifier
-    return clipped.drawWithContent {
+    return then(clipped).drawWithContent {
         drawContent()
         if (scrim > 0f) drawRect(Color.Black, alpha = scrim)
     }

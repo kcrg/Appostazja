@@ -311,7 +311,7 @@ private inline fun <reified T : Any> NavGraphBuilder.screen(
 ) {
     composable<T> { entry ->
         CompositionLocalProvider(LocalNavAnimatedScope provides this) {
-            Box(Modifier.fillMaxSize().then(backNavigationDecoration(direction))) { content(entry) }
+            Box(Modifier.fillMaxSize().backNavigationDecoration(this, direction)) { content(entry) }
         }
     }
 }

@@ -69,7 +69,6 @@ fun Modifier.fabMorph(
     val scope = visibilityScope ?: return this
     val shape = fabMorphShape()
     val contentState = with(shared) { rememberSharedContentState(key) }
-    val landing = if (role == FabMorphRole.Fab) landingBounce(scope, matched = { contentState.isMatchFound }) else Modifier
     return with(shared) {
         sharedBounds(
             sharedContentState = contentState,
@@ -95,7 +94,7 @@ fun Modifier.fabMorph(
             zIndexInOverlay = if (role == FabMorphRole.Screen) 1f else 0f,
             clipInOverlayDuringTransition = OverlayClip(shape),
         )
-    }.then(landing)
+    }.let { if (role == FabMorphRole.Fab) it.landingBounce(scope, matched = { contentState.isMatchFound }) else it }
 }
 
 /**
@@ -104,7 +103,7 @@ fun Modifier.fabMorph(
  * over from its screen ([matched]): appearing with its destination on a tab switch, it just appears.
  */
 @Composable
-private fun landingBounce(scope: AnimatedVisibilityScope, matched: () -> Boolean): Modifier {
+private fun Modifier.landingBounce(scope: AnimatedVisibilityScope, matched: () -> Boolean): Modifier {
     val scale = remember { Animatable(1f) }
     val transition = scope.transition
     var arriving by remember { mutableStateOf(false) }
@@ -121,7 +120,7 @@ private fun landingBounce(scope: AnimatedVisibilityScope, matched: () -> Boolean
             scale.animateTo(1f, LandingSpring, initialVelocity = LANDING_VELOCITY)
         }
     }
-    return Modifier.graphicsLayer {
+    return graphicsLayer {
         scaleX = scale.value
         scaleY = scale.value
     }

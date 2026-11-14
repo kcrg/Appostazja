@@ -115,6 +115,8 @@ dependencies {
     implementation(libs.kotlinx.serialization.json)
     implementation(libs.maps.compose)
     implementation(libs.maps.compose.utils)
+    // Newer than the version maps-compose depends on.
+    implementation(libs.play.services.maps)
     implementation(libs.okhttp)
     implementation(libs.tabler.icons.outline.android)
     implementation(libs.vico.compose)

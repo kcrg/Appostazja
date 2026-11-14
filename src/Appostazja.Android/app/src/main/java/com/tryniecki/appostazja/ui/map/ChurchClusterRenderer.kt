@@ -9,6 +9,9 @@ import android.graphics.Typeface
 import android.util.LruCache
 import androidx.compose.ui.graphics.ImageBitmap
 import androidx.compose.ui.graphics.asImageBitmap
+import androidx.core.graphics.createBitmap
+import androidx.core.graphics.withClip
+import androidx.core.graphics.withTranslation
 import com.google.android.gms.maps.GoogleMap
 import com.google.android.gms.maps.model.BitmapDescriptor
 import com.google.android.gms.maps.model.BitmapDescriptorFactory
@@ -305,7 +308,7 @@ internal class ChurchClusterRenderer(
             else -> 64f
         }
         val height = 48f
-        val bitmap = Bitmap.createBitmap((width * density).roundToInt(), (height * density).roundToInt(), Bitmap.Config.ARGB_8888)
+        val bitmap = createBitmap((width * density).roundToInt(), (height * density).roundToInt())
         val canvas = Canvas(bitmap)
         canvas.scale(density, density)
         val center = width / 2
@@ -325,14 +328,13 @@ internal class ChurchClusterRenderer(
         canvas.drawText(icon.size.toString(), center, textCenter - (paint.ascent() + paint.descent()) / 2, paint)
         if (icon.hasRatings) {
             val barStart = center - 12f
-            val saved = canvas.save()
             path.rewind()
             path.addRoundRect(barStart, 31f, barStart + 24f, 34f, 1.5f, 1.5f, Path.Direction.CW)
-            canvas.clipPath(path)
-            drawBar(canvas, barStart, 0, icon.easy, colors.good)
-            drawBar(canvas, barStart, icon.easy, icon.easyAndMedium, colors.neutral)
-            drawBar(canvas, barStart, icon.easyAndMedium, 24, colors.bad)
-            canvas.restoreToCount(saved)
+            canvas.withClip(path) {
+                drawBar(canvas, barStart, 0, icon.easy, colors.good)
+                drawBar(canvas, barStart, icon.easy, icon.easyAndMedium, colors.neutral)
+                drawBar(canvas, barStart, icon.easyAndMedium, 24, colors.bad)
+            }
         }
         return Icon(bitmap)
     }
@@ -351,7 +353,7 @@ internal class ChurchClusterRenderer(
             else -> colors.neutral
         }
         return pins.getOrPut(color) {
-            val bitmap = Bitmap.createBitmap((48 * density).roundToInt(), (48 * density).roundToInt(), Bitmap.Config.ARGB_8888)
+            val bitmap = createBitmap((48 * density).roundToInt(), (48 * density).roundToInt())
             val canvas = Canvas(bitmap)
             canvas.scale(density, density)
             path.rewind()
@@ -364,10 +366,7 @@ internal class ChurchClusterRenderer(
             path.close()
             paint.style = Paint.Style.FILL
             paint.color = colors.shadow
-            canvas.save()
-            canvas.translate(0f, 1.5f)
-            canvas.drawPath(path, paint)
-            canvas.restore()
+            canvas.withTranslation(y = 1.5f) { drawPath(path, paint) }
             paint.color = colors.pin
             canvas.drawPath(path, paint)
             paint.style = Paint.Style.STROKE

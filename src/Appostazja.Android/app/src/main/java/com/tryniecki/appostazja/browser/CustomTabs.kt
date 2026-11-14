@@ -2,7 +2,7 @@ package com.tryniecki.appostazja.browser
 
 import android.content.ActivityNotFoundException
 import android.content.Context
-import android.net.Uri
+import androidx.core.net.toUri
 import androidx.browser.customtabs.CustomTabColorSchemeParams
 import androidx.browser.customtabs.CustomTabsIntent
 import androidx.compose.material3.MaterialTheme
@@ -26,7 +26,7 @@ fun openCustomTab(
         .build()
 
     try {
-        intent.launchUrl(context, Uri.parse(url))
+        intent.launchUrl(context, url.toUri())
     } catch (_: ActivityNotFoundException) {
         uriHandler.openUri(url)
     }

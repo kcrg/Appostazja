@@ -58,7 +58,9 @@ import com.google.android.gms.maps.model.StreetViewPanoramaCamera
 import com.google.android.gms.maps.model.StreetViewSource
 import com.google.maps.android.MapsExperimentalFeature
 import com.google.maps.android.compose.streetview.StreetView
+import com.google.maps.android.compose.streetview.StreetViewCameraPositionState
 import com.google.maps.android.compose.streetview.rememberStreetViewCameraPositionState
+import com.google.android.gms.maps.model.StreetViewPanoramaLocation
 import com.tryniecki.appostazja.R
 import com.tryniecki.appostazja.api.model.PlaceDto
 import com.tryniecki.appostazja.data.StreetViewPreview
@@ -94,7 +96,7 @@ internal fun StreetViewScreen(
         var timedOut by remember { mutableStateOf(false) }
         LaunchedEffect(Unit) {
             delay(LOAD_TIMEOUT_MS)
-            timedOut = camera.location == null
+            timedOut = camera.loadedLocation == null
         }
         Box(
             Modifier
@@ -123,11 +125,11 @@ internal fun StreetViewScreen(
             )
             // The panorama starts facing north; turn it towards the parish once, when it first loads, and leave
             // the view alone while the user walks around.
-            val location = camera.location
+            val location = camera.loadedLocation
             LaunchedEffect(location != null) {
                 if (location != null && !oriented && preview == null) {
                     oriented = true
-                    val heading = preview?.heading ?: bearing(
+                    val heading = bearing(
                         location.position.latitude, location.position.longitude, place.latitude, place.longitude,
                     )
                     camera.animateTo(
@@ -249,3 +251,10 @@ private fun View.findDescendant(predicate: (View) -> Boolean): View? {
 private val PanelCornerRadius = 28.dp
 private const val SEARCH_RADIUS_METERS = 120
 private const val LOAD_TIMEOUT_MS = 10_000L
+
+/**
+ * The panorama shown, or null until one loads. maps-compose reports a placeholder location (no panorama ID, at
+ * 0, 0) before the first panorama and when none is found.
+ */
+private val StreetViewCameraPositionState.loadedLocation: StreetViewPanoramaLocation?
+    get() = location.takeIf { it.panoId.isNotEmpty() }

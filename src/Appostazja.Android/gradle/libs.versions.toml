@@ -22,6 +22,7 @@ sqlite = "2.7.1"
 ksp = "2.3.14"
 browser = "1.10.0"
 mapsCompose = "9.0.1"
+playServicesMaps = "20.1.0"
 benchmark = "1.5.0"
 uiautomator = "2.4.1"
 profileInstaller = "1.4.1"
@@ -59,6 +60,7 @@ room3-compiler = { group = "androidx.room3", name = "room3-compiler", version.re
 sqlite-bundled-jvm = { group = "androidx.sqlite", name = "sqlite-bundled-jvm", version.ref = "sqlite" }
 maps-compose = { group = "com.google.maps.android", name = "maps-compose", version.ref = "mapsCompose" }
 maps-compose-utils = { group = "com.google.maps.android", name = "maps-compose-utils", version.ref = "mapsCompose" }
+play-services-maps = { group = "com.google.android.gms", name = "play-services-maps", version.ref = "playServicesMaps" }
 androidx-benchmark-macro-junit4 = { group = "androidx.benchmark", name = "benchmark-macro-junit4", version.ref = "benchmark" }
 androidx-uiautomator = { group = "androidx.test.uiautomator", name = "uiautomator", version.ref = "uiautomator" }
 androidx-profileinstaller = { group = "androidx.profileinstaller", name = "profileinstaller", version.ref = "profileInstaller" }

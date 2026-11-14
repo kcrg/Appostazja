@@ -2,7 +2,7 @@ package com.tryniecki.appostazja.ui.more
 
 import android.content.ActivityNotFoundException
 import android.content.Intent
-import android.net.Uri
+import androidx.core.net.toUri
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.fillMaxSize
@@ -144,7 +144,7 @@ fun MoreScreen(
                     body = email,
                     icon = com.composables.icons.tabler.outline.R.drawable.tabler_ic_mail_outline,
                     onClick = {
-                        val intent = Intent(Intent.ACTION_SENDTO, Uri.parse("mailto:$email"))
+                        val intent = Intent(Intent.ACTION_SENDTO, "mailto:$email".toUri())
                         try {
                             context.startActivity(intent)
                         } catch (_: ActivityNotFoundException) {
