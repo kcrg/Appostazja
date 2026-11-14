@@ -39,6 +39,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.layout.layout
 import androidx.compose.ui.graphics.ImageBitmap
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.res.painterResource
@@ -51,10 +52,18 @@ import com.tryniecki.appostazja.api.model.PlaceDto
 import com.tryniecki.appostazja.data.StreetViewPreview
 import com.tryniecki.appostazja.ui.components.ExpressiveLoadingIndicator
 import kotlinx.coroutines.CancellationException
+import kotlin.math.roundToInt
 import com.composables.icons.tabler.outline.R as Tabler
 
 private val PreviewShape = RoundedCornerShape(24.dp)
 private const val PreviewAspectRatio = 16f / 10f
+
+/** At least as tall as [ratio] at the available width, taller when the content needs it (large fonts). */
+private fun Modifier.minAspectRatio(ratio: Float) = layout { measurable, constraints ->
+    val minHeight = (constraints.maxWidth / ratio).roundToInt().coerceIn(constraints.minHeight, constraints.maxHeight)
+    val placeable = measurable.measure(constraints.copy(minHeight = minHeight))
+    layout(placeable.width, placeable.height) { placeable.place(0, 0) }
+}
 
 @Composable
 fun StreetViewPreviewCard(
@@ -237,7 +246,10 @@ private fun MessagePreview(
     actions: (@Composable () -> Unit)? = null,
 ) {
     Surface(
-        modifier = Modifier.fillMaxWidth(),
+        modifier = Modifier
+            .fillMaxWidth()
+            // Full-size states match the thumbnail and loading card, so the card keeps its size between states.
+            .then(if (compact) Modifier else Modifier.minAspectRatio(PreviewAspectRatio)),
         shape = PreviewShape,
         color = MaterialTheme.colorScheme.surfaceContainerHigh,
     ) {
@@ -259,9 +271,9 @@ private fun MessagePreview(
             }
         } else {
             Column(
-                modifier = Modifier.padding(horizontal = 20.dp, vertical = 22.dp),
+                modifier = Modifier.padding(horizontal = 20.dp, vertical = 16.dp),
                 horizontalAlignment = Alignment.CenterHorizontally,
-                verticalArrangement = Arrangement.spacedBy(8.dp),
+                verticalArrangement = Arrangement.spacedBy(8.dp, Alignment.CenterVertically),
             ) {
                 Surface(shape = CircleShape, color = tint.copy(alpha = 0.14f)) {
                     Icon(
