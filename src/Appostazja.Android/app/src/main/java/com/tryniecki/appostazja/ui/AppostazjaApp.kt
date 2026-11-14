@@ -1,9 +1,11 @@
 package com.tryniecki.appostazja.ui
 
+import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
 import androidx.compose.animation.slideInHorizontally
 import androidx.compose.animation.slideOutHorizontally
+import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.consumeWindowInsets
 import androidx.compose.foundation.layout.fillMaxSize
@@ -18,6 +20,7 @@ import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.drawBehind
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.res.stringResource
 import androidx.navigation.NavDestination
@@ -30,6 +33,7 @@ import androidx.navigation.compose.rememberNavController
 import com.tryniecki.appostazja.AppContainer
 import com.tryniecki.appostazja.ui.declaration.DeclarationRoute
 import com.tryniecki.appostazja.ui.map.MapRoute
+import com.tryniecki.appostazja.ui.map.PersistentMapHost
 import com.tryniecki.appostazja.ui.more.MoreScreen
 import com.tryniecki.appostazja.ui.stats.StatsRoute
 import com.tryniecki.appostazja.ui.navigation.AppDestination
@@ -79,14 +83,27 @@ fun AppostazjaApp(
             }
         },
     ) { innerPadding ->
+        val contentModifier = Modifier
+            .fillMaxSize()
+            .padding(bottom = innerPadding.calculateBottomPadding())
+            // Screens with their own Scaffold must not add the navigation bar inset a second time.
+            .consumeWindowInsets(PaddingValues(bottom = innerPadding.calculateBottomPadding()))
+        // The map lives under the NavHost instead of in it: a NavHost destination is disposed on every tab
+        // switch, which recreated the MapView (about 40 ms frames each way). Other tabs are opaque and cover it.
+        val mapVisible = currentDestination == AppDestination.MAP
+        Box(contentModifier) {
+            PersistentMapHost(visible = mapVisible) {
+                MapRoute(container.mapRepository, container.streetViewRepository, themeMode)
+            }
+        }
+        // Covers the map whenever another tab is current, so crossfades between two other tabs never show it.
+        val coverAlpha by animateFloatAsState(if (mapVisible) 0f else 1f, motion.fastEffectsSpec(), label = "map-cover")
+        val coverColor = MaterialTheme.colorScheme.background
+        Box(contentModifier.drawBehind { if (coverAlpha > 0f) drawRect(coverColor, alpha = coverAlpha) })
         NavHost(
             navController = navController,
             startDestination = AppRoute.Map,
-            modifier = Modifier
-                .fillMaxSize()
-                .padding(bottom = innerPadding.calculateBottomPadding())
-                // Screens with their own Scaffold must not add the navigation bar inset a second time.
-                .consumeWindowInsets(PaddingValues(bottom = innerPadding.calculateBottomPadding())),
+            modifier = contentModifier,
             enterTransition = {
                 val direction = transitionDirection(initialState.destination, targetState.destination)
                 fadeIn(motion.fastEffectsSpec()) +
@@ -117,7 +134,7 @@ fun AppostazjaApp(
             },
         ) {
             composable<AppRoute.Map> {
-                MapRoute(container.mapRepository, container.streetViewRepository, themeMode)
+                // Drawn by PersistentMapHost underneath.
             }
             composable<AppRoute.Stats> {
                 StatsRoute(container.mapRepository)
