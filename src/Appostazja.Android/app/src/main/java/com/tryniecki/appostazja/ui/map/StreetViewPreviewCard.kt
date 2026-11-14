@@ -90,7 +90,7 @@ class StreetViewPreviewState internal constructor() {
     val offersButton: Boolean
         get() = when (val current = preview) {
             is StreetViewPreview.Available -> current.image == null
-            StreetViewPreview.PreviewDenied, StreetViewPreview.QuotaExceeded -> true
+            StreetViewPreview.PreviewDenied -> true
             else -> false
         }
 
@@ -164,7 +164,7 @@ fun StreetViewPreviewCard(
                 AvailablePreview(preview = state, image = image, onOpen = { onOpen(state) })
             }
             // Shown as a button in the sheet's action row instead.
-            StreetViewPreview.PreviewDenied, StreetViewPreview.QuotaExceeded -> Unit
+            StreetViewPreview.PreviewDenied -> Unit
             // No panorama at all: the card is not shown.
             StreetViewPreview.NotAvailable -> Unit
             StreetViewPreview.Failed -> MessagePreview(

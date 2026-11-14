@@ -138,9 +138,8 @@ fun MapRoute(
         mapColors = mapColors,
         onRefresh = viewModel::refresh,
         placeReports = repository::placeReports,
-        loadStreetView = { place, userRetry ->
-            streetViewRepository.load(place.id, place.latitude, place.longitude, userRetry)
-        },
+        // Failures are not cached, so a retry simply loads again.
+        loadStreetView = { place, _ -> streetViewRepository.load(place.id) },
         search = { onClose, onPlaceClick ->
             val searchState by searchViewModel.uiState.collectAsStateWithLifecycle()
             LaunchedEffect(Unit) { searchViewModel.ensureLoaded() }

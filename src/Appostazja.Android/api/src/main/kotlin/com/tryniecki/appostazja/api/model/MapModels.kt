@@ -107,3 +107,15 @@ data class CityStatsDto(
     val ratings: RatingBreakdownDto,
     val rating: Double? = null,
 )
+
+/** A street-level panorama of a parish with a signed thumbnail URL, loaded from Google directly. */
+@Serializable
+data class StreetViewDto(
+    val panoId: String,
+    /** Compass bearing from the panorama towards the church. */
+    val heading: Int,
+    val copyright: String,
+    /** Capture month, e.g. 2025-07. */
+    val date: String? = null,
+    val thumbnailUrl: String,
+)

@@ -5,6 +5,7 @@ import com.tryniecki.appostazja.api.model.PlaceDto
 import com.tryniecki.appostazja.api.model.PlaceReportsDto
 import com.tryniecki.appostazja.api.model.PlaceSearchResultDto
 import com.tryniecki.appostazja.api.model.StatsDto
+import com.tryniecki.appostazja.api.model.StreetViewDto
 import retrofit2.Response
 import retrofit2.http.GET
 import retrofit2.http.Header
@@ -43,6 +44,10 @@ interface AppostazjaApi {
         @Path("id") id: String,
         @Header("If-None-Match") ifNoneMatch: String? = null,
     ): Response<PlaceReportsDto>
+
+    /** 200 with a panorama, 204 when there is none nearby, 503 when Street View is unavailable on the server. */
+    @GET("places/{id}/street-view")
+    suspend fun getStreetView(@Path("id") id: String): Response<StreetViewDto>
 
     @GET("stats")
     suspend fun getStats(@Header("If-None-Match") ifNoneMatch: String? = null): Response<StatsDto>

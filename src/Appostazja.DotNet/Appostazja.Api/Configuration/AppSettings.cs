@@ -1,11 +1,14 @@
 using System.Globalization;
 
+using ApostasyMap.Api.Services;
+
 namespace ApostasyMap.Api.Configuration;
 
 public sealed record AppSettings(
     SourceSettings Source,
     DatabaseSettings Database,
-    ImportSettings Import)
+    ImportSettings Import,
+    StreetViewSettings StreetView)
 {
     public static AppSettings FromConfiguration(IConfiguration configuration, string contentRootPath)
     {
@@ -37,7 +40,32 @@ public sealed record AppSettings(
             new ImportSettings(
                 ReadInt(configuration, "Import:MaxSkippedRowPercent", 5, 0, 100) / 100.0,
                 ReadInt(configuration, "Import:MaxPlaceDropPercent", 30, 0, 100) / 100.0,
-                TimeSpan.FromHours(ReadInt(configuration, "Import:ReadyMaxAgeHours", 48, 1, 720))));
+                TimeSpan.FromHours(ReadInt(configuration, "Import:ReadyMaxAgeHours", 48, 1, 720))),
+            ReadStreetView(configuration));
+    }
+
+    /// <summary>Street View is optional: without an API key the endpoint reports it as unavailable.</summary>
+    private static StreetViewSettings ReadStreetView(IConfiguration configuration)
+    {
+        var apiKey = configuration["StreetView:ApiKey"];
+        var secret = configuration["StreetView:SigningSecret"];
+        byte[]? signingSecret = null;
+        if (!string.IsNullOrWhiteSpace(secret))
+        {
+            try
+            {
+                signingSecret = UrlSigner.DecodeSecret(secret);
+            }
+            catch (FormatException)
+            {
+                throw new InvalidOperationException("StreetView:SigningSecret must be the URL-safe base64 secret from the Cloud console.");
+            }
+        }
+
+        return new StreetViewSettings(
+            string.IsNullOrWhiteSpace(apiKey) ? null : apiKey,
+            signingSecret,
+            TimeSpan.FromDays(ReadInt(configuration, "StreetView:CacheDays", 30, 1, 365)));
     }
 
     private static Uri ReadUrl(IConfiguration configuration, string key, string fallback)
@@ -86,6 +114,11 @@ public sealed record SourceSettings(
     long MaxResponseBytes);
 
 public sealed record DatabaseSettings(string Path);
+
+/// <param name="ApiKey">Server key for the Street View Static API; null disables Street View.</param>
+/// <param name="SigningSecret">URL signing secret; image URLs are signed when it is set.</param>
+/// <param name="CacheFor">How long a looked-up panorama is reused before it is looked up again.</param>
+public sealed record StreetViewSettings(string? ApiKey, byte[]? SigningSecret, TimeSpan CacheFor);
 
 /// <param name="MaxSkippedRowRatio">Import is rejected when more invalid source rows than this are skipped.</param>
 /// <param name="MaxPlaceDropRatio">Import is rejected when the place count shrinks by more than this.</param>

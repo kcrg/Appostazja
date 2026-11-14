@@ -56,6 +56,12 @@ public sealed record ImportStatusDto(
 
 public sealed record HealthDto(string Status, string? Reason = null);
 
+/// <summary>A street-level panorama of the parish and a ready-to-load thumbnail.</summary>
+/// <param name="Heading">Compass bearing from the panorama towards the church.</param>
+/// <param name="Date">Capture month, e.g. 2025-07, when Google knows it.</param>
+/// <param name="ThumbnailUrl">Signed Street View Static API image URL; load it from Google directly.</param>
+public sealed record StreetViewDto(string PanoId, int Heading, string Copyright, string? Date, string ThumbnailUrl);
+
 public sealed record ApiError(string Error);
 
 /// <param name="Total">All places matching the query and filters, before paging.</param>

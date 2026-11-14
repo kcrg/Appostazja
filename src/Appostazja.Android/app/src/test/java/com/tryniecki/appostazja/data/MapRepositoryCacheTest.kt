@@ -184,6 +184,9 @@ class MapRepositoryCacheTest {
 
         override suspend fun getPlace(id: String): PlaceDto = throw UnsupportedOperationException()
 
+        override suspend fun getStreetView(id: String): Response<com.tryniecki.appostazja.api.model.StreetViewDto> =
+            throw UnsupportedOperationException()
+
         override suspend fun getDatasetStatus(): DatasetStatusDto = throw UnsupportedOperationException()
     }
 

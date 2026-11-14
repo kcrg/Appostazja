@@ -20,7 +20,7 @@ class StreetViewPreviewStateTest {
     @Test
     fun `without a thumbnail the card never shows and the action row gets the button`() {
         val refused = state(StreetViewPreview.Available(image = null, panoId = "p", heading = 0, copyright = "© Google", date = null))
-        listOf(refused, state(StreetViewPreview.QuotaExceeded), state(StreetViewPreview.PreviewDenied)).forEach {
+        listOf(refused, state(StreetViewPreview.PreviewDenied)).forEach {
             assertEquals(false, it.showsCard)
             assertEquals(true, it.offersButton)
         }

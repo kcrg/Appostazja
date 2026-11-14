@@ -146,6 +146,12 @@ Returns a single place from memory. An old pin ID resolves to its main place. Un
 
 Returns the optional parish website and its reports from the same snapshot. Each report has a stage (`before_apostasy`, `apostasy`, `after_apostasy`), a rating (`easy`, `medium`, `hard`), an optional ISO date and optional comment. Reports are ordered newest submission first.
 
+### `GET /api/v1/places/{id}/street-view`
+
+A street-level Google panorama of the parish for a preview: `panoId`, `heading` (bearing from the panorama towards the church), `copyright`, `date` and a signed `thumbnailUrl`. Clients load the thumbnail from Google directly; the signing secret never leaves the server. Returns `204` when there is no panorama nearby and `503` when Street View is not configured or Google refuses, so clients can fall back to their own panorama lookup by location.
+
+Only Google's own imagery is used: when the nearest panorama is a user photo sphere (often inside the church), 16 free metadata probes 40 m and 80 m around the parish pick the closest Google panorama. Lookups are stored in SQLite for `StreetView__CacheDays` (30 by default) and responses carry `Cache-Control: public, max-age=86400`. Thumbnails are not stored on the server: Google's Street View policies allow storing panorama IDs, not images.
+
 ### `GET /api/v1/stats`
 
 Aggregates for a statistics screen, computed once per snapshot, so clients draw charts without downloading reports. Contains totals (places, reports, reports with a comment, reports with a date), the overall rating split, the split per stage, places per `tone`, reports per action year split by rating, and the 10 cities with the most reports (city taken from the address after the postal code, with a 0-5 `rating`). `years` runs oldest first with one entry per year for the last 9 years up to the newest dated report, including empty years. Older years are folded into one leading entry where `fromYear` differs from `toYear`. Supports `ETag`/`If-None-Match` like `/places`.
@@ -172,9 +178,14 @@ Source__MaxResponseMegabytes
 Import__MaxSkippedRowPercent
 Import__MaxPlaceDropPercent
 Import__ReadyMaxAgeHours
+StreetView__ApiKey
+StreetView__SigningSecret
+StreetView__CacheDays
 ```
 
 Default forced-refresh cooldown is 360 minutes. The accepted range is 5 minutes to 7 days.
+
+Street View needs a server key with the Street View Static API enabled and the URL signing secret from the Cloud console (Google Maps Platform, Credentials, URL signing secret). Keep both out of the repository, for example in environment variables. With the secret set, the key's unsigned requests quota can be set to 0, so the key alone is useless to anyone who copies it from a thumbnail URL. Without `StreetView__ApiKey` the endpoint returns `503`.
 
 ## Run
 

@@ -1,6 +1,7 @@
 using System.Text.Json.Serialization;
 using ApostasyMap.Api.Contracts;
 using ApostasyMap.Api.SourceModels;
+using ApostasyMap.Api.Services;
 
 namespace ApostasyMap.Api.Json;
 
@@ -19,6 +20,8 @@ namespace ApostasyMap.Api.Json;
 [JsonSerializable(typeof(string[]))]
 [JsonSerializable(typeof(DatasetStatusDto))]
 [JsonSerializable(typeof(ApiError))]
+[JsonSerializable(typeof(StreetViewDto))]
+[JsonSerializable(typeof(StreetViewMetadata))]
 [JsonSerializable(typeof(HealthDto))]
 // Query/route parameter types, needed by the OpenAPI document generator under NativeAOT.
 [JsonSerializable(typeof(double?))]

@@ -41,6 +41,15 @@ public static class MapEndpoints
             .Produces<PlaceReportsDto>()
             .Produces(StatusCodes.Status304NotModified)
             .Produces<ApiError>(StatusCodes.Status404NotFound);
+        api.MapGet("/places/{id}/street-view", GetStreetView)
+            .WithName("GetPlaceStreetView")
+            .WithSummary("Street-level Google panorama of the parish with a signed thumbnail URL.")
+            .WithDescription("204 when there is no panorama nearby; 503 when Street View is not configured or "
+                + "Google refuses, in which case clients can still open their own panorama by location.")
+            .Produces<StreetViewDto>()
+            .Produces(StatusCodes.Status204NoContent)
+            .Produces<ApiError>(StatusCodes.Status404NotFound)
+            .Produces<ApiError>(StatusCodes.Status503ServiceUnavailable);
         api.MapGet("/stats", GetStats)
             .WithName("GetStats")
             .WithSummary("Totals, rating distribution, ratings by stage, reports per year and top cities.")
@@ -278,6 +287,39 @@ public static class MapEndpoints
         return MatchesIfNoneMatch(context.Request, ResponseVersion(state))
             ? Results.StatusCode(StatusCodes.Status304NotModified)
             : Results.Ok(reports ?? new PlaceReportsDto(null, []));
+    }
+
+    internal const string StreetViewCacheControl = "public, max-age=86400";
+
+    private static async Task<IResult> GetStreetView(
+        HttpContext context,
+        MapMemoryCache memoryCache,
+        StreetViewService streetView,
+        string id,
+        CancellationToken cancellationToken)
+    {
+        var (_, place, _) = memoryCache.GetPlace(id);
+        if (place is null)
+        {
+            return PlaceNotFound(id);
+        }
+
+        var lookup = await streetView.LookupAsync(place, cancellationToken);
+        switch (lookup.Outcome)
+        {
+            case StreetViewOutcome.Found:
+                context.Response.Headers.CacheControl = StreetViewCacheControl;
+                return Results.Ok(lookup.Preview);
+            case StreetViewOutcome.None:
+                context.Response.Headers.CacheControl = StreetViewCacheControl;
+                return Results.NoContent();
+            default:
+                context.Response.Headers.CacheControl = "no-store";
+                return Results.Json(
+                    new ApiError("Street View is unavailable."),
+                    AppJsonSerializerContext.Default.ApiError,
+                    statusCode: StatusCodes.Status503ServiceUnavailable);
+        }
     }
 
     private static IResult GetDatasetStatus(

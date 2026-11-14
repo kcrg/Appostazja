@@ -1,30 +1,95 @@
 package com.tryniecki.appostazja.data
 
+import androidx.compose.ui.graphics.ImageBitmap
+import com.tryniecki.appostazja.api.client.AppostazjaApi
+import com.tryniecki.appostazja.api.model.DatasetStatusDto
+import com.tryniecki.appostazja.api.model.PlaceDto
+import com.tryniecki.appostazja.api.model.PlaceReportsDto
+import com.tryniecki.appostazja.api.model.PlaceSearchResultDto
+import com.tryniecki.appostazja.api.model.StatsDto
+import com.tryniecki.appostazja.api.model.StreetViewDto
+import kotlinx.coroutines.runBlocking
+import okhttp3.MediaType.Companion.toMediaType
+import okhttp3.OkHttpClient
+import okhttp3.Protocol
+import okhttp3.Request
+import okhttp3.Response
+import okhttp3.ResponseBody.Companion.toResponseBody
 import org.junit.Assert.assertEquals
+import org.junit.Assert.assertNotNull
+import org.junit.Assert.assertNull
+import org.junit.Assert.assertTrue
 import org.junit.Test
+import java.io.IOException
 
 class StreetViewRepositoryTest {
+    private val api = FakeApi()
+    private val google = FakeGoogle()
+    private val decoded = mutableListOf<ByteArray>()
+    private val repository = StreetViewRepository(
+        api = api,
+        enabled = true,
+        images = OkHttpClient.Builder().addInterceptor { google.respond(it.request()) }.build(),
+        decode = { bytes -> decoded += bytes; FakeBitmap },
+        warn = { _, _ -> },
+    )
+
     @Test
-    fun `rate limited responses are treated as quota exhaustion`() {
-        assertEquals("OVER_QUERY_LIMIT", classifyHttpError(429, ""))
-        assertEquals(
-            "OVER_QUERY_LIMIT",
-            classifyHttpError(403, "You have exceeded your daily request quota for this API."),
-        )
+    fun `a panorama with its thumbnail is loaded once and then served from memory`() = runBlocking {
+        api.streetView = { ok(panorama) }
+        google.image = image(200)
+
+        val first = repository.load("mariacki") as StreetViewPreview.Available
+        val again = repository.load("mariacki")
+
+        assertNotNull(first.image)
+        assertEquals("pano-1", first.panoId)
+        assertEquals(first, again)
+        assertEquals(1, api.calls)
+        assertEquals(listOf(panorama.thumbnailUrl), google.requested)
     }
 
     @Test
-    fun `other failures are not reported as quota exhaustion`() {
-        assertEquals("ZERO_RESULTS", classifyHttpError(404, ""))
-        assertEquals("HTTP_403", classifyHttpError(403, "This API project is not authorized to use this API."))
-        assertEquals("HTTP_500", classifyHttpError(500, ""))
+    fun `a thumbnail refused by Google still offers the panorama`() = runBlocking {
+        // An unsigned or over-quota request gets a 403 with an error PNG, not a message.
+        api.streetView = { ok(panorama) }
+        google.image = image(403)
+
+        val preview = repository.load("mariacki") as StreetViewPreview.Available
+
+        assertNull(preview.image)
+        assertEquals("pano-1", preview.panoId)
+        assertTrue(decoded.isEmpty())
     }
 
     @Test
-    fun `refused thumbnails still offer the panorama while server errors ask for a retry`() {
-        // Google answers an unsigned request it will not serve with a 403 and an error PNG, not a message.
+    fun `server answers map to no panorama, the location fallback, or a retry`() = runBlocking {
+        api.streetView = { retrofit2.Response.success<StreetViewDto>(204, null) }
+        assertEquals(StreetViewPreview.NotAvailable, repository.load("none"))
+
+        api.streetView = { error(503) }
+        assertEquals(StreetViewPreview.PreviewDenied, repository.load("unconfigured"))
+
+        api.streetView = { error(500) }
+        assertEquals(StreetViewPreview.Failed, repository.load("broken"))
+    }
+
+    @Test
+    fun `failures are not remembered, so a retry asks again`() = runBlocking {
+        api.streetView = { throw IOException("offline") }
+        assertEquals(StreetViewPreview.Failed, repository.load("mariacki"))
+
+        api.streetView = { ok(panorama) }
+        google.image = image(200)
+        assertTrue(repository.load("mariacki") is StreetViewPreview.Available)
+        assertEquals(2, api.calls)
+    }
+
+    @Test
+    fun `refusals still offer the panorama while server errors ask for a retry`() {
         assertEquals(ImageFailure.ThumbnailRefused, classifyImageFailure(403, ""))
         assertEquals(ImageFailure.ThumbnailRefused, classifyImageFailure(429, ""))
+        assertEquals(ImageFailure.ThumbnailRefused, classifyImageFailure(400, "You have exceeded your daily request quota"))
         assertEquals(ImageFailure.NoPanorama, classifyImageFailure(404, ""))
         assertEquals(ImageFailure.Other, classifyImageFailure(500, ""))
     }
@@ -37,31 +102,85 @@ class StreetViewRepositoryTest {
         assertEquals(270, bearing(52.0, 19.001, 52.0, 19.0))
     }
 
-    @Test
-    fun `user photo spheres are skipped even when closer than Google imagery`() {
-        val church = 50.0616 to 19.9394
-        val candidates = listOf(
-            PanoramaCandidate("inside", 50.06161, 19.93941, "© Michał Kot"),
-            PanoramaCandidate("street-far", 50.0620, 19.9400, "© Google"),
-            PanoramaCandidate("street-near", 50.0618, 19.9396, "© Google"),
-        )
+    private val panorama = StreetViewDto(
+        panoId = "pano-1",
+        heading = 120,
+        copyright = "© 2026 Google",
+        date = "2025-07",
+        thumbnailUrl = "https://maps.googleapis.com/maps/api/streetview?pano=pano-1&key=k&signature=s",
+    )
 
-        assertEquals("street-near", pickGoogleImagery(church.first, church.second, candidates)?.panoId)
+    private fun ok(body: StreetViewDto) = retrofit2.Response.success(body)
+
+    private fun error(code: Int): retrofit2.Response<StreetViewDto> =
+        retrofit2.Response.error(code, "{}".toResponseBody("application/json".toMediaType()))
+
+    private class FakeGoogle {
+        var image: (Request) -> Response = { throw IOException("not configured") }
+        val requested = mutableListOf<String>()
+
+        fun respond(request: Request): Response {
+            requested += request.url.toString()
+            return image(request)
+        }
     }
 
-    @Test
-    fun `without any Google imagery nothing is chosen`() {
-        val candidates = listOf(PanoramaCandidate("sphere", 50.0617, 19.9395, "© Toño Piña"))
-
-        assertEquals(null, pickGoogleImagery(50.0616, 19.9394, candidates))
+    private fun image(code: Int) = { request: Request ->
+        Response.Builder()
+            .request(request)
+            .protocol(Protocol.HTTP_1_1)
+            .code(code)
+            .message("")
+            .body(byteArrayOf(1, 2, 3).toResponseBody("image/png".toMediaType()))
+            .build()
     }
 
-    @Test
-    fun `probe points ring the parish at 40 and 80 metres`() {
-        val distances = probePoints(50.0616, 19.9394).map { (lat, lng) -> distanceMeters(50.0616, 19.9394, lat, lng) }
+    private class FakeApi : AppostazjaApi {
+        var streetView: () -> retrofit2.Response<StreetViewDto> = { throw IOException("not configured") }
+        var calls = 0
 
-        assertEquals(16, distances.size)
-        distances.take(8).forEach { assertEquals(40.0, it, 0.5) }
-        distances.drop(8).forEach { assertEquals(80.0, it, 0.5) }
+        override suspend fun getStreetView(id: String): retrofit2.Response<StreetViewDto> {
+            calls++
+            return streetView()
+        }
+
+        override suspend fun getPlaces(
+            minLat: Double?,
+            maxLat: Double?,
+            minLon: Double?,
+            maxLon: Double?,
+            ifNoneMatch: String?,
+        ): retrofit2.Response<List<PlaceDto>> = throw UnsupportedOperationException()
+
+        override suspend fun searchPlaces(
+            query: String?,
+            sort: String?,
+            withReports: Boolean,
+            offset: Int,
+            limit: Int,
+        ): PlaceSearchResultDto = throw UnsupportedOperationException()
+
+        override suspend fun getPlace(id: String): PlaceDto = throw UnsupportedOperationException()
+
+        override suspend fun getPlaceReports(id: String, ifNoneMatch: String?): retrofit2.Response<PlaceReportsDto> =
+            throw UnsupportedOperationException()
+
+        override suspend fun getStats(ifNoneMatch: String?): retrofit2.Response<StatsDto> =
+            throw UnsupportedOperationException()
+
+        override suspend fun getDatasetStatus(): DatasetStatusDto = throw UnsupportedOperationException()
     }
+}
+
+/** Stands in for a decoded thumbnail; real bitmaps need Android. */
+private object FakeBitmap : ImageBitmap {
+    override val width = 1
+    override val height = 1
+    override val config = androidx.compose.ui.graphics.ImageBitmapConfig.Argb8888
+    override val hasAlpha = false
+    override val colorSpace = androidx.compose.ui.graphics.colorspace.ColorSpaces.Srgb
+
+    override fun readPixels(buffer: IntArray, startX: Int, startY: Int, width: Int, height: Int, bufferOffset: Int, stride: Int) = Unit
+
+    override fun prepareToDraw() = Unit
 }

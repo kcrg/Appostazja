@@ -14,14 +14,18 @@ class AppContainer(context: Context) {
     private val database by lazy(LazyThreadSafetyMode.SYNCHRONIZED) { AppostazjaDatabase.create(applicationContext) }
 
     // No HTTP cache: Room keeps the data and sends its own ETags, so 304s reach the repository.
-    val mapRepository by lazy(LazyThreadSafetyMode.SYNCHRONIZED) {
-        MapRepository(AppostazjaApiClientFactory.create(BuildConfig.APPOSTAZJA_API_BASE_URL), database.cacheDao())
+    private val api by lazy(LazyThreadSafetyMode.SYNCHRONIZED) {
+        AppostazjaApiClientFactory.create(BuildConfig.APPOSTAZJA_API_BASE_URL)
     }
-    val streetViewRepository = StreetViewRepository(
-        applicationContext,
-        apiKey = BuildConfig.MAPS_API_KEY,
-        cacheDirectory = applicationContext.cacheDir.resolve("street-view-http"),
-    )
+    val mapRepository by lazy(LazyThreadSafetyMode.SYNCHRONIZED) { MapRepository(api, database.cacheDao()) }
+    val streetViewRepository by lazy(LazyThreadSafetyMode.SYNCHRONIZED) {
+        StreetViewRepository(
+            api,
+            // The in-app panorama needs the Maps SDK key; thumbnails are signed by our API.
+            enabled = BuildConfig.MAPS_API_KEY.isNotBlank(),
+            cacheDirectory = applicationContext.cacheDir.resolve("street-view-http"),
+        )
+    }
     val secureDraftStore = SecureDraftStore(applicationContext)
     val pdfGenerator = ApostasyPdfGenerator()
 }
