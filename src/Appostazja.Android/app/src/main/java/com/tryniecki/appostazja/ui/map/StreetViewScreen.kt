@@ -35,6 +35,9 @@ import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.SideEffect
+import androidx.compose.ui.window.DialogWindowProvider
+import androidx.core.view.WindowCompat
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -80,6 +83,12 @@ internal fun StreetViewScreen(
         onDismissRequest = onClose,
         properties = DialogProperties(usePlatformDefaultWidth = false, decorFitsSystemWindows = false),
     ) {
+        // The panorama usually shows a bright sky behind the status bar, so its icons are dark there.
+        val dialogView = LocalView.current
+        SideEffect {
+            val window = (dialogView.parent as? DialogWindowProvider)?.window ?: return@SideEffect
+            WindowCompat.getInsetsController(window, dialogView).isAppearanceLightStatusBars = true
+        }
         val camera = rememberStreetViewCameraPositionState()
         var oriented by remember { mutableStateOf(false) }
         var timedOut by remember { mutableStateOf(false) }
