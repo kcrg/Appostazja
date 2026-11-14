@@ -118,6 +118,8 @@ dependencies {
     implementation(libs.okhttp)
     implementation(libs.tabler.icons.outline.android)
     implementation(libs.vico.compose)
+    implementation(libs.androidx.pdf.compose)
+    implementation(libs.androidx.pdf.document.service)
     implementation(libs.room3.runtime)
     ksp(libs.room3.compiler)
 

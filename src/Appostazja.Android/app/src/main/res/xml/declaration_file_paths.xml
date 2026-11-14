@@ -1,0 +1,5 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Only the decrypted copies of generated declarations, never the encrypted archive. -->
+<paths>
+    <cache-path name="declarations" path="declarations/" />
+</paths>

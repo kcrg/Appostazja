@@ -32,6 +32,9 @@ import androidx.navigation.compose.currentBackStackEntryAsState
 import androidx.navigation.compose.rememberNavController
 import com.tryniecki.appostazja.AppContainer
 import com.tryniecki.appostazja.ui.declaration.DeclarationRoute
+import com.tryniecki.appostazja.ui.declaration.DeclarationHistoryRoute
+import com.tryniecki.appostazja.ui.declaration.DeclarationPreviewRoute
+import androidx.navigation.toRoute
 import com.tryniecki.appostazja.ui.map.MapRoute
 import com.tryniecki.appostazja.ui.map.PersistentMapHost
 import com.tryniecki.appostazja.ui.more.MoreScreen
@@ -143,6 +146,23 @@ fun AppostazjaApp(
                 DeclarationRoute(
                     draftStore = container.secureDraftStore,
                     pdfGenerator = container.pdfGenerator,
+                    archive = container.declarationArchive,
+                    onOpenPreview = { navController.navigate(AppRoute.DeclarationPreview(it)) },
+                    onOpenHistory = { navController.navigate(AppRoute.DeclarationHistory) },
+                )
+            }
+            composable<AppRoute.DeclarationHistory> {
+                DeclarationHistoryRoute(
+                    archive = container.declarationArchive,
+                    onOpenPreview = { navController.navigate(AppRoute.DeclarationPreview(it)) },
+                    onBack = navController::popBackStack,
+                )
+            }
+            composable<AppRoute.DeclarationPreview> { entry ->
+                DeclarationPreviewRoute(
+                    archive = container.declarationArchive,
+                    declarationId = entry.toRoute<AppRoute.DeclarationPreview>().declarationId,
+                    onBack = navController::popBackStack,
                 )
             }
             composable<AppRoute.More> {
@@ -158,7 +178,9 @@ fun AppostazjaApp(
 
 private fun NavDestination?.topLevelDestination(): AppDestination = when {
     this?.hasRoute<AppRoute.Stats>() == true -> AppDestination.STATS
-    this?.hasRoute<AppRoute.Declaration>() == true -> AppDestination.DECLARATION
+    this?.hasRoute<AppRoute.Declaration>() == true ||
+        this?.hasRoute<AppRoute.DeclarationHistory>() == true ||
+        this?.hasRoute<AppRoute.DeclarationPreview>() == true -> AppDestination.DECLARATION
     this?.hasRoute<AppRoute.More>() == true -> AppDestination.MORE
     else -> AppDestination.MAP
 }
@@ -166,5 +188,13 @@ private fun NavDestination?.topLevelDestination(): AppDestination = when {
 private fun transitionDirection(from: NavDestination, to: NavDestination): Int {
     val fromIndex = from.topLevelDestination().ordinal
     val toIndex = to.topLevelDestination().ordinal
+    // Within a tab, going deeper slides forward and coming back slides back.
+    if (fromIndex == toIndex) return if (to.depth() >= from.depth()) 1 else -1
     return if (toIndex >= fromIndex) 1 else -1
+}
+
+private fun NavDestination.depth(): Int = when {
+    hasRoute<AppRoute.DeclarationPreview>() -> 2
+    hasRoute<AppRoute.DeclarationHistory>() -> 1
+    else -> 0
 }

@@ -109,6 +109,19 @@
     <string name="declaration_clear">Wyczyść formularz</string>
     <string name="declaration_saved">PDF został zapisany.</string>
     <string name="declaration_save_error">Nie udało się utworzyć PDF.</string>
+    <string name="declaration_history_title">Wygenerowane deklaracje</string>
+    <string name="declaration_history_empty_title">Brak wygenerowanych deklaracji</string>
+    <string name="declaration_history_empty_body">Tu pojawi się każdy PDF wygenerowany z formularza.</string>
+    <string name="declaration_history_tap_to_preview">Dotknij, aby wyświetlić podgląd</string>
+    <string name="declaration_generated_at">Wygenerowano %1$s</string>
+    <string name="declaration_preview_error">Nie udało się otworzyć PDF</string>
+    <string name="declaration_preview_error_body">Plik mógł zostać uszkodzony. Wygeneruj deklarację ponownie.</string>
+    <string name="declaration_save_copy">Zapisz kopię</string>
+    <string name="declaration_share">Udostępnij</string>
+    <string name="declaration_delete">Usuń</string>
+    <string name="declaration_delete_title">Usunąć deklarację?</string>
+    <string name="declaration_delete_body">Deklaracja z %1$s zostanie usunięta z aplikacji. Zapisane wcześniej kopie pozostaną.</string>
+    <string name="action_back">Wstecz</string>
     <string name="declaration_file_name">deklaracja-apostazji.pdf</string>
 
     <string name="more_title">Więcej</string>

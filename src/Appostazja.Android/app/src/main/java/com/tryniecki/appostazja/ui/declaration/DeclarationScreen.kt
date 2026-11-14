@@ -72,6 +72,9 @@ import androidx.lifecycle.viewmodel.compose.viewModel
 import com.tryniecki.appostazja.R
 import com.tryniecki.appostazja.pdf.ApostasyDeclaration
 import com.tryniecki.appostazja.pdf.ApostasyPdfGenerator
+import com.tryniecki.appostazja.pdf.DeclarationArchive
+import java.io.ByteArrayOutputStream
+import androidx.compose.material3.FloatingActionButton
 import com.tryniecki.appostazja.security.SecureDraftStore
 import com.tryniecki.appostazja.ui.components.ExpressiveLoadingIndicator
 import java.time.Instant
@@ -86,6 +89,9 @@ import kotlinx.coroutines.withContext
 fun DeclarationRoute(
     draftStore: SecureDraftStore,
     pdfGenerator: ApostasyPdfGenerator,
+    archive: DeclarationArchive,
+    onOpenPreview: (declarationId: String) -> Unit,
+    onOpenHistory: () -> Unit,
 ) {
     val viewModel: DeclarationViewModel = viewModel(factory = DeclarationViewModel.factory(draftStore))
     val state by viewModel.uiState.collectAsStateWithLifecycle()
@@ -93,28 +99,23 @@ fun DeclarationRoute(
     val resources = LocalResources.current
     val scope = rememberCoroutineScope()
     val snackbarHostState = remember { SnackbarHostState() }
-    var pendingDeclaration by remember { mutableStateOf<ApostasyDeclaration?>(null) }
     var isGenerating by remember { mutableStateOf(false) }
 
-    val savedMessage = stringResource(R.string.declaration_saved)
     val errorMessage = stringResource(R.string.declaration_save_error)
-    val createDocument = rememberLauncherForActivityResult(
-        contract = ActivityResultContracts.CreateDocument("application/pdf"),
-    ) { uri: Uri? ->
-        val declaration = pendingDeclaration
-        pendingDeclaration = null
-        if (uri == null || declaration == null) return@rememberLauncherForActivityResult
+    // Generated PDFs go to the encrypted archive first and open in the in-app preview, which saves or shares them.
+    fun generate(declaration: ApostasyDeclaration) {
         scope.launch {
             isGenerating = true
             val result = runCatching {
-                withContext(Dispatchers.IO) {
-                    context.contentResolver.openOutputStream(uri, "w")?.use { output ->
-                        pdfGenerator.generate(declaration, output)
-                    } ?: error("Cannot open PDF destination.")
+                val pdf = withContext(Dispatchers.IO) {
+                    ByteArrayOutputStream().also { pdfGenerator.generate(declaration, it) }.toByteArray()
                 }
+                archive.save(pdf)
             }
             isGenerating = false
-            snackbarHostState.showSnackbar(if (result.isSuccess) savedMessage else errorMessage)
+            result
+                .onSuccess { onOpenPreview(it.id) }
+                .onFailure { snackbarHostState.showSnackbar(errorMessage) }
         }
     }
 
@@ -135,12 +136,8 @@ fun DeclarationRoute(
         onClear = viewModel::clear,
         // Test builds only: three taps on "Twoje dane" fill the form with sample data.
         onFillSample = if (BuildConfig.BUILD_TYPE != "release") viewModel::fillSample else null,
-        onGenerate = {
-            viewModel.buildDeclaration()?.let { declaration ->
-                pendingDeclaration = declaration
-                createDocument.launch(resources.getString(R.string.declaration_file_name))
-            }
-        },
+        onGenerate = { viewModel.buildDeclaration()?.let(::generate) },
+        onOpenHistory = onOpenHistory,
     )
 }
 
@@ -159,6 +156,7 @@ private fun DeclarationScreen(
     onClear: () -> Unit,
     onFillSample: (() -> Unit)?,
     onGenerate: () -> Unit,
+    onOpenHistory: () -> Unit,
 ) {
     val motion = MaterialTheme.motionScheme
     val scrollBehavior = TopAppBarDefaults.pinnedScrollBehavior()
@@ -176,6 +174,14 @@ private fun DeclarationScreen(
             )
         },
         snackbarHost = { SnackbarHost(snackbarHostState) },
+        floatingActionButton = {
+            FloatingActionButton(onClick = onOpenHistory) {
+                Icon(
+                    painter = painterResource(com.composables.icons.tabler.outline.R.drawable.tabler_ic_history_outline),
+                    contentDescription = stringResource(R.string.declaration_history_title),
+                )
+            }
+        },
         bottomBar = {
             Surface(color = MaterialTheme.colorScheme.surfaceContainer) {
                 Button(

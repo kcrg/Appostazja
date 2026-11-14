@@ -10,6 +10,8 @@ sealed interface AppRoute {
     @Serializable data object Map : AppRoute
     @Serializable data object Stats : AppRoute
     @Serializable data object Declaration : AppRoute
+    @Serializable data object DeclarationHistory : AppRoute
+    @Serializable data class DeclarationPreview(val declarationId: String) : AppRoute
     @Serializable data object More : AppRoute
 }
 

@@ -6,6 +6,7 @@ import com.tryniecki.appostazja.data.MapRepository
 import com.tryniecki.appostazja.data.StreetViewRepository
 import com.tryniecki.appostazja.data.local.AppostazjaDatabase
 import com.tryniecki.appostazja.pdf.ApostasyPdfGenerator
+import com.tryniecki.appostazja.pdf.DeclarationArchive
 import com.tryniecki.appostazja.security.SecureDraftStore
 
 class AppContainer(context: Context) {
@@ -28,4 +29,5 @@ class AppContainer(context: Context) {
     }
     val secureDraftStore = SecureDraftStore(applicationContext)
     val pdfGenerator = ApostasyPdfGenerator()
+    val declarationArchive by lazy(LazyThreadSafetyMode.SYNCHRONIZED) { DeclarationArchive(applicationContext) }
 }
