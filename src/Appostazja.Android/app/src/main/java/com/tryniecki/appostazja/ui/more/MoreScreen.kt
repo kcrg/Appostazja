@@ -42,7 +42,10 @@ import androidx.compose.ui.unit.dp
 import com.tryniecki.appostazja.R
 import com.tryniecki.appostazja.api.model.DatasetStatusDto
 import com.tryniecki.appostazja.browser.rememberOpenCustomTab
+import com.tryniecki.appostazja.data.NewsArticle
 import com.tryniecki.appostazja.ui.formatApiTimestamp
+import com.tryniecki.appostazja.ui.news.NewsCardContent
+import com.tryniecki.appostazja.ui.news.rememberNewsState
 import com.tryniecki.appostazja.ui.theme.ThemeMode
 import kotlinx.coroutines.CancellationException
 import java.util.Locale
@@ -54,8 +57,12 @@ private const val GITHUB_URL = "https://github.com/kcrg/Appostazja"
 fun MoreScreen(
     themeMode: ThemeMode,
     loadDatasetStatus: suspend () -> DatasetStatusDto,
+    loadNews: suspend () -> List<NewsArticle>,
+    onOpenArticle: (NewsArticle) -> Unit,
+    onOpenNews: () -> Unit,
     onThemeModeChange: (ThemeMode) -> Unit,
 ) {
+    val (newsState, retryNews) = rememberNewsState(loadNews)
     val openCustomTab = rememberOpenCustomTab()
     val context = LocalContext.current
     val uriHandler = LocalUriHandler.current
@@ -104,22 +111,22 @@ fun MoreScreen(
                 )
             }
 
-            MoreSection(stringResource(R.string.more_privacy)) {
-                ListItem(
-                    leadingContent = {
-                        Icon(
-                            painter = painterResource(com.composables.icons.tabler.outline.R.drawable.tabler_ic_info_circle_outline),
-                            contentDescription = null,
-                            tint = MaterialTheme.colorScheme.onSurfaceVariant,
+            MoreSection(stringResource(R.string.more_news)) {
+                NewsCardContent(
+                    state = newsState,
+                    onRetry = retryNews,
+                    onOpenArticle = onOpenArticle,
+                    onOpenAll = onOpenNews,
+                    divider = { HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant) },
+                    allRow = { onClick ->
+                        LinkRow(
+                            title = stringResource(R.string.news_all),
+                            body = null,
+                            icon = com.composables.icons.tabler.outline.R.drawable.tabler_ic_news_outline,
+                            onClick = onClick,
                         )
                     },
-                    colors = listItemColors(),
-                ) {
-                    Text(
-                        stringResource(R.string.more_privacy_body),
-                        style = MaterialTheme.typography.bodyMedium,
-                    )
-                }
+                )
             }
 
             MoreSection(stringResource(R.string.more_theme)) {
@@ -136,6 +143,24 @@ fun MoreScreen(
                             Text(stringResource(mode.labelResId))
                         }
                     }
+                }
+            }
+
+            MoreSection(stringResource(R.string.more_privacy)) {
+                ListItem(
+                    leadingContent = {
+                        Icon(
+                            painter = painterResource(com.composables.icons.tabler.outline.R.drawable.tabler_ic_info_circle_outline),
+                            contentDescription = null,
+                            tint = MaterialTheme.colorScheme.onSurfaceVariant,
+                        )
+                    },
+                    colors = listItemColors(),
+                ) {
+                    Text(
+                        stringResource(R.string.more_privacy_body),
+                        style = MaterialTheme.typography.bodyMedium,
+                    )
                 }
             }
 
@@ -204,13 +229,13 @@ private fun SectionTitle(text: String) {
 @Composable
 private fun LinkRow(
     title: String,
-    body: String,
+    body: String?,
     icon: Int,
     onClick: () -> Unit,
 ) {
     ListItem(
         onClick = onClick,
-        supportingContent = { Text(body) },
+        supportingContent = body?.let { { Text(it) } },
         leadingContent = {
             Icon(
                 painter = painterResource(icon),

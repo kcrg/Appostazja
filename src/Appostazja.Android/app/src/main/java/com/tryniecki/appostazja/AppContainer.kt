@@ -3,6 +3,7 @@ package com.tryniecki.appostazja
 import android.content.Context
 import com.tryniecki.appostazja.api.client.AppostazjaApiClientFactory
 import com.tryniecki.appostazja.data.MapRepository
+import com.tryniecki.appostazja.data.NewsRepository
 import com.tryniecki.appostazja.data.StreetViewRepository
 import com.tryniecki.appostazja.data.local.AppostazjaDatabase
 import com.tryniecki.appostazja.pdf.ApostasyPdfGenerator
@@ -27,6 +28,12 @@ class AppContainer(context: Context) {
             enabled = BuildConfig.MAPS_API_KEY.isNotBlank(),
             baseUrl = BuildConfig.APPOSTAZJA_API_BASE_URL,
             cacheDirectory = applicationContext.cacheDir.resolve("street-view-http"),
+        )
+    }
+    val newsRepository by lazy(LazyThreadSafetyMode.SYNCHRONIZED) {
+        NewsRepository(
+            feedUrl = applicationContext.getString(R.string.news_feed_url),
+            cacheDirectory = applicationContext.cacheDir.resolve("news-http"),
         )
     }
     val secureDraftStore = SecureDraftStore(applicationContext)

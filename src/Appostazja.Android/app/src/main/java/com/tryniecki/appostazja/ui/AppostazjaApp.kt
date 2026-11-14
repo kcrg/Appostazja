@@ -72,6 +72,8 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.unit.dp
 import com.tryniecki.appostazja.ui.map.PersistentMapHost
 import com.tryniecki.appostazja.ui.more.MoreScreen
+import com.tryniecki.appostazja.ui.news.NewsArticleScreen
+import com.tryniecki.appostazja.ui.news.NewsListScreen
 import com.tryniecki.appostazja.ui.stats.StatsRoute
 import com.tryniecki.appostazja.ui.navigation.AppDestination
 import com.tryniecki.appostazja.ui.navigation.AppRoute
@@ -290,7 +292,24 @@ fun AppostazjaApp(
                 MoreScreen(
                     themeMode = themeMode,
                     loadDatasetStatus = container.mapRepository::getDatasetStatus,
+                    loadNews = container.newsRepository::articles,
+                    onOpenArticle = { navController.navigate(AppRoute.NewsArticle(it.id)) },
+                    onOpenNews = { navController.navigate(AppRoute.News) },
                     onThemeModeChange = onThemeModeChange,
+                )
+            }
+            screen<AppRoute.News>(navDirection) {
+                NewsListScreen(
+                    load = container.newsRepository::articles,
+                    onOpenArticle = { navController.navigate(AppRoute.NewsArticle(it.id)) },
+                    onBack = navController::popBackStack,
+                )
+            }
+            screen<AppRoute.NewsArticle>(navDirection) { entry ->
+                NewsArticleScreen(
+                    articleId = entry.toRoute<AppRoute.NewsArticle>().articleId,
+                    load = container.newsRepository::article,
+                    onBack = navController::popBackStack,
                 )
             }
         }
@@ -321,7 +340,9 @@ private fun NavDestination?.topLevelDestination(): AppDestination = when {
     this?.hasRoute<AppRoute.Declaration>() == true ||
         this?.hasRoute<AppRoute.DeclarationHistory>() == true ||
         this?.hasRoute<AppRoute.DeclarationPreview>() == true -> AppDestination.DECLARATION
-    this?.hasRoute<AppRoute.More>() == true -> AppDestination.MORE
+    this?.hasRoute<AppRoute.More>() == true ||
+        this?.hasRoute<AppRoute.News>() == true ||
+        this?.hasRoute<AppRoute.NewsArticle>() == true -> AppDestination.MORE
     else -> AppDestination.MAP
 }
 

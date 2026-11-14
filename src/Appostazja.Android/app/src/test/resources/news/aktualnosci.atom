@@ -1,0 +1,47 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<?xml-stylesheet type="text/xsl" href="feed.xsl"?>
+<feed xmlns="http://www.w3.org/2005/Atom" xml:lang="pl">
+  <id>urn:mapaapostazji:news</id>
+  <title>Mapa Apostazji - Aktualności</title>
+  <subtitle>Wpisy i zmiany w projekcie Mapa Apostazji</subtitle>
+  <updated>2026-10-21T20:37:00Z</updated>
+  <author>
+    <name>Mapa Apostazji - Aktualności</name>
+  </author>
+  <link href="https://mapaapostazji.pl/aktualnosci.atom" rel="self" type="application/atom+xml" />
+  <link href="https://mapaapostazji.pl/aktualnosci/" rel="alternate" type="text/html" />
+  <entry>
+    <title>Pinezki na mapie to teraz wykresy!</title>
+    <link href="https://mapaapostazji.pl/aktualnosci/pinezki.html" rel="alternate" type="text/html" />
+    <id>urn:mapaapostazji:news:pinezki</id>
+    <summary type="html">&lt;p&gt;Mapa otrzymała właśnie drobne aktualizacje wizualne oraz techniczne. Najciekawszą z nich jest to,
+że od teraz każda pinezka na mapie to równocześnie wykres kołowy, na którym kolorami zaznaczone
+są trudności poszczególnych czynności. Dzięki temu mapa dużo lepiej kolorystycznie
+odzwierciedla poziom trudności apostazji. Nie da się ukryć, że mimo wszystko wygląda zielono!&lt;/p&gt;</summary>
+    <content type="html">&lt;p&gt;Mapa otrzymała właśnie drobne aktualizacje wizualne oraz techniczne. Najciekawszą z nich jest to,
+że od teraz każda pinezka na mapie to równocześnie wykres kołowy, na którym kolorami zaznaczone
+są trudności poszczególnych czynności. Dzięki temu mapa dużo lepiej kolorystycznie
+odzwierciedla poziom trudności apostazji. Nie da się ukryć, że mimo wszystko wygląda zielono!&lt;/p&gt;
+&lt;p&gt;Oprócz tego na Mapie zmieniły się następujące rzeczy.&lt;/p&gt;
+&lt;p&gt;Od teraz wyszukiwarka przeszukuje rzeczywiste
+adresy, zamiast jedynie dodanych parafii. Dzięki temu dużo łatwiej znaleźć swoją miejscowość i upewnić się,
+że apostazja jest tam równie prosta, co w kościele obok. Dla spójności wizualnej pole wyszukiwania
+przesunięte zostało do nagłówka, a pozostałe przyciski dosunięte do prawej strony.&lt;/p&gt;
+&lt;p&gt;Dodatkowo na stronach poszczególnych kościołów dodany został subtelny przycisk &amp;quot;Źródła danych adresowych&amp;quot;.
+Po jego kliknięciu rozwija się lista adresów, które zostały wpisane w formularzu przez autorki i autorów
+relacji. Czasami może się zdarzyć, że dana relacja została przypisana nie do tego kościoła, do którego
+powinna - wtedy na tej liście będą widoczne zupełnie inne adresy. Jeśli coś takiego zobaczysz, będziemy
+bardzo wdzięczni za zgłoszenie takiego problemu e-mailem.&lt;/p&gt;</content>
+    <updated>2026-10-21T20:37:00Z</updated>
+  </entry>
+  <entry>
+    <title>Wystartował dział aktualności</title>
+    <link href="https://mapaapostazji.pl/aktualnosci/start.html" rel="alternate" type="text/html" />
+    <id>urn:mapaapostazji:news:start</id>
+    <summary type="html">&lt;p&gt;Na stronie pojawił się dział &lt;strong&gt;Aktualności&lt;/strong&gt; wraz z kanałami RSS i Atom.&lt;/p&gt;</summary>
+    <content type="html">&lt;p&gt;Na stronie pojawił się dział &lt;strong&gt;Aktualności&lt;/strong&gt; wraz z kanałami RSS i Atom.&lt;/p&gt;
+&lt;p&gt;Od teraz najważniejsze zmiany w projekcie Mapa Apostazji będziemy publikować w tym miejscu.
+Możesz zasubskrybować kanał &lt;a href="../aktualnosci.xml"&gt;RSS&lt;/a&gt; lub &lt;a href="../aktualnosci.atom"&gt;Atom&lt;/a&gt;, aby nie przegapić nowych wpisów.&lt;/p&gt;</content>
+    <updated>2026-10-12T15:01:00Z</updated>
+  </entry>
+</feed>

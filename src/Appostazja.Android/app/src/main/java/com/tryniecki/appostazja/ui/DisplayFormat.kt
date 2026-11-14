@@ -27,3 +27,7 @@ private fun longDate(locale: Locale) = DateTimeFormatter.ofLocalizedDate(FormatS
 
 /** "4,5" for a rating the API already rounded to one decimal. */
 internal fun formatRating(rating: Double, locale: Locale): String = String.format(locale, "%.1f", rating)
+
+/** Local date in [zone], e.g. "21 października 2026". */
+internal fun formatDate(instant: Instant, locale: Locale, zone: ZoneId = ZoneId.systemDefault()): String =
+    instant.atZone(zone).toLocalDate().format(longDate(locale))
