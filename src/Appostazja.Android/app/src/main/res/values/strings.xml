@@ -115,8 +115,7 @@
     <string name="more_data_source">Źródło danych</string>
     <string name="more_data_source_title">Mapa Apostazji</string>
     <string name="more_data_source_body">Dane parafii i relacji pochodzą z mapaapostazji.pl.</string>
-    <string name="more_data_updated">Dane parafii i relacji pochodzą z mapaapostazji.pl. Ostatnia zmiana danych: %1$s.</string>
-    <string name="more_data_stale">Dane parafii i relacji pochodzą z mapaapostazji.pl. Mogą być nieaktualne – ostatnio udało się je sprawdzić %1$s.</string>
+    <string name="more_data_updated">Ostatnia aktualizacja danych: %1$s</string>
     <string name="more_privacy">Prywatność</string>
     <string name="more_privacy_body">Dane z formularza jak i sam wygenerowany pdf są przechowywane wyłącznie w pamięci urządzenia. Nie są nigdzie wysyłane.</string>
     <string name="more_theme">Motyw</string>

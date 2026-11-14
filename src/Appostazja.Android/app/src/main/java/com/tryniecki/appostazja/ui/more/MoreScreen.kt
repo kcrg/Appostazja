@@ -30,6 +30,7 @@ import androidx.compose.foundation.layout.consumeWindowInsets
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.produceState
+import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalLocale
@@ -41,7 +42,7 @@ import androidx.compose.ui.unit.dp
 import com.tryniecki.appostazja.R
 import com.tryniecki.appostazja.api.model.DatasetStatusDto
 import com.tryniecki.appostazja.browser.rememberOpenCustomTab
-import com.tryniecki.appostazja.ui.formatApiTimestampDate
+import com.tryniecki.appostazja.ui.formatApiTimestamp
 import com.tryniecki.appostazja.ui.theme.ThemeMode
 import kotlinx.coroutines.CancellationException
 import java.util.Locale
@@ -156,15 +157,11 @@ fun MoreScreen(
     }
 }
 
+/** When the server last confirmed the dataset against the source, falling back to its last change. */
 @Composable
 private fun dataSourceDescription(status: DatasetStatusDto, locale: Locale): String? {
-    val checked = status.lastCheckedAtUtc?.let { formatApiTimestampDate(it, locale) }
-    val changed = status.lastChangedAtUtc?.let { formatApiTimestampDate(it, locale) }
-    return when {
-        !status.isFresh && checked != null -> stringResource(R.string.more_data_stale, checked)
-        changed != null -> stringResource(R.string.more_data_updated, changed)
-        else -> null
-    }
+    val updated = (status.lastCheckedAtUtc ?: status.lastChangedAtUtc)?.let { formatApiTimestamp(it, locale) }
+    return updated?.let { stringResource(R.string.more_data_updated, it) }
 }
 
 @Composable
@@ -220,6 +217,8 @@ private fun LinkRow(
                 tint = MaterialTheme.colorScheme.onSurfaceVariant,
             )
         },
+        // Multi-line items align to the top by default; keep the chevron centred on the whole row.
+        verticalAlignment = Alignment.CenterVertically,
         colors = listItemColors(),
         modifier = Modifier.fillMaxWidth(),
     ) {

@@ -11,10 +11,12 @@ import java.util.Locale
 internal fun formatApiDate(value: String, locale: Locale): String =
     runCatching { LocalDate.parse(value).format(longDate(locale)) }.getOrDefault(value)
 
-/** Formats an API timestamp (ISO with offset) as the calendar day in [zone]; null when it cannot be parsed. */
-internal fun formatApiTimestampDate(value: String, locale: Locale, zone: ZoneId = ZoneId.systemDefault()): String? =
+/** Formats an API timestamp (ISO with offset) as local date and time in [zone], e.g. "13 listopada 2026, 00:30"; null when it cannot be parsed. */
+internal fun formatApiTimestamp(value: String, locale: Locale, zone: ZoneId = ZoneId.systemDefault()): String? =
     runCatching {
-        OffsetDateTime.parse(value).atZoneSameInstant(zone).toLocalDate().format(longDate(locale))
+        val local = OffsetDateTime.parse(value).atZoneSameInstant(zone)
+        val time = local.toLocalTime().format(DateTimeFormatter.ofLocalizedTime(FormatStyle.SHORT).withLocale(locale))
+        "${local.toLocalDate().format(longDate(locale))}, $time"
     }.getOrNull()
 
 private fun longDate(locale: Locale) = DateTimeFormatter.ofLocalizedDate(FormatStyle.LONG).withLocale(locale)
