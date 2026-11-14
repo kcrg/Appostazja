@@ -17,6 +17,7 @@ import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.Card
+import androidx.compose.material3.DividerDefaults
 import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.FilledTonalButton
@@ -38,6 +39,7 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.input.nestedscroll.nestedScroll
+import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.platform.LocalLocale
 import androidx.compose.ui.platform.LocalUriHandler
 import androidx.compose.ui.res.painterResource
@@ -49,6 +51,7 @@ import androidx.compose.ui.text.TextLinkStyles
 import androidx.compose.ui.text.fromHtml
 import androidx.compose.ui.text.style.TextDecoration
 import androidx.compose.ui.text.style.TextOverflow
+import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import com.tryniecki.appostazja.R
 import com.tryniecki.appostazja.browser.rememberOpenCustomTab
@@ -86,7 +89,10 @@ fun rememberNewsState(load: suspend () -> List<NewsArticle>): Pair<NewsState, ()
     return state to { attempt++ }
 }
 
-/** The body of the news card on the More screen: the latest articles, then a link to all of them. */
+/**
+ * The body of the news card on the More screen: the latest articles, then a link to all of them. The articles get a
+ * fixed area, so the card keeps its height while loading, after an error and once the articles are in.
+ */
 @Composable
 fun NewsCardContent(
     state: NewsState,
@@ -96,41 +102,61 @@ fun NewsCardContent(
     divider: @Composable () -> Unit,
     allRow: @Composable (onClick: () -> Unit) -> Unit,
 ) {
-    when (state) {
-        NewsState.Loading -> Box(Modifier.fillMaxWidth().padding(16.dp), contentAlignment = Alignment.Center) {
-            ExpressiveLoadingIndicator(Modifier.size(40.dp))
-        }
-        NewsState.Failed -> Row(
-            modifier = Modifier.fillMaxWidth().padding(start = 16.dp, end = 8.dp, top = 8.dp, bottom = 8.dp),
-            verticalAlignment = Alignment.CenterVertically,
-        ) {
-            Text(
-                stringResource(R.string.news_error),
-                style = MaterialTheme.typography.bodyMedium,
-                color = MaterialTheme.colorScheme.onSurfaceVariant,
-                modifier = Modifier.weight(1f),
-            )
-            TextButton(onClick = onRetry) { Text(stringResource(R.string.action_retry)) }
-        }
-        is NewsState.Loaded -> {
-            val latest = state.articles.take(CARD_ARTICLES)
-            if (latest.isEmpty()) {
+    val teaserHeight = compactTeaserHeight()
+    val areaHeight = teaserHeight * CARD_ARTICLES + DividerDefaults.Thickness * (CARD_ARTICLES - 1)
+    Box(Modifier.fillMaxWidth().height(areaHeight), contentAlignment = Alignment.Center) {
+        when (state) {
+            NewsState.Loading -> ExpressiveLoadingIndicator()
+            NewsState.Failed -> Column(horizontalAlignment = Alignment.CenterHorizontally) {
                 Text(
-                    stringResource(R.string.news_empty),
+                    stringResource(R.string.news_error),
                     style = MaterialTheme.typography.bodyMedium,
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
-                    modifier = Modifier.padding(16.dp),
                 )
+                TextButton(onClick = onRetry) { Text(stringResource(R.string.action_retry)) }
             }
-            latest.forEach { article ->
-                ArticleTeaser(article, onClick = { onOpenArticle(article) }, excerptLines = 2)
-                divider()
+            is NewsState.Loaded -> {
+                val latest = state.articles.take(CARD_ARTICLES)
+                if (latest.isEmpty()) {
+                    Text(
+                        stringResource(R.string.news_empty),
+                        style = MaterialTheme.typography.bodyMedium,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    )
+                } else {
+                    Column(Modifier.fillMaxSize()) {
+                        latest.forEachIndexed { index, article ->
+                            if (index > 0) divider()
+                            ArticleTeaser(
+                                article,
+                                onClick = { onOpenArticle(article) },
+                                modifier = Modifier.height(teaserHeight),
+                                titleLines = 1,
+                                excerptLines = 1,
+                            )
+                        }
+                    }
+                }
             }
-            if (latest.isEmpty()) divider()
-            allRow(onOpenAll)
         }
     }
+    divider()
+    allRow(onOpenAll)
 }
+
+/** A teaser of one line each for the date, the title and the summary. */
+@Composable
+private fun compactTeaserHeight(): Dp {
+    val typography = MaterialTheme.typography
+    val lines = with(LocalDensity.current) {
+        typography.labelMedium.lineHeight.toDp() + typography.titleMedium.lineHeight.toDp() +
+            typography.bodyMedium.lineHeight.toDp()
+    }
+    return lines + TEASER_LINE_GAP * 2 + TEASER_VERTICAL_PADDING * 2
+}
+
+private val TEASER_LINE_GAP = 4.dp
+private val TEASER_VERTICAL_PADDING = 12.dp
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -287,15 +313,21 @@ private fun ArticleBody(article: NewsArticle, openCustomTab: (String) -> Unit, m
 
 /** Title, date and the start of the summary as plain text. */
 @Composable
-private fun ArticleTeaser(article: NewsArticle, onClick: () -> Unit, excerptLines: Int) {
+private fun ArticleTeaser(
+    article: NewsArticle,
+    onClick: () -> Unit,
+    excerptLines: Int,
+    modifier: Modifier = Modifier,
+    titleLines: Int = Int.MAX_VALUE,
+) {
     val excerpt = remember(article.summaryHtml) { AnnotatedString.fromHtml(article.summaryHtml).text.trim() }
     val locale = LocalLocale.current.platformLocale
     Column(
-        modifier = Modifier
+        modifier = modifier
             .fillMaxWidth()
             .clickable(onClick = onClick)
-            .padding(horizontal = 16.dp, vertical = 12.dp),
-        verticalArrangement = Arrangement.spacedBy(4.dp),
+            .padding(horizontal = 16.dp, vertical = TEASER_VERTICAL_PADDING),
+        verticalArrangement = Arrangement.spacedBy(TEASER_LINE_GAP),
     ) {
         article.published?.let {
             Text(
@@ -304,7 +336,7 @@ private fun ArticleTeaser(article: NewsArticle, onClick: () -> Unit, excerptLine
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
             )
         }
-        Text(article.title, style = MaterialTheme.typography.titleMedium)
+        Text(article.title, style = MaterialTheme.typography.titleMedium, maxLines = titleLines, overflow = TextOverflow.Ellipsis)
         if (excerpt.isNotEmpty()) {
             Text(
                 excerpt,
