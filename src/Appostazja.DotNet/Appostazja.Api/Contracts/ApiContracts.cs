@@ -60,3 +60,27 @@ public sealed record ApiError(string Error);
 
 /// <param name="Total">All places matching the query and filters, before paging.</param>
 public sealed record PlaceSearchResultDto(int Total, int Offset, int Limit, PlaceDto[] Items);
+
+/// <summary>Aggregates over the whole dataset for a statistics screen.</summary>
+/// <param name="DatedReportCount">Reports with an action date; only these appear in <paramref name="Years"/>.</param>
+/// <param name="Years">Reports per action year, oldest first. Sparse early years are folded into the first period.</param>
+/// <param name="TopCities">Cities with the most reports, most first.</param>
+public sealed record StatsDto(
+    int PlaceCount,
+    int ReportCount,
+    int CommentCount,
+    int DatedReportCount,
+    RatingBreakdownDto Ratings,
+    StageRatingsDto Stages,
+    ToneCountsDto PlaceTones,
+    PeriodStatsDto[] Years,
+    CityStatsDto[] TopCities);
+
+/// <summary>Places per <see cref="PlaceDto.Tone"/>.</summary>
+public sealed record ToneCountsDto(int Positive, int Mixed, int Negative, int None);
+
+/// <summary>A single year when <paramref name="FromYear"/> equals <paramref name="ToYear"/>.</summary>
+public sealed record PeriodStatsDto(int FromYear, int ToYear, RatingBreakdownDto Ratings);
+
+/// <param name="Rating">0-5 like <see cref="PlaceDto.Rating"/>, over all reports in the city.</param>
+public sealed record CityStatsDto(string City, int PlaceCount, RatingBreakdownDto Ratings, double? Rating);

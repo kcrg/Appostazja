@@ -37,10 +37,16 @@ internal static class PlaceSummary
         {
             Stages = new StageRatingsDto(before.ToDto(), apostasy.ToDto(), after.ToDto()),
             LastActionDate = lastActionDate,
-            Rating = place.Ratings.Total == 0 ? null : Math.Round((place.Score + 1) * 2.5, 1, MidpointRounding.AwayFromZero),
+            Rating = RatingOf(place.Ratings),
             Tone = ToneOf(place)
         };
     }
+
+    /// <summary>Score on a 0-5 scale, one decimal; null without reports.</summary>
+    internal static double? RatingOf(RatingBreakdownDto ratings) =>
+        ratings.Total == 0
+            ? null
+            : Math.Round(((double)(ratings.Positive - ratings.Negative) / ratings.Total + 1) * 2.5, 1, MidpointRounding.AwayFromZero);
 
     /// <summary>The thresholds the map uses for pin colours, so every client shows the same verdict.</summary>
     internal static string ToneOf(PlaceDto place) => place switch

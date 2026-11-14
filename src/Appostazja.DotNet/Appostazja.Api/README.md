@@ -146,6 +146,10 @@ Returns a single place from memory. An old pin ID resolves to its main place. Un
 
 Returns the optional parish website and its reports from the same snapshot. Each report has a stage (`before_apostasy`, `apostasy`, `after_apostasy`), a rating (`easy`, `medium`, `hard`), an optional ISO date and optional comment. Reports are ordered newest submission first.
 
+### `GET /api/v1/stats`
+
+Aggregates for a statistics screen, computed once per snapshot, so clients draw charts without downloading reports. Contains totals (places, reports, reports with a comment, reports with a date), the overall rating split, the split per stage, places per `tone`, reports per action year split by rating, and the 10 cities with the most reports (city taken from the address after the postal code, with a 0-5 `rating`). `years` runs oldest first with one entry per year for the last 9 years up to the newest dated report, including empty years. Older years are folded into one leading entry where `fromYear` differs from `toYear`. Supports `ETag`/`If-None-Match` like `/places`.
+
 ### `GET /api/v1/dataset`
 
 Returns cache/source metadata, current SHA-256 version and freshness state.

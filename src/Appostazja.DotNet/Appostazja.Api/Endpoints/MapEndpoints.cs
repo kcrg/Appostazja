@@ -41,6 +41,12 @@ public static class MapEndpoints
             .Produces<PlaceReportsDto>()
             .Produces(StatusCodes.Status304NotModified)
             .Produces<ApiError>(StatusCodes.Status404NotFound);
+        api.MapGet("/stats", GetStats)
+            .WithName("GetStats")
+            .WithSummary("Totals, rating distribution, ratings by stage, reports per year and top cities.")
+            .Produces<StatsDto>()
+            .Produces(StatusCodes.Status304NotModified)
+            .Produces<ApiError>(StatusCodes.Status503ServiceUnavailable);
         api.MapGet("/dataset", GetDatasetStatus)
             .WithName("GetDatasetStatus")
             .WithSummary("Dataset version, freshness and the result of the last import attempt.")
@@ -223,6 +229,20 @@ public static class MapEndpoints
         }
 
         return (new PlaceSearchQuery(text, parsedSort.Value, withReports, offset, limit), null);
+    }
+
+    private static IResult GetStats(HttpContext context, MapMemoryCache memoryCache)
+    {
+        var (state, stats) = memoryCache.GetStats();
+        if (state.PlaceCount <= 0)
+        {
+            return NoData();
+        }
+
+        ApplyDatasetHeaders(context.Response, state);
+        return MatchesIfNoneMatch(context.Request, ResponseVersion(state))
+            ? Results.StatusCode(StatusCodes.Status304NotModified)
+            : Results.Ok(stats);
     }
 
     private static IResult PlaceNotFound(string id) =>

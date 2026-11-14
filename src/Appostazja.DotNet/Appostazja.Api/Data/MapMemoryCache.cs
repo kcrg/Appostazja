@@ -12,6 +12,12 @@ public sealed class MapMemoryCache
 
     public DatasetStateRow GetState() => Volatile.Read(ref _snapshot).State;
 
+    public (DatasetStateRow State, StatsDto Stats) GetStats()
+    {
+        var snapshot = Volatile.Read(ref _snapshot);
+        return (snapshot.State, snapshot.Stats);
+    }
+
     public (DatasetStateRow State, PlaceSearchResultDto Result) Search(PlaceSearchQuery query)
     {
         var snapshot = Volatile.Read(ref _snapshot);
@@ -93,7 +99,7 @@ public sealed class MapMemoryCache
         }
 
         Volatile.Write(ref _snapshot, new Snapshot(state, places, byId, reportsById,
-            fullDatasetJson, compressed.ToArray(), new PlaceSearch(places)));
+            fullDatasetJson, compressed.ToArray(), new PlaceSearch(places), DatasetStats.Compute(places, reportsById)));
     }
 
     public void Replace(DatasetStateRow state, IReadOnlyList<PlaceRow> places, IReadOnlyList<PlaceReportsRow> reports)
@@ -132,7 +138,8 @@ public sealed class MapMemoryCache
         Dictionary<string, PlaceReportsDto> Reports,
         byte[] FullDatasetJson,
         byte[] FullDatasetGzip,
-        PlaceSearch Search)
+        PlaceSearch Search,
+        StatsDto Stats)
     {
         public static readonly Snapshot Empty = new(
             new DatasetStateRow(),
@@ -141,6 +148,7 @@ public sealed class MapMemoryCache
             new Dictionary<string, PlaceReportsDto>(StringComparer.Ordinal),
             "[]"u8.ToArray(),
             [],
-            PlaceSearch.Empty);
+            PlaceSearch.Empty,
+            DatasetStats.Compute([], new Dictionary<string, PlaceReportsDto>()));
     }
 }
