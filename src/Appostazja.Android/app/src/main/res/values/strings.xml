@@ -36,6 +36,7 @@
         <item quantity="other">%d parafii</item>
     </plurals>
     <string name="map_data_source_url" translatable="false">https://mapaapostazji.pl/</string>
+    <string name="report_form_url" translatable="false">https://docs.google.com/forms/d/e/1FAIpQLSehJc7aLTbzapw-8H79rq8gZxNQWLQb5cqJR_lb7qcfQmb5fg/viewform</string>
     <string name="map_error_title">Nie udało się wczytać mapy</string>
     <string name="map_error_body">Sprawdź połączenie z internetem.</string>
     <string name="action_retry">Spróbuj ponownie</string>
@@ -134,6 +135,8 @@
     <string name="more_data_source">Źródło danych</string>
     <string name="more_data_source_title">Mapa Apostazji</string>
     <string name="more_data_source_body">Dane parafii i relacji pochodzą z mapaapostazji.pl.</string>
+    <string name="more_report_form_title">Podziel się relacją</string>
+    <string name="more_report_form_body">Opisz, jak przebiegała Twoja apostazja. Relacje trafiają na Mapę Apostazji.</string>
     <string name="more_data_updated">Ostatnia aktualizacja danych: %1$s</string>
     <string name="more_privacy">Prywatność</string>
     <string name="more_privacy_body">Dane z formularza jak i sam wygenerowany pdf są przechowywane wyłącznie w pamięci urządzenia. Nie są nigdzie wysyłane.</string>

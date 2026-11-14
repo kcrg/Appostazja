@@ -61,6 +61,7 @@ fun MoreScreen(
     val uriHandler = LocalUriHandler.current
     val email = stringResource(R.string.more_contact_email)
     val dataSourceUrl = stringResource(R.string.map_data_source_url)
+    val reportFormUrl = stringResource(R.string.report_form_url)
     val datasetStatus by produceState<DatasetStatusDto?>(initialValue = null) {
         value = try {
             loadDatasetStatus()
@@ -93,6 +94,13 @@ fun MoreScreen(
                     body = dataSourceBody,
                     icon = com.composables.icons.tabler.outline.R.drawable.tabler_ic_database_outline,
                     onClick = { openCustomTab(dataSourceUrl) },
+                )
+                HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant)
+                LinkRow(
+                    title = stringResource(R.string.more_report_form_title),
+                    body = stringResource(R.string.more_report_form_body),
+                    icon = com.composables.icons.tabler.outline.R.drawable.tabler_ic_message_2_plus_outline,
+                    onClick = { openCustomTab(reportFormUrl) },
                 )
             }
 
