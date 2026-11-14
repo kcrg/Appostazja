@@ -1,10 +1,13 @@
 package com.tryniecki.appostazja.data
 
+import android.graphics.BitmapFactory
 import android.content.Context
 import android.content.pm.PackageManager
 import android.os.SystemClock
 import android.util.Log
 import android.util.LruCache
+import androidx.compose.ui.graphics.ImageBitmap
+import androidx.compose.ui.graphics.asImageBitmap
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.async
 import kotlinx.coroutines.awaitAll
@@ -31,8 +34,12 @@ import kotlin.math.sin
 import kotlin.math.sqrt
 
 sealed interface StreetViewPreview {
-    /** A Google panorama to open in the app; all of it comes from the free metadata endpoint. */
+    /**
+     * A Google panorama to open in the app. [image] is the billed Static API thumbnail; null when the image
+     * quota is used up, and the sheet then offers a plain button instead (the panorama itself is free).
+     */
     data class Available(
+        val image: ImageBitmap?,
         val panoId: String,
         val heading: Int,
         val copyright: String,
@@ -60,7 +67,7 @@ sealed interface StreetViewPreview {
 
 /**
  * Finds a Street View panorama for a parish using only the free metadata endpoint of the Street View Static
- * API; no billed thumbnail is downloaded. Only Google's own imagery is used: user photo spheres are often
+ * API, then downloads the billed thumbnail only for a panorama that exists. Only Google's own imagery is used: user photo spheres are often
  * taken inside the church. Results are cached in memory and over HTTP so reopening a parish does not spend quota.
  */
 class StreetViewRepository(
@@ -138,12 +145,41 @@ class StreetViewRepository(
             ?.let { bearing(it.lat, it.lng, latitude, longitude) }
             ?: 0
 
-        return StreetViewPreview.Available(
+        fun available(image: ImageBitmap?) = StreetViewPreview.Available(
+            image = image,
             panoId = panoId,
             heading = heading,
             copyright = metadata.copyright ?: "© Google",
             date = metadata.date,
         )
+        val imageUrl = baseUrl()
+            .addQueryParameter("size", "640x400")
+            .addQueryParameter("pano", panoId)
+            .addQueryParameter("heading", heading.toString())
+            .addQueryParameter("fov", "80")
+            .addQueryParameter("pitch", "8")
+            .addQueryParameter("return_error_code", "true")
+            .addQueryParameter("key", apiKey)
+            .build()
+        return execute(imageUrl) { response ->
+            val isImage = response.body.contentType()?.type == "image"
+            if (!response.isSuccessful || !isImage) {
+                val body = if (isImage) "" else response.body.string()
+                return@execute when (classifyHttpError(response.code, body)) {
+                    // The panorama is known and free to open; only the thumbnail is out of quota.
+                    "OVER_QUERY_LIMIT" -> available(image = null)
+                    "ZERO_RESULTS" -> StreetViewPreview.NotAvailable
+                    else -> {
+                        Log.w(TAG, "Street View image HTTP ${response.code}: ${body.take(300)}")
+                        StreetViewPreview.Failed
+                    }
+                }
+            }
+            val bytes = response.body.bytes()
+            val bitmap = BitmapFactory.decodeByteArray(bytes, 0, bytes.size)
+                ?: return@execute StreetViewPreview.Failed
+            available(bitmap.asImageBitmap())
+        }
     }
 
     private fun metadata(latitude: Double, longitude: Double, radiusMeters: Int): StreetViewMetadata {

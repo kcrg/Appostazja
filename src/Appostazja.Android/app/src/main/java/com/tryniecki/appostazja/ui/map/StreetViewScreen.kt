@@ -74,13 +74,13 @@ internal fun StreetViewScreen(
             delay(LOAD_TIMEOUT_MS)
             timedOut = camera.location == null
         }
-        Column(
+        Box(
             Modifier
                 .fillMaxSize()
                 .background(Color.Black),
         ) {
-        // The panorama ends above the info panel, so Google's logo and "Report a problem" stay visible.
-        Box(Modifier.weight(1f).fillMaxWidth()) {
+        // The panorama runs under the info panel so the panel's rounded corners sit on the picture.
+        Box(Modifier.fillMaxSize()) {
             StreetView(
                 modifier = Modifier.fillMaxSize(),
                 cameraPositionState = camera,
@@ -89,6 +89,8 @@ internal fun StreetViewScreen(
                     StreetViewPanoramaOptions().apply {
                         if (preview != null) {
                             panoramaId(preview.panoId)
+                            // Same direction as the thumbnail, from the first frame.
+                            panoramaCamera(StreetViewPanoramaCamera.Builder().bearing(preview.heading.toFloat()).build())
                         } else {
                             position(LatLng(place.latitude, place.longitude), SEARCH_RADIUS_METERS, StreetViewSource.OUTDOOR)
                         }
@@ -101,7 +103,7 @@ internal fun StreetViewScreen(
             // the view alone while the user walks around.
             val location = camera.location
             LaunchedEffect(location != null) {
-                if (location != null && !oriented) {
+                if (location != null && !oriented && preview == null) {
                     oriented = true
                     val heading = preview?.heading ?: bearing(
                         location.position.latitude, location.position.longitude, place.latitude, place.longitude,
@@ -151,7 +153,9 @@ internal fun StreetViewScreen(
             }
         }
             Surface(
-                modifier = Modifier.fillMaxWidth(),
+                modifier = Modifier
+                    .align(Alignment.BottomCenter)
+                    .fillMaxWidth(),
                 shape = RoundedCornerShape(topStart = 28.dp, topEnd = 28.dp),
                 color = MaterialTheme.colorScheme.surfaceContainer,
             ) {

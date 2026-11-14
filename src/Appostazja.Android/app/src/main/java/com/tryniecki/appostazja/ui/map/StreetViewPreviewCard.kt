@@ -1,9 +1,5 @@
 package com.tryniecki.appostazja.ui.map
 
-import android.content.ActivityNotFoundException
-import android.content.Context
-import android.content.Intent
-import android.net.Uri
 import androidx.annotation.DrawableRes
 import androidx.compose.animation.AnimatedContent
 import androidx.compose.animation.fadeIn
@@ -24,6 +20,7 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.FilledTonalButton
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
@@ -40,8 +37,10 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.graphics.ImageBitmap
+import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.semantics.Role
@@ -55,6 +54,7 @@ import kotlinx.coroutines.CancellationException
 import com.composables.icons.tabler.outline.R as Tabler
 
 private val PreviewShape = RoundedCornerShape(24.dp)
+private const val PreviewAspectRatio = 16f / 10f
 
 @Composable
 fun StreetViewPreviewCard(
@@ -64,7 +64,6 @@ fun StreetViewPreviewCard(
     onOpen: (StreetViewPreview.Available?) -> Unit,
     modifier: Modifier = Modifier,
 ) {
-    val context = LocalContext.current
     var attempt by remember(place.id) { mutableIntStateOf(0) }
     var preview by remember(place.id) { mutableStateOf<StreetViewPreview?>(null) }
     LaunchedEffect(place.id, attempt) {
@@ -91,43 +90,20 @@ fun StreetViewPreviewCard(
     ) { state ->
         when (state) {
             null -> LoadingPreview()
-            is StreetViewPreview.Available -> AvailablePreview(
-                preview = state,
-                onOpen = { onOpen(state) },
-            )
-            StreetViewPreview.PreviewDenied -> MessagePreview(
-                icon = Tabler.drawable.tabler_ic_panorama_horizontal_outline,
-                title = stringResource(R.string.street_view_label),
-                body = stringResource(R.string.street_view_explore_body),
-                compact = true,
-                actions = {
-                    FilledTonalButton(onClick = { onOpen(null) }) {
-                        Text(stringResource(R.string.street_view_open))
-                    }
-                },
-            )
+            is StreetViewPreview.Available -> if (state.image != null) {
+                AvailablePreview(preview = state, image = state.image, onOpen = { onOpen(state) })
+            } else {
+                StreetViewButton(onClick = { onOpen(state) })
+            }
+            // No thumbnail (out of quota or the Static API is not enabled), but the in-app panorama runs on the
+            // Maps SDK and still works, so a plain button opens it.
+            StreetViewPreview.PreviewDenied, StreetViewPreview.QuotaExceeded -> StreetViewButton(onClick = { onOpen(null) })
             StreetViewPreview.NotAvailable -> MessagePreview(
                 icon = Tabler.drawable.tabler_ic_map_pin_off_outline,
                 title = stringResource(R.string.street_view_unavailable_title),
                 body = stringResource(R.string.street_view_unavailable_body),
                 compact = true,
             )
-            StreetViewPreview.QuotaExceeded -> MessagePreview(
-                icon = Tabler.drawable.tabler_ic_hourglass_outline,
-                title = stringResource(R.string.street_view_quota_title),
-                body = stringResource(R.string.street_view_quota_body),
-                tint = MaterialTheme.colorScheme.tertiary,
-            ) {
-                Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                    OutlinedButton(onClick = { attempt++ }) {
-                        Text(stringResource(R.string.action_retry))
-                    }
-                    // Opening Google Maps is free for us, so it stays usable while our quota is exhausted.
-                    FilledTonalButton(onClick = { openStreetViewInGoogleMaps(context, place) }) {
-                        Text(stringResource(R.string.street_view_open_in_maps))
-                    }
-                }
-            }
             StreetViewPreview.Failed -> MessagePreview(
                 icon = Tabler.drawable.tabler_ic_wifi_off_outline,
                 title = stringResource(R.string.street_view_error_title),
@@ -144,13 +120,19 @@ fun StreetViewPreviewCard(
 
 @Composable
 private fun LoadingPreview() {
-    Surface(modifier = Modifier.fillMaxWidth(), shape = PreviewShape, color = MaterialTheme.colorScheme.surfaceContainerHigh) {
-        Row(
-            modifier = Modifier.padding(horizontal = 18.dp, vertical = 14.dp),
-            horizontalArrangement = Arrangement.spacedBy(14.dp),
-            verticalAlignment = Alignment.CenterVertically,
+    Surface(
+        modifier = Modifier
+            .fillMaxWidth()
+            .aspectRatio(PreviewAspectRatio),
+        shape = PreviewShape,
+        color = MaterialTheme.colorScheme.surfaceContainerHigh,
+    ) {
+        Column(
+            modifier = Modifier.fillMaxSize(),
+            verticalArrangement = Arrangement.spacedBy(10.dp, Alignment.CenterVertically),
+            horizontalAlignment = Alignment.CenterHorizontally,
         ) {
-            ExpressiveLoadingIndicator(Modifier.size(24.dp))
+            ExpressiveLoadingIndicator(Modifier.size(36.dp))
             Text(
                 stringResource(R.string.street_view_loading),
                 style = MaterialTheme.typography.bodyMedium,
@@ -160,19 +142,89 @@ private fun LoadingPreview() {
     }
 }
 
-/** No thumbnail on purpose: the Static API image is the only billed Street View call, the panorama is free. */
 @Composable
-private fun AvailablePreview(preview: StreetViewPreview.Available, onOpen: () -> Unit) {
-    MessagePreview(
-        icon = Tabler.drawable.tabler_ic_panorama_horizontal_outline,
-        title = stringResource(R.string.street_view_label),
-        body = preview.date?.let { stringResource(R.string.street_view_photo_date, it) }
-            ?: stringResource(R.string.street_view_explore_body),
-        compact = true,
-        actions = {
-            FilledTonalButton(onClick = onOpen) { Text(stringResource(R.string.street_view_open)) }
-        },
-    )
+private fun AvailablePreview(preview: StreetViewPreview.Available, image: ImageBitmap, onOpen: () -> Unit) {
+    val openLabel = stringResource(R.string.street_view_open)
+    Box(
+        modifier = Modifier
+            .fillMaxWidth()
+            .aspectRatio(PreviewAspectRatio)
+            .clip(PreviewShape)
+            .clickable(onClickLabel = openLabel, role = Role.Button, onClick = onOpen),
+    ) {
+        Image(
+            bitmap = image,
+            contentDescription = stringResource(R.string.street_view_image_description),
+            contentScale = ContentScale.Crop,
+            modifier = Modifier.fillMaxSize(),
+        )
+        Box(
+            Modifier
+                .fillMaxSize()
+                .background(
+                    Brush.verticalGradient(
+                        0.55f to Color.Transparent,
+                        1f to Color.Black.copy(alpha = 0.62f),
+                    ),
+                ),
+        )
+        Surface(
+            modifier = Modifier
+                .align(Alignment.TopStart)
+                .padding(12.dp),
+            shape = CircleShape,
+            color = MaterialTheme.colorScheme.surfaceContainerHighest.copy(alpha = 0.9f),
+        ) {
+            Text(
+                stringResource(R.string.street_view_label),
+                modifier = Modifier.padding(horizontal = 12.dp, vertical = 6.dp),
+                style = MaterialTheme.typography.labelLarge,
+            )
+        }
+        Row(
+            modifier = Modifier
+                .align(Alignment.BottomStart)
+                .fillMaxWidth()
+                .padding(start = 14.dp, end = 12.dp, bottom = 12.dp),
+            verticalAlignment = Alignment.Bottom,
+        ) {
+            Text(
+                listOfNotNull(preview.copyright, preview.date).joinToString(" · "),
+                modifier = Modifier.weight(1f),
+                style = MaterialTheme.typography.labelSmall,
+                color = Color.White.copy(alpha = 0.9f),
+            )
+            Surface(shape = CircleShape, color = MaterialTheme.colorScheme.primary) {
+                Row(
+                    modifier = Modifier.padding(start = 12.dp, end = 14.dp, top = 8.dp, bottom = 8.dp),
+                    verticalAlignment = Alignment.CenterVertically,
+                ) {
+                    Icon(
+                        painter = painterResource(Tabler.drawable.tabler_ic_arrows_maximize_outline),
+                        contentDescription = null,
+                        modifier = Modifier.size(18.dp),
+                    )
+                    Spacer(Modifier.size(6.dp))
+                    Text(openLabel, style = MaterialTheme.typography.labelLarge)
+                }
+            }
+        }
+    }
+}
+
+@Composable
+private fun StreetViewButton(onClick: () -> Unit) {
+    Row(Modifier.fillMaxWidth()) {
+        FilledTonalButton(onClick = onClick) {
+            Icon(
+                painter = painterResource(Tabler.drawable.tabler_ic_panorama_horizontal_outline),
+                contentDescription = null,
+                modifier = Modifier.size(ButtonDefaults.IconSize),
+            )
+            Spacer(Modifier.size(ButtonDefaults.IconSpacing))
+            Text(stringResource(R.string.street_view_label))
+        }
+    }
 }
 
 @Composable
@@ -196,7 +248,7 @@ private fun MessagePreview(
                 verticalAlignment = Alignment.CenterVertically,
             ) {
                 Icon(painterResource(icon), contentDescription = null, tint = tint)
-                Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(2.dp)) {
+                Column(verticalArrangement = Arrangement.spacedBy(2.dp)) {
                     Text(title, style = MaterialTheme.typography.titleSmall)
                     Text(
                         body,
@@ -204,7 +256,6 @@ private fun MessagePreview(
                         color = MaterialTheme.colorScheme.onSurfaceVariant,
                     )
                 }
-                actions?.invoke()
             }
         } else {
             Column(
@@ -238,19 +289,3 @@ private fun MessagePreview(
     }
 }
 
-/**
- * Last resort once the free quota is used up: Street View in Google Maps costs nothing against it. Otherwise
- * the panorama opens in the app ([StreetViewScreen]).
- */
-private fun openStreetViewInGoogleMaps(context: Context, place: PlaceDto) {
-    val uri = Uri.parse("https://www.google.com/maps/@").buildUpon()
-        .appendQueryParameter("api", "1")
-        .appendQueryParameter("map_action", "pano")
-        .appendQueryParameter("viewpoint", "${place.latitude},${place.longitude}")
-        .build()
-    try {
-        context.startActivity(Intent(Intent.ACTION_VIEW, uri))
-    } catch (_: ActivityNotFoundException) {
-        // No browser or Maps app; nothing sensible to fall back to.
-    }
-}
