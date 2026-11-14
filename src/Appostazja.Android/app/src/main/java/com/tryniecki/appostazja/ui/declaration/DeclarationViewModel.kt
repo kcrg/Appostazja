@@ -55,6 +55,18 @@ internal class DeclarationViewModel(private val store: SecureDraftStore) : ViewM
     fun updateResidenceParish(value: String) = mutate { copy(residenceParish = value.take(300)) }
     fun updateMotivation(value: String) = mutate { copy(motivation = value.take(2_000)) }
 
+    /** Sample data for testing the form and the PDF; offered only in test builds. */
+    fun fillSample() = mutate {
+        copy(
+            fullName = "Jan Kowalski",
+            homeAddress = "ul. Przykładowa 12/3, 00-001 Warszawa",
+            baptismDate = LocalDate.of(1995, 5, 14),
+            baptismParish = "Parafia Rzymskokatolicka pw. św. Anny w Warszawie",
+            residenceParish = "Parafia Rzymskokatolicka pw. Najświętszego Zbawiciela w Warszawie",
+            motivation = "Nie identyfikuję się z Kościołem katolickim i nie podzielam jego nauczania.",
+        )
+    }
+
     fun clear() {
         saveJob?.cancel()
         _uiState.value = DeclarationUiState(isLoaded = true)

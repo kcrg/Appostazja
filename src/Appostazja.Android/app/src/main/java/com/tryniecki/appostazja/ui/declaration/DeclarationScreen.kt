@@ -44,6 +44,13 @@ import androidx.compose.foundation.layout.consumeWindowInsets
 import androidx.compose.foundation.layout.imePadding
 import androidx.compose.material3.rememberDatePickerState
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.mutableIntStateOf
+import androidx.compose.runtime.mutableLongStateOf
+import androidx.compose.foundation.gestures.detectTapGestures
+import androidx.compose.ui.input.pointer.pointerInput
+import androidx.compose.ui.hapticfeedback.HapticFeedbackType
+import androidx.compose.ui.platform.LocalHapticFeedback
+import com.tryniecki.appostazja.BuildConfig
 import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
@@ -126,6 +133,8 @@ fun DeclarationRoute(
         onResidenceParishChange = viewModel::updateResidenceParish,
         onMotivationChange = viewModel::updateMotivation,
         onClear = viewModel::clear,
+        // Test builds only: three taps on "Twoje dane" fill the form with sample data.
+        onFillSample = if (BuildConfig.BUILD_TYPE != "release") viewModel::fillSample else null,
         onGenerate = {
             viewModel.buildDeclaration()?.let { declaration ->
                 pendingDeclaration = declaration
@@ -148,6 +157,7 @@ private fun DeclarationScreen(
     onResidenceParishChange: (String) -> Unit,
     onMotivationChange: (String) -> Unit,
     onClear: () -> Unit,
+    onFillSample: (() -> Unit)?,
     onGenerate: () -> Unit,
 ) {
     val motion = MaterialTheme.motionScheme
@@ -215,6 +225,7 @@ private fun DeclarationScreen(
                     onBaptismParishChange = onBaptismParishChange,
                     onResidenceParishChange = onResidenceParishChange,
                     onMotivationChange = onMotivationChange,
+                    onFillSample = onFillSample,
                 )
             }
         }
@@ -231,6 +242,7 @@ private fun DeclarationForm(
     onBaptismParishChange: (String) -> Unit,
     onResidenceParishChange: (String) -> Unit,
     onMotivationChange: (String) -> Unit,
+    onFillSample: (() -> Unit)?,
 ) {
     var showDatePicker by remember { mutableStateOf(false) }
     val scrollState = rememberScrollState()
@@ -244,7 +256,10 @@ private fun DeclarationForm(
             .padding(horizontal = 16.dp, vertical = 12.dp),
         verticalArrangement = Arrangement.spacedBy(22.dp),
     ) {
-        FormSection(title = stringResource(R.string.declaration_your_data)) {
+        FormSection(
+            title = stringResource(R.string.declaration_your_data),
+            titleModifier = onFillSample?.let { Modifier.onTripleTap(it) } ?: Modifier,
+        ) {
             OutlinedTextField(
                 value = state.fullName,
                 onValueChange = onFullNameChange,
@@ -367,12 +382,39 @@ private fun DeclarationForm(
 }
 
 @Composable
-private fun FormSection(title: String, content: @Composable () -> Unit) {
+private fun FormSection(title: String, titleModifier: Modifier = Modifier, content: @Composable () -> Unit) {
     Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
-        Text(title, style = MaterialTheme.typography.titleMedium, color = MaterialTheme.colorScheme.primary)
+        Text(
+            title,
+            modifier = titleModifier,
+            style = MaterialTheme.typography.titleMedium,
+            color = MaterialTheme.colorScheme.primary,
+        )
         content()
     }
 }
+
+/** Runs [action] after three quick taps, with a confirming haptic; no ripple, as it is a hidden test shortcut. */
+@Composable
+private fun Modifier.onTripleTap(action: () -> Unit): Modifier {
+    val haptics = LocalHapticFeedback.current
+    var taps by remember { mutableIntStateOf(0) }
+    var lastTapMillis by remember { mutableLongStateOf(0L) }
+    return pointerInput(action) {
+        detectTapGestures {
+            val now = System.currentTimeMillis()
+            taps = if (now - lastTapMillis < TRIPLE_TAP_WINDOW_MS) taps + 1 else 1
+            lastTapMillis = now
+            if (taps == 3) {
+                taps = 0
+                haptics.performHapticFeedback(HapticFeedbackType.Confirm)
+                action()
+            }
+        }
+    }
+}
+
+private const val TRIPLE_TAP_WINDOW_MS = 500L
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
