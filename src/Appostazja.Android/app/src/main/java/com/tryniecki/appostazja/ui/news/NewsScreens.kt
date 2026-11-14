@@ -7,6 +7,7 @@ import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.ColumnScope
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.consumeWindowInsets
@@ -44,6 +45,14 @@ import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.geometry.Offset
+import androidx.compose.ui.geometry.Rect
+import androidx.compose.ui.geometry.Size
+import androidx.compose.ui.graphics.Outline
+import androidx.compose.ui.graphics.Path
+import androidx.compose.ui.graphics.PathOperation
+import androidx.compose.ui.graphics.Shape
+import androidx.compose.ui.graphics.addOutline
 import androidx.compose.ui.input.nestedscroll.nestedScroll
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.platform.LocalLocale
@@ -59,7 +68,9 @@ import androidx.compose.ui.text.TextLinkStyles
 import androidx.compose.ui.text.fromHtml
 import androidx.compose.ui.text.style.TextDecoration
 import androidx.compose.ui.text.style.TextOverflow
+import androidx.compose.ui.unit.Density
 import androidx.compose.ui.unit.Dp
+import androidx.compose.ui.unit.LayoutDirection
 import androidx.compose.ui.unit.dp
 import com.tryniecki.appostazja.R
 import com.tryniecki.appostazja.browser.rememberOpenCustomTab
@@ -170,6 +181,7 @@ private val TEASER_LINE_GAP = 4.dp
 private val TEASER_VERTICAL_PADDING = 12.dp
 private val TEASER_HORIZONTAL_PADDING = 16.dp
 private val UNREAD_DOT = 10.dp
+private val UNREAD_DOT_GAP = 3.dp
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -215,13 +227,11 @@ fun NewsListScreen(
                     verticalArrangement = Arrangement.spacedBy(12.dp),
                 ) {
                     items(state.articles, key = { it.id }) { article ->
-                        Card(
-                            modifier = Modifier.fillMaxWidth(),
-                            colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceContainer),
-                        ) {
+                        val unread = article.id !in readIds
+                        NotchedCard(dots = if (unread) listOf(teaserDotOffset(article)) else emptyList()) {
                             ArticleTeaser(
                                 article,
-                                unread = article.id !in readIds,
+                                unread = unread,
                                 onClick = { onOpenArticle(article) },
                                 excerptLines = 4,
                             )
@@ -332,7 +342,10 @@ private fun ArticleBody(article: NewsArticle, openCustomTab: (String) -> Unit, m
     }
 }
 
-/** Title, date and the start of the summary as plain text; an unread article has a dot in the left margin. */
+/**
+ * Title, date and the start of the summary as plain text. The unread dot sits on the card's edge, outside the
+ * teaser, so the card that holds it draws it (see [NotchedCard] and [teaserDotOffset]).
+ */
 @Composable
 private fun ArticleTeaser(
     article: NewsArticle,
@@ -351,21 +364,73 @@ private fun ArticleTeaser(
             .clickable(onClick = onClick)
             .semantics { if (unread) stateDescription = unreadLabel },
     ) {
-        if (unread) {
-            // Between the date and the title, or level with the title when there is no date.
-            val typography = MaterialTheme.typography
-            val dotCentre = with(LocalDensity.current) {
-                if (article.published != null) typography.labelMedium.lineHeight.toDp() + TEASER_LINE_GAP / 2
-                else typography.titleMedium.lineHeight.toDp() / 2
-            }
+        TeaserText(article, excerpt, locale, titleLines, excerptLines)
+    }
+}
+
+/** How far below the top of a teaser its unread dot is centred: between the date and the title. */
+@Composable
+private fun teaserDotOffset(article: NewsArticle): Dp {
+    val typography = MaterialTheme.typography
+    val line = with(LocalDensity.current) {
+        if (article.published != null) typography.labelMedium.lineHeight.toDp() + TEASER_LINE_GAP / 2
+        else typography.titleMedium.lineHeight.toDp() / 2
+    }
+    return TEASER_VERTICAL_PADDING + line
+}
+
+/** Where the unread dots go on the news card of the More screen, from the top of the card. */
+@Composable
+fun newsCardDots(state: NewsState, readIds: Set<String>): List<Dp> {
+    if (state !is NewsState.Loaded) return emptyList()
+    val teaserHeight = compactTeaserHeight()
+    return state.articles.take(CARD_ARTICLES).mapIndexedNotNull { index, article ->
+        if (article.id in readIds) null
+        else (teaserHeight + DividerDefaults.Thickness) * index + teaserDotOffset(article)
+    }
+}
+
+/**
+ * A card with unread dots on its start edge, half outside it. The card is cut out around each dot, so the dot
+ * stands apart from it.
+ */
+@Composable
+fun NotchedCard(
+    dots: List<Dp>,
+    modifier: Modifier = Modifier,
+    content: @Composable ColumnScope.() -> Unit,
+) {
+    val baseShape = CardDefaults.shape
+    val shape = remember(dots, baseShape) { if (dots.isEmpty()) baseShape else NotchedShape(baseShape, dots) }
+    Box(modifier.fillMaxWidth()) {
+        Card(
+            modifier = Modifier.fillMaxWidth(),
+            shape = shape,
+            colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceContainer),
+            content = content,
+        )
+        val dotColor = MaterialTheme.colorScheme.primary
+        dots.forEach { y ->
             Box(
                 Modifier
-                    .offset(x = (TEASER_HORIZONTAL_PADDING - UNREAD_DOT) / 2, y = TEASER_VERTICAL_PADDING + dotCentre - UNREAD_DOT / 2)
+                    .offset(x = -UNREAD_DOT / 2, y = y - UNREAD_DOT / 2)
                     .size(UNREAD_DOT)
-                    .background(MaterialTheme.colorScheme.primary, CircleShape),
+                    .background(dotColor, CircleShape),
             )
         }
-        TeaserText(article, excerpt, locale, titleLines, excerptLines)
+    }
+}
+
+/** [base] with a circle cut out of its start edge at each of [notches], wider than the dot by [UNREAD_DOT_GAP]. */
+private class NotchedShape(private val base: Shape, private val notches: List<Dp>) : Shape {
+    override fun createOutline(size: Size, layoutDirection: LayoutDirection, density: Density): Outline {
+        val outline = Path().apply { addOutline(base.createOutline(size, layoutDirection, density)) }
+        val radius = with(density) { (UNREAD_DOT / 2 + UNREAD_DOT_GAP).toPx() }
+        val x = if (layoutDirection == LayoutDirection.Ltr) 0f else size.width
+        val cuts = Path().apply {
+            notches.forEach { y -> addOval(Rect(Offset(x, with(density) { y.toPx() }), radius)) }
+        }
+        return Outline.Generic(Path.combine(PathOperation.Difference, outline, cuts))
     }
 }
 

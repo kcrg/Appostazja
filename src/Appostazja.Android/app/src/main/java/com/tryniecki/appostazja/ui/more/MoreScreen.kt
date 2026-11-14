@@ -38,6 +38,7 @@ import androidx.compose.ui.platform.LocalUriHandler
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import com.tryniecki.appostazja.R
 import com.tryniecki.appostazja.api.model.DatasetStatusDto
@@ -45,6 +46,8 @@ import com.tryniecki.appostazja.browser.rememberOpenCustomTab
 import com.tryniecki.appostazja.data.NewsArticle
 import com.tryniecki.appostazja.ui.formatApiTimestamp
 import com.tryniecki.appostazja.ui.news.NewsCardContent
+import com.tryniecki.appostazja.ui.news.NotchedCard
+import com.tryniecki.appostazja.ui.news.newsCardDots
 import com.tryniecki.appostazja.ui.news.rememberNewsState
 import com.tryniecki.appostazja.ui.theme.ThemeMode
 import kotlinx.coroutines.CancellationException
@@ -112,7 +115,7 @@ fun MoreScreen(
                 )
             }
 
-            MoreSection(stringResource(R.string.more_news)) {
+            MoreSection(stringResource(R.string.more_news), dots = newsCardDots(newsState, readNewsIds)) {
                 NewsCardContent(
                     state = newsState,
                     readIds = readNewsIds,
@@ -202,18 +205,12 @@ private fun dataSourceDescription(status: DatasetStatusDto, locale: Locale): Str
 @Composable
 private fun MoreSection(
     title: String,
+    dots: List<Dp> = emptyList(),
     content: @Composable () -> Unit,
 ) {
     Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
         SectionTitle(title)
-        Card(
-            modifier = Modifier.fillMaxWidth(),
-            colors = CardDefaults.cardColors(
-                containerColor = MaterialTheme.colorScheme.surfaceContainer,
-            ),
-        ) {
-            Column { content() }
-        }
+        NotchedCard(dots) { content() }
     }
 }
 
