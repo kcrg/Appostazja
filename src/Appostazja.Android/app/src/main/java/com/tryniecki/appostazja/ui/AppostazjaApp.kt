@@ -293,6 +293,7 @@ fun AppostazjaApp(
                     themeMode = themeMode,
                     loadDatasetStatus = container.mapRepository::getDatasetStatus,
                     loadNews = container.newsRepository::articles,
+                    readNewsIds = container.readArticles.ids.collectAsStateWithLifecycle().value,
                     onOpenArticle = { navController.navigate(AppRoute.NewsArticle(it.id)) },
                     onOpenNews = { navController.navigate(AppRoute.News) },
                     onThemeModeChange = onThemeModeChange,
@@ -301,6 +302,7 @@ fun AppostazjaApp(
             screen<AppRoute.News>(navDirection) {
                 NewsListScreen(
                     load = container.newsRepository::articles,
+                    readIds = container.readArticles.ids.collectAsStateWithLifecycle().value,
                     onOpenArticle = { navController.navigate(AppRoute.NewsArticle(it.id)) },
                     onBack = navController::popBackStack,
                 )
@@ -309,6 +311,7 @@ fun AppostazjaApp(
                 NewsArticleScreen(
                     articleId = entry.toRoute<AppRoute.NewsArticle>().articleId,
                     load = container.newsRepository::article,
+                    onRead = container.readArticles::markRead,
                     onBack = navController::popBackStack,
                 )
             }

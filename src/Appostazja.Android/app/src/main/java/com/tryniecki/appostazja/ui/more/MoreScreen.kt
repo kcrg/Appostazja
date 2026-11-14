@@ -58,6 +58,7 @@ fun MoreScreen(
     themeMode: ThemeMode,
     loadDatasetStatus: suspend () -> DatasetStatusDto,
     loadNews: suspend () -> List<NewsArticle>,
+    readNewsIds: Set<String>,
     onOpenArticle: (NewsArticle) -> Unit,
     onOpenNews: () -> Unit,
     onThemeModeChange: (ThemeMode) -> Unit,
@@ -114,6 +115,7 @@ fun MoreScreen(
             MoreSection(stringResource(R.string.more_news)) {
                 NewsCardContent(
                     state = newsState,
+                    readIds = readNewsIds,
                     onRetry = retryNews,
                     onOpenArticle = onOpenArticle,
                     onOpenAll = onOpenNews,

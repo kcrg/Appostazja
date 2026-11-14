@@ -4,6 +4,7 @@ import android.content.Context
 import com.tryniecki.appostazja.api.client.AppostazjaApiClientFactory
 import com.tryniecki.appostazja.data.MapRepository
 import com.tryniecki.appostazja.data.NewsRepository
+import com.tryniecki.appostazja.data.ReadArticles
 import com.tryniecki.appostazja.data.StreetViewRepository
 import com.tryniecki.appostazja.data.local.AppostazjaDatabase
 import com.tryniecki.appostazja.pdf.ApostasyPdfGenerator
@@ -36,6 +37,7 @@ class AppContainer(context: Context) {
             cacheDirectory = applicationContext.cacheDir.resolve("news-http"),
         )
     }
+    val readArticles by lazy(LazyThreadSafetyMode.SYNCHRONIZED) { ReadArticles(applicationContext) }
     val secureDraftStore = SecureDraftStore(applicationContext)
     val pdfGenerator = ApostasyPdfGenerator()
     val declarationArchive by lazy(LazyThreadSafetyMode.SYNCHRONIZED) { DeclarationArchive(applicationContext) }

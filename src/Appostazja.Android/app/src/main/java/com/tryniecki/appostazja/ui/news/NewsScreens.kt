@@ -1,6 +1,9 @@
 package com.tryniecki.appostazja.ui.news
 
+import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.layout.offset
+import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -32,6 +35,7 @@ import androidx.compose.material3.TextButton
 import androidx.compose.material3.TopAppBar
 import androidx.compose.material3.TopAppBarDefaults
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.produceState
@@ -46,6 +50,8 @@ import androidx.compose.ui.platform.LocalLocale
 import androidx.compose.ui.platform.LocalUriHandler
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.semantics.semantics
+import androidx.compose.ui.semantics.stateDescription
 import androidx.compose.ui.text.AnnotatedString
 import androidx.compose.ui.text.LinkAnnotation
 import androidx.compose.ui.text.SpanStyle
@@ -63,6 +69,7 @@ import com.tryniecki.appostazja.ui.components.EmptyState
 import com.tryniecki.appostazja.ui.components.ExpressiveLoadingIndicator
 import com.tryniecki.appostazja.ui.formatDate
 import kotlinx.coroutines.CancellationException
+import java.util.Locale
 import com.composables.icons.tabler.outline.R as Tabler
 
 /** How many articles the card on the More screen shows. */
@@ -98,6 +105,7 @@ fun rememberNewsState(load: suspend () -> List<NewsArticle>): Pair<NewsState, ()
 @Composable
 fun NewsCardContent(
     state: NewsState,
+    readIds: Set<String>,
     onRetry: () -> Unit,
     onOpenArticle: (NewsArticle) -> Unit,
     onOpenAll: () -> Unit,
@@ -131,6 +139,7 @@ fun NewsCardContent(
                             if (index > 0) divider()
                             ArticleTeaser(
                                 article,
+                                unread = article.id !in readIds,
                                 onClick = { onOpenArticle(article) },
                                 modifier = Modifier.height(teaserHeight),
                                 titleLines = 1,
@@ -159,11 +168,14 @@ private fun compactTeaserHeight(): Dp {
 
 private val TEASER_LINE_GAP = 4.dp
 private val TEASER_VERTICAL_PADDING = 12.dp
+private val TEASER_HORIZONTAL_PADDING = 16.dp
+private val UNREAD_DOT = 10.dp
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun NewsListScreen(
     load: suspend () -> List<NewsArticle>,
+    readIds: Set<String>,
     onOpenArticle: (NewsArticle) -> Unit,
     onBack: () -> Unit,
 ) {
@@ -207,7 +219,12 @@ fun NewsListScreen(
                             modifier = Modifier.fillMaxWidth(),
                             colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceContainer),
                         ) {
-                            ArticleTeaser(article, onClick = { onOpenArticle(article) }, excerptLines = 4)
+                            ArticleTeaser(
+                                article,
+                                unread = article.id !in readIds,
+                                onClick = { onOpenArticle(article) },
+                                excerptLines = 4,
+                            )
                         }
                     }
                 }
@@ -221,10 +238,13 @@ fun NewsListScreen(
 fun NewsArticleScreen(
     articleId: String,
     load: suspend (String) -> NewsArticle?,
+    onRead: (String) -> Unit,
     onBack: () -> Unit,
 ) {
     val (state, retry) = rememberNewsState { listOfNotNull(load(articleId)) }
     val article = (state as? NewsState.Loaded)?.articles?.firstOrNull()
+    // Read once it is on screen; a failed load leaves it unread.
+    LaunchedEffect(article?.id) { article?.let { onRead(it.id) } }
     val openCustomTab = rememberOpenCustomTab()
     // The title of the article is the page title: shown in full above the text, kept on one line once scrolled.
     val scrollBehavior = TopAppBarDefaults.exitUntilCollapsedScrollBehavior()
@@ -312,10 +332,11 @@ private fun ArticleBody(article: NewsArticle, openCustomTab: (String) -> Unit, m
     }
 }
 
-/** Title, date and the start of the summary as plain text. */
+/** Title, date and the start of the summary as plain text; an unread article has a dot in the left margin. */
 @Composable
 private fun ArticleTeaser(
     article: NewsArticle,
+    unread: Boolean,
     onClick: () -> Unit,
     excerptLines: Int,
     modifier: Modifier = Modifier,
@@ -323,11 +344,35 @@ private fun ArticleTeaser(
 ) {
     val excerpt = remember(article.summaryHtml) { AnnotatedString.fromHtml(article.summaryHtml).text.trim() }
     val locale = LocalLocale.current.platformLocale
-    Column(
-        modifier = modifier
+    val unreadLabel = stringResource(R.string.news_unread)
+    Box(
+        modifier
             .fillMaxWidth()
             .clickable(onClick = onClick)
-            .padding(horizontal = 16.dp, vertical = TEASER_VERTICAL_PADDING),
+            .semantics { if (unread) stateDescription = unreadLabel },
+    ) {
+        if (unread) {
+            // Between the date and the title, or level with the title when there is no date.
+            val typography = MaterialTheme.typography
+            val dotCentre = with(LocalDensity.current) {
+                if (article.published != null) typography.labelMedium.lineHeight.toDp() + TEASER_LINE_GAP / 2
+                else typography.titleMedium.lineHeight.toDp() / 2
+            }
+            Box(
+                Modifier
+                    .offset(x = (TEASER_HORIZONTAL_PADDING - UNREAD_DOT) / 2, y = TEASER_VERTICAL_PADDING + dotCentre - UNREAD_DOT / 2)
+                    .size(UNREAD_DOT)
+                    .background(MaterialTheme.colorScheme.primary, CircleShape),
+            )
+        }
+        TeaserText(article, excerpt, locale, titleLines, excerptLines)
+    }
+}
+
+@Composable
+private fun TeaserText(article: NewsArticle, excerpt: String, locale: Locale, titleLines: Int, excerptLines: Int) {
+    Column(
+        modifier = Modifier.padding(horizontal = TEASER_HORIZONTAL_PADDING, vertical = TEASER_VERTICAL_PADDING),
         verticalArrangement = Arrangement.spacedBy(TEASER_LINE_GAP),
     ) {
         article.published?.let {
