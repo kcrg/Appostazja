@@ -8,6 +8,7 @@ import android.widget.RelativeLayout
 import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.ui.layout.onSizeChanged
+import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.platform.LocalView
 import androidx.core.view.children
 import androidx.core.view.updatePadding
@@ -165,13 +166,17 @@ internal fun StreetViewScreen(
             }
         }
             var panelHeightPx by remember { mutableIntStateOf(0) }
-            LiftStreetViewAttribution(bottomPx = panelHeightPx)
+            // Above the panel and inset by its corner radius, where the rounded corners end.
+            LiftStreetViewAttribution(
+                bottomPx = panelHeightPx,
+                sidePx = with(LocalDensity.current) { PanelCornerRadius.roundToPx() },
+            )
             Surface(
                 modifier = Modifier
                     .align(Alignment.BottomCenter)
                     .fillMaxWidth()
                     .onSizeChanged { panelHeightPx = it.height },
-                shape = RoundedCornerShape(topStart = 28.dp, topEnd = 28.dp),
+                shape = RoundedCornerShape(topStart = PanelCornerRadius, topEnd = PanelCornerRadius),
                 color = MaterialTheme.colorScheme.surfaceContainer,
             ) {
                 Column(
@@ -205,23 +210,25 @@ internal fun StreetViewScreen(
  * logo). Best effort: if a future SDK lays it out differently, nothing is found and nothing changes.
  */
 @Composable
-private fun LiftStreetViewAttribution(bottomPx: Int) {
+private fun LiftStreetViewAttribution(bottomPx: Int, sidePx: Int) {
     val view = LocalView.current
-    DisposableEffect(view, bottomPx) {
+    DisposableEffect(view, bottomPx, sidePx) {
         val observer = view.viewTreeObserver
         // The panorama builds its views asynchronously, so look again after each layout pass.
-        val listener = ViewTreeObserver.OnGlobalLayoutListener { padAttribution(view.rootView, bottomPx) }
+        val listener = ViewTreeObserver.OnGlobalLayoutListener { padAttribution(view.rootView, bottomPx, sidePx) }
         observer.addOnGlobalLayoutListener(listener)
         onDispose { if (observer.isAlive) observer.removeOnGlobalLayoutListener(listener) }
     }
 }
 
-private fun padAttribution(root: View, bottomPx: Int) {
+private fun padAttribution(root: View, bottomPx: Int, sidePx: Int) {
     val panorama = root.findDescendant { it is StreetViewPanoramaView } ?: return
     val overlay = panorama.findDescendant { view ->
         view is RelativeLayout && view.children.any { it is ImageView }
     } ?: return
-    if (overlay.paddingBottom != bottomPx) overlay.updatePadding(bottom = bottomPx)
+    if (overlay.paddingBottom != bottomPx || overlay.paddingLeft != sidePx || overlay.paddingRight != sidePx) {
+        overlay.updatePadding(left = sidePx, right = sidePx, bottom = bottomPx)
+    }
 }
 
 private fun View.findDescendant(predicate: (View) -> Boolean): View? {
@@ -230,5 +237,6 @@ private fun View.findDescendant(predicate: (View) -> Boolean): View? {
     return null
 }
 
+private val PanelCornerRadius = 28.dp
 private const val SEARCH_RADIUS_METERS = 120
 private const val LOAD_TIMEOUT_MS = 10_000L
