@@ -4,6 +4,12 @@ import androidx.compose.animation.AnimatedContentScope
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.snapshotFlow
+import androidx.compose.animation.EnterTransition
+import androidx.compose.animation.ExitTransition
+import androidx.compose.animation.SharedTransitionLayout
+import androidx.compose.runtime.CompositionLocalProvider
+import com.tryniecki.appostazja.ui.components.LocalNavAnimatedScope
+import com.tryniecki.appostazja.ui.components.LocalSharedTransitionScope
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.withFrameNanos
 import androidx.compose.ui.platform.LocalDensity
@@ -164,37 +170,48 @@ fun AppostazjaApp(
         val coverColor = MaterialTheme.colorScheme.background
         Box(contentModifier.drawBehind { if (cover.value > 0f) drawRect(coverColor, alpha = cover.value) })
         val density = LocalDensity.current
+        // Shared elements: the declaration FAB morphs into the history screen and back.
+        SharedTransitionLayout(contentModifier) {
+        CompositionLocalProvider(LocalSharedTransitionScope provides this) {
         NavHost(
             navController = navController,
             startDestination = AppRoute.Map,
-            modifier = contentModifier,
+            modifier = Modifier.fillMaxSize(),
+            // Between a FAB and the screen it opens the container transform is the whole animation: the screen
+            // underneath stays in place and the opened one appears only through the morphing container.
             enterTransition = {
                 navDirection.goingBack = false
-                if (sameTab(initialState.destination, targetState.destination)) NavMotion.sharedAxisEnter(density)
+                if (isFabMorph(initialState.destination, targetState.destination)) EnterTransition.None
+                else if (sameTab(initialState.destination, targetState.destination)) NavMotion.sharedAxisEnter(density)
                 else NavMotion.fadeThroughEnter()
             },
             exitTransition = {
                 navDirection.goingBack = false
-                if (sameTab(initialState.destination, targetState.destination)) NavMotion.sharedAxisExit(density)
+                if (isFabMorph(initialState.destination, targetState.destination)) ExitTransition.KeepUntilTransitionsFinished
+                else if (sameTab(initialState.destination, targetState.destination)) NavMotion.sharedAxisExit(density)
                 else NavMotion.fadeThroughExit()
             },
             // Tapping a tab can also pop (back to the map is a pop), but it is a tab switch, not going back.
             popEnterTransition = {
-                navDirection.goingBack = !tabSwitch.inProgress
-                if (tabSwitch.inProgress) NavMotion.fadeThroughEnter() else NavMotion.backEnter()
+                navDirection.goingBack = !tabSwitch.inProgress && !isFabMorph(initialState.destination, targetState.destination)
+                if (isFabMorph(initialState.destination, targetState.destination)) EnterTransition.None
+                else if (tabSwitch.inProgress) NavMotion.fadeThroughEnter() else NavMotion.backEnter()
             },
             popExitTransition = {
-                navDirection.goingBack = !tabSwitch.inProgress
-                if (tabSwitch.inProgress) NavMotion.fadeThroughExit() else NavMotion.backExit()
+                navDirection.goingBack = !tabSwitch.inProgress && !isFabMorph(initialState.destination, targetState.destination)
+                if (isFabMorph(initialState.destination, targetState.destination)) ExitTransition.KeepUntilTransitionsFinished
+                else if (tabSwitch.inProgress) NavMotion.fadeThroughExit() else NavMotion.backExit()
             },
             // Used instead of the pop transitions while the finger is on the screen; they share the same motion.
             predictivePopEnterTransition = { swipeEdge ->
-                navDirection.goingBack = true
-                NavMotion.backEnter(swipeEdge)
+                val morph = isFabMorph(initialState.destination, targetState.destination)
+                navDirection.goingBack = !morph
+                if (morph) EnterTransition.None else NavMotion.backEnter(swipeEdge)
             },
             predictivePopExitTransition = { swipeEdge ->
-                navDirection.goingBack = true
-                NavMotion.backExit(swipeEdge)
+                val morph = isFabMorph(initialState.destination, targetState.destination)
+                navDirection.goingBack = !morph
+                if (morph) ExitTransition.KeepUntilTransitionsFinished else NavMotion.backExit(swipeEdge)
             },
         ) {
             screen<AppRoute.Map>(navDirection) {
@@ -239,6 +256,8 @@ fun AppostazjaApp(
                 )
             }
         }
+        }
+        }
     }
 }
 
@@ -253,7 +272,9 @@ private inline fun <reified T : Any> NavGraphBuilder.screen(
     noinline content: @Composable AnimatedContentScope.(NavBackStackEntry) -> Unit,
 ) {
     composable<T> { entry ->
-        Box(Modifier.fillMaxSize().then(backNavigationDecoration(direction))) { content(entry) }
+        CompositionLocalProvider(LocalNavAnimatedScope provides this) {
+            Box(Modifier.fillMaxSize().then(backNavigationDecoration(direction))) { content(entry) }
+        }
     }
 }
 
@@ -281,3 +302,10 @@ private fun NavHostController.navigateToTab(destination: AppDestination) {
 
 private const val TAB_SWITCH_START_MS = 300L
 private const val TAB_SWITCH_TIMEOUT_MS = 5_000L
+
+/** The declaration history opens from the form's FAB and closes back into it. */
+private fun isFabMorph(from: NavDestination, to: NavDestination): Boolean {
+    val form = from.hasRoute<AppRoute.Declaration>() && to.hasRoute<AppRoute.DeclarationHistory>()
+    val back = from.hasRoute<AppRoute.DeclarationHistory>() && to.hasRoute<AppRoute.Declaration>()
+    return form || back
+}

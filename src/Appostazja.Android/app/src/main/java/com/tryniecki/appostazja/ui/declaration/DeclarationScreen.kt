@@ -79,6 +79,8 @@ import java.io.ByteArrayOutputStream
 import androidx.compose.material3.FloatingActionButton
 import com.tryniecki.appostazja.security.SecureDraftStore
 import com.tryniecki.appostazja.ui.components.ExpressiveLoadingIndicator
+import com.tryniecki.appostazja.ui.components.FabMorphRole
+import com.tryniecki.appostazja.ui.components.fabMorph
 import java.time.Instant
 import java.time.LocalDate
 import java.time.ZoneOffset
@@ -199,7 +201,10 @@ private fun DeclarationScreen(
         },
         snackbarHost = { SnackbarHost(snackbarHostState) },
         floatingActionButton = {
-            FloatingActionButton(onClick = onOpenHistory) {
+            FloatingActionButton(
+                onClick = onOpenHistory,
+                modifier = Modifier.fabMorph(DECLARATION_HISTORY_MORPH_KEY, FabMorphRole.Fab),
+            ) {
                 Icon(
                     painter = painterResource(com.composables.icons.tabler.outline.R.drawable.tabler_ic_history_outline),
                     contentDescription = stringResource(R.string.declaration_history_title),

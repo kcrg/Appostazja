@@ -53,6 +53,8 @@ import com.tryniecki.appostazja.pdf.ArchivedDeclaration
 import com.tryniecki.appostazja.pdf.DeclarationArchive
 import com.tryniecki.appostazja.ui.components.EmptyState
 import com.tryniecki.appostazja.ui.components.ExpressiveLoadingIndicator
+import com.tryniecki.appostazja.ui.components.FabMorphRole
+import com.tryniecki.appostazja.ui.components.fabMorph
 import com.tryniecki.appostazja.ui.formatDateTime
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
@@ -81,7 +83,9 @@ fun DeclarationHistoryRoute(
 
     val scrollBehavior = TopAppBarDefaults.pinnedScrollBehavior()
     Scaffold(
-        modifier = Modifier.nestedScroll(scrollBehavior.nestedScrollConnection),
+        modifier = Modifier
+            .fabMorph(DECLARATION_HISTORY_MORPH_KEY, FabMorphRole.Screen)
+            .nestedScroll(scrollBehavior.nestedScrollConnection),
         topBar = {
             TopAppBar(
                 title = { Text(stringResource(R.string.declaration_history_title)) },
@@ -274,3 +278,6 @@ private fun shareDeclaration(context: Context, file: java.io.File, title: String
         // Nothing can receive a PDF; there is nowhere else to send it.
     }
 }
+
+/** Shared between the form's FAB and the history screen it morphs into. */
+internal const val DECLARATION_HISTORY_MORPH_KEY = "declaration-history"

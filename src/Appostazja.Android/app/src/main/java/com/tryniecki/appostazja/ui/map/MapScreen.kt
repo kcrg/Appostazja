@@ -5,8 +5,19 @@ import android.content.Context
 import android.content.Intent
 import android.net.Uri
 import android.provider.Settings
-import com.tryniecki.appostazja.ui.components.predictiveBack
-import com.tryniecki.appostazja.ui.components.rememberPredictiveBack
+import com.tryniecki.appostazja.ui.components.FabMorphRole
+import com.tryniecki.appostazja.ui.components.LocalSharedTransitionScope
+import com.tryniecki.appostazja.ui.components.fabMorph
+import androidx.activity.compose.PredictiveBackHandler
+import androidx.compose.animation.EnterTransition
+import androidx.compose.animation.SharedTransitionLayout
+import androidx.compose.animation.core.SeekableTransitionState
+import androidx.compose.animation.core.animate
+import androidx.compose.animation.core.rememberTransition
+import androidx.compose.animation.core.tween
+import androidx.compose.runtime.CompositionLocalProvider
+import com.tryniecki.appostazja.ui.navigation.NavMotion
+import androidx.compose.animation.ExitTransition
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.AnimatedContent
 import androidx.compose.animation.fadeIn
@@ -173,6 +184,7 @@ fun MapRoute(
 }
 
 private const val PLACE_ZOOM = 15f
+private const val SEARCH_MORPH_KEY = "search"
 // How long the snapshot covers the map after it resumes, long enough for its surface to draw again.
 private const val MAP_RESTART_MS = 900L
 
@@ -189,8 +201,31 @@ private fun MapScreen(
 ) {
     val context = LocalContext.current
     var searchOpen by rememberSaveable { mutableStateOf(false) }
-    val searchBack = rememberPredictiveBack(enabled = searchOpen) { searchOpen = false }
     val scope = rememberCoroutineScope()
+    // The search morphs out of its FAB and back, like the declaration history. A seekable transition lets the
+    // back gesture shrink it into the button with the finger.
+    val searchTransitionState = remember { SeekableTransitionState(searchOpen) }
+    val searchTransition = rememberTransition(searchTransitionState, label = "search")
+    LaunchedEffect(searchOpen) {
+        if (searchTransitionState.currentState != searchOpen || searchTransitionState.targetState != searchOpen) {
+            searchTransitionState.animateTo(searchOpen)
+        }
+    }
+    PredictiveBackHandler(enabled = searchOpen) { events ->
+        try {
+            events.collect { event -> searchTransitionState.seekTo(event.progress, targetState = false) }
+            searchOpen = false
+        } catch (cancelled: CancellationException) {
+            // Back to fully open from wherever the finger left it.
+            scope.launch {
+                val from = searchTransitionState.fraction
+                animate(from, 0f, animationSpec = tween((from * NavMotion.DURATION).toInt())) { value, _ ->
+                    scope.launch { if (value > 0f) searchTransitionState.seekTo(value) else searchTransitionState.snapTo(true) }
+                }
+            }
+            throw cancelled
+        }
+    }
     var googleMap by remember { mutableStateOf<GoogleMap?>(null) }
     var mapSnapshot by remember { mutableStateOf<ImageBitmap?>(null) }
     val mapOnScreen = LocalMapOnScreen.current
@@ -219,6 +254,8 @@ private fun MapScreen(
     }
     val motion = MaterialTheme.motionScheme
 
+    SharedTransitionLayout(Modifier.fillMaxSize()) {
+    CompositionLocalProvider(LocalSharedTransitionScope provides this) {
     BoxWithConstraints(Modifier.fillMaxSize()) {
         // The diagonal covers map rotation; the extra half preloads neighbours so short pans reveal no gaps.
         val clusterViewport = ceil(hypot(maxWidth.value, maxHeight.value) * 1.5f).toInt()
@@ -289,27 +326,36 @@ private fun MapScreen(
         }
 
         AnimatedVisibility(
-            visible = !searchOpen && !state.isLoading,
+            visible = !state.isLoading,
             modifier = Modifier
                 .align(Alignment.BottomEnd)
                 .padding(16.dp),
             enter = scaleIn(motion.fastSpatialSpec()) + fadeIn(motion.fastEffectsSpec()),
             exit = scaleOut(motion.fastSpatialSpec()) + fadeOut(motion.fastEffectsSpec()),
         ) {
-            FloatingActionButton(onClick = { searchOpen = true }) {
-                Icon(
-                    painter = painterResource(com.composables.icons.tabler.outline.R.drawable.tabler_ic_search_outline),
-                    contentDescription = stringResource(R.string.search_open),
-                )
+            searchTransition.AnimatedVisibility(
+                visible = { open -> !open },
+                enter = EnterTransition.None,
+                exit = ExitTransition.None,
+            ) {
+                FloatingActionButton(
+                    onClick = { searchOpen = true },
+                    modifier = Modifier.fabMorph(SEARCH_MORPH_KEY, FabMorphRole.Fab, visibilityScope = this),
+                ) {
+                    Icon(
+                        painter = painterResource(com.composables.icons.tabler.outline.R.drawable.tabler_ic_search_outline),
+                        contentDescription = stringResource(R.string.search_open),
+                    )
+                }
             }
         }
 
-        AnimatedVisibility(
-            visible = searchOpen,
-            modifier = Modifier.predictiveBack(searchBack),
-            enter = slideInVertically(motion.defaultSpatialSpec()) { it / 8 } + fadeIn(motion.defaultEffectsSpec()),
-            exit = slideOutVertically(motion.fastSpatialSpec()) { it / 8 } + fadeOut(motion.fastEffectsSpec()),
+        searchTransition.AnimatedVisibility(
+            visible = { open -> open },
+            enter = EnterTransition.None,
+            exit = ExitTransition.None,
         ) {
+            Box(Modifier.fabMorph(SEARCH_MORPH_KEY, FabMorphRole.Screen, visibilityScope = this)) {
             search(
                 { searchOpen = false },
                 { place ->
@@ -323,7 +369,10 @@ private fun MapScreen(
                     }
                 },
             )
+            }
         }
+    }
+    }
     }
 
     // Sheets slide in with a tween: any spring overshoots visibly on a tall sheet.
