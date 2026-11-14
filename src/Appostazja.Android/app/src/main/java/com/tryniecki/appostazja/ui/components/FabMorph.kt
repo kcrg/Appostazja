@@ -13,6 +13,7 @@ import androidx.compose.animation.core.tween
 import androidx.compose.animation.core.spring
 import androidx.compose.animation.core.Animatable
 import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.withFrameNanos
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.setValue
 import androidx.compose.runtime.getValue
@@ -67,10 +68,11 @@ fun Modifier.fabMorph(
     val shared = LocalSharedTransitionScope.current ?: return this
     val scope = visibilityScope ?: return this
     val shape = fabMorphShape()
-    val landing = if (role == FabMorphRole.Fab) landingBounce(scope) else Modifier
+    val contentState = with(shared) { rememberSharedContentState(key) }
+    val landing = if (role == FabMorphRole.Fab) landingBounce(scope, matched = { contentState.isMatchFound }) else Modifier
     return with(shared) {
         sharedBounds(
-            sharedContentState = rememberSharedContentState(key),
+            sharedContentState = contentState,
             animatedVisibilityScope = scope,
             // The button stays opaque under the screen fading in, and is back (almost at once) under the screen
             // fading out: the large container shows the screen, the small one the button, and nothing between
@@ -98,15 +100,21 @@ fun Modifier.fabMorph(
 
 /**
  * The button settling back after the screen shrank into it: a small spring dip and rebound of a few percent,
- * measured on the button itself rather than on the distance the container travelled.
+ * measured on the button itself rather than on the distance the container travelled. Only when it actually took
+ * over from its screen ([matched]): appearing with its destination on a tab switch, it just appears.
  */
 @Composable
-private fun landingBounce(scope: AnimatedVisibilityScope): Modifier {
+private fun landingBounce(scope: AnimatedVisibilityScope, matched: () -> Boolean): Modifier {
     val scale = remember { Animatable(1f) }
     val transition = scope.transition
     var arriving by remember { mutableStateOf(false) }
     LaunchedEffect(transition.currentState, transition.targetState) {
-        if (transition.currentState == EnterExitState.PreEnter) arriving = true
+        // The match is found once both ends are laid out, and is not observable state: check it every frame
+        // while the button comes in.
+        if (transition.currentState == EnterExitState.PreEnter) {
+            while (!matched()) withFrameNanos { }
+            arriving = true
+        }
         val settled = transition.currentState == EnterExitState.Visible && transition.targetState == EnterExitState.Visible
         if (settled && arriving) {
             arriving = false
