@@ -468,6 +468,9 @@ private fun ChurchDetailsSheet(
     loadStreetView: suspend (PlaceDto, Boolean) -> StreetViewPreview,
     onNavigate: () -> Unit,
 ) {
+    // Null while closed; open with the previewed panorama or, without a preview, a lookup by location.
+    var streetView by remember(place.id) { mutableStateOf<StreetViewRequest?>(null) }
+    streetView?.let { request -> StreetViewScreen(place, request.preview, onClose = { streetView = null }) }
     val openCustomTab = rememberOpenCustomTab()
     var details by remember(place.id) { mutableStateOf<PlaceReportsDto?>(null) }
     var failed by remember(place.id) { mutableStateOf(false) }
@@ -545,7 +548,9 @@ private fun ChurchDetailsSheet(
             }
         }
 
-        item(key = "street-view") { StreetViewPreviewCard(place = place, loadPreview = loadStreetView) }
+        item(key = "street-view") {
+            StreetViewPreviewCard(place = place, loadPreview = loadStreetView, onOpen = { streetView = StreetViewRequest(it) })
+        }
 
         item { HorizontalDivider() }
         item { Text(stringResource(R.string.church_relations), style = MaterialTheme.typography.titleMedium) }
@@ -746,5 +751,7 @@ private fun openGoogleMapsNavigation(context: Context, place: PlaceDto) {
         context.startActivity(Intent(Intent.ACTION_VIEW, fallback))
     }
 }
+
+private data class StreetViewRequest(val preview: StreetViewPreview.Available?)
 
 private enum class MapOverlayState { LOADING, ERROR, CONTENT }

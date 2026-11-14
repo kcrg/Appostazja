@@ -63,6 +63,8 @@ private const val PreviewAspectRatio = 16f / 10f
 fun StreetViewPreviewCard(
     place: PlaceDto,
     loadPreview: suspend (place: PlaceDto, userRetry: Boolean) -> StreetViewPreview,
+    /** Opens the in-app panorama; null when there is no preview and the panorama is looked up by location. */
+    onOpen: (StreetViewPreview.Available?) -> Unit,
     modifier: Modifier = Modifier,
 ) {
     val context = LocalContext.current
@@ -94,7 +96,18 @@ fun StreetViewPreviewCard(
             null -> LoadingPreview()
             is StreetViewPreview.Available -> AvailablePreview(
                 preview = state,
-                onOpen = { openStreetView(context, place, state) },
+                onOpen = { onOpen(state) },
+            )
+            StreetViewPreview.PreviewDenied -> MessagePreview(
+                icon = Tabler.drawable.tabler_ic_panorama_horizontal_outline,
+                title = stringResource(R.string.street_view_label),
+                body = stringResource(R.string.street_view_explore_body),
+                compact = true,
+                actions = {
+                    FilledTonalButton(onClick = { onOpen(null) }) {
+                        Text(stringResource(R.string.street_view_open))
+                    }
+                },
             )
             StreetViewPreview.NotAvailable -> MessagePreview(
                 icon = Tabler.drawable.tabler_ic_map_pin_off_outline,
@@ -113,7 +126,7 @@ fun StreetViewPreviewCard(
                         Text(stringResource(R.string.action_retry))
                     }
                     // Opening Google Maps is free for us, so it stays usable while our quota is exhausted.
-                    FilledTonalButton(onClick = { openStreetView(context, place, preview = null) }) {
+                    FilledTonalButton(onClick = { openStreetViewInGoogleMaps(context, place) }) {
                         Text(stringResource(R.string.street_view_open_in_maps))
                     }
                 }
@@ -214,7 +227,7 @@ private fun AvailablePreview(preview: StreetViewPreview.Available, onOpen: () ->
                     verticalAlignment = Alignment.CenterVertically,
                 ) {
                     Icon(
-                        painter = painterResource(Tabler.drawable.tabler_ic_external_link_outline),
+                        painter = painterResource(Tabler.drawable.tabler_ic_arrows_maximize_outline),
                         contentDescription = null,
                         modifier = Modifier.size(18.dp),
                     )
@@ -288,19 +301,15 @@ private fun MessagePreview(
     }
 }
 
-/** Opens the interactive panorama in Google Maps; that costs nothing against our API quota. */
-private fun openStreetView(context: Context, place: PlaceDto, preview: StreetViewPreview.Available?) {
+/**
+ * Last resort once the free quota is used up: Street View in Google Maps costs nothing against it. Otherwise
+ * the panorama opens in the app ([StreetViewScreen]).
+ */
+private fun openStreetViewInGoogleMaps(context: Context, place: PlaceDto) {
     val uri = Uri.parse("https://www.google.com/maps/@").buildUpon()
         .appendQueryParameter("api", "1")
         .appendQueryParameter("map_action", "pano")
-        .apply {
-            if (preview != null) {
-                appendQueryParameter("pano", preview.panoId)
-                appendQueryParameter("heading", preview.heading.toString())
-            } else {
-                appendQueryParameter("viewpoint", "${place.latitude},${place.longitude}")
-            }
-        }
+        .appendQueryParameter("viewpoint", "${place.latitude},${place.longitude}")
         .build()
     try {
         context.startActivity(Intent(Intent.ACTION_VIEW, uri))

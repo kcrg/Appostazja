@@ -37,6 +37,12 @@ sealed interface StreetViewPreview {
         val date: String?,
     ) : StreetViewPreview
 
+    /**
+     * The Static API refused the preview (billing or API not enabled), but the interactive panorama uses the
+     * Maps SDK and still works, so the app offers it without a thumbnail.
+     */
+    data object PreviewDenied : StreetViewPreview
+
     /** No outdoor panorama close enough to the parish. */
     data object NotAvailable : StreetViewPreview
 
@@ -123,10 +129,10 @@ class StreetViewRepository(
             "OK" -> Unit
             "ZERO_RESULTS", "NOT_FOUND" -> return StreetViewPreview.NotAvailable
             "OVER_QUERY_LIMIT" -> return StreetViewPreview.QuotaExceeded
-            // Key, billing or API configuration problem: nothing the user can fix, so hide the preview.
+            // Billing or API configuration problem on the Static API; the in-app panorama does not depend on it.
             "REQUEST_DENIED" -> {
                 Log.w(TAG, "Street View request denied: ${metadata.errorMessage}")
-                return StreetViewPreview.Disabled
+                return StreetViewPreview.PreviewDenied
             }
             else -> {
                 Log.w(TAG, "Street View metadata status ${metadata.status}: ${metadata.errorMessage}")

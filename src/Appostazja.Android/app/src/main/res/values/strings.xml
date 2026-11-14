@@ -83,6 +83,9 @@
     <string name="street_view_label">Street View</string>
     <string name="street_view_loading">Wczytuję widok z ulicy…</string>
     <string name="street_view_open">Otwórz</string>
+    <string name="street_view_explore_body">Zobacz okolicę parafii z poziomu ulicy.</string>
+    <string name="street_view_close">Zamknij Street View</string>
+    <string name="street_view_photo_date">Zdjęcie: %1$s</string>
     <string name="street_view_open_in_maps">Otwórz w Mapach</string>
     <string name="street_view_image_description">Widok Street View okolicy parafii</string>
     <string name="street_view_unavailable_title">Brak widoku z ulicy</string>
