@@ -53,8 +53,8 @@ enum class FabMorphRole { Fab, Screen }
  * curve; closing (the back arrow, a picked result, or the back gesture seeked with the finger) shrinks the screen
  * back the same way, and the button then settles with a slight spring bounce (M3 Expressive).
  *
- * Corners follow the container's size rather than time: the FAB's 16 dp at button size, straightening to square
- * at full width. The button itself takes the same [fabMorphShape], so its own corners never stick out of the
+ * Corners follow the container's size rather than time: square at full width, rounded like a card (28 dp) as soon
+ * as it starts to shrink, the FAB's 16 dp at button size. The button itself takes the same [fabMorphShape], so its own corners never stick out of the
  * container. The container stays opaque throughout, with the screen drawn above the button.
  */
 @OptIn(ExperimentalSharedTransitionApi::class)
@@ -119,7 +119,7 @@ private fun landingBounce(scope: AnimatedVisibilityScope): Modifier {
     }
 }
 
-/** The shape of a morphing FAB and its container: 16 dp corners at button size, square at full width. */
+/** The shape of a morphing FAB and its container, see [fabMorphCornerRadius]. */
 @Composable
 fun fabMorphShape(): Shape {
     val windowWidth = LocalWindowInfo.current.containerSize.width.toFloat()
@@ -127,15 +127,25 @@ fun fabMorphShape(): Shape {
 }
 
 /**
- * Corner radius from the width: [FAB_CORNER_RADIUS] up to the FAB's width, then shrinking linearly to zero at
- * the window width. Below button size (the landing bounce) it keeps the button's radius, never more than half
- * the shorter side.
+ * Corner radius from the width. A screen that has only just started to shrink (a slow back gesture) already
+ * reads as a card: its corners reach [CARD_CORNER_RADIUS], the predictive back radius, within the first
+ * [CARD_ROUNDING_SPAN] of the way, then ease to the button's [FAB_CORNER_RADIUS] as it nears button size. At
+ * full width it is square, below button size (the landing dip) it keeps the button's radius, and it is never
+ * more than half the shorter side.
  */
 internal fun fabMorphCornerRadius(width: Float, height: Float, windowWidth: Float, density: Density): Float {
     val fab = with(density) { FAB_SIZE.toPx() }
-    val maxRadius = with(density) { FAB_CORNER_RADIUS.toPx() }
+    val fabRadius = with(density) { FAB_CORNER_RADIUS.toPx() }
+    val cardRadius = with(density) { CARD_CORNER_RADIUS.toPx() }
+    // 0 at button width, 1 at window width.
     val growth = if (windowWidth > fab) ((width - fab) / (windowWidth - fab)).coerceIn(0f, 1f) else 1f
-    return (maxRadius * (1f - growth)).coerceAtMost(minOf(width, height) / 2f)
+    val shrunk = 1f - growth
+    val radius = if (shrunk < CARD_ROUNDING_SPAN) {
+        cardRadius * shrunk / CARD_ROUNDING_SPAN
+    } else {
+        fabRadius + (cardRadius - fabRadius) * growth / (1f - CARD_ROUNDING_SPAN)
+    }
+    return radius.coerceAtMost(minOf(width, height) / 2f)
 }
 
 private class FabMorphShape(private val windowWidth: Float) : Shape {
@@ -162,3 +172,5 @@ private const val FAB_FADE_OUT = 100
 private val Emphasized = CubicBezierEasing(0.2f, 0f, 0f, 1f)
 private val FAB_SIZE = 56.dp
 private val FAB_CORNER_RADIUS = 16.dp
+private val CARD_CORNER_RADIUS = NavMotion.BackCornerRadius
+private const val CARD_ROUNDING_SPAN = 0.1f

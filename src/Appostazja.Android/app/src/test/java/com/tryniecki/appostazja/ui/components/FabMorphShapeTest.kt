@@ -16,9 +16,17 @@ class FabMorphShapeTest {
     }
 
     @Test
-    fun `corners straighten in proportion to how far the container has grown`() {
-        // Half way from button width to window width.
-        assertEquals(8f, fabMorphCornerRadius(228f, 500f, window, density), 0.001f)
+    fun `a screen that has just started to shrink is already rounded like a card`() {
+        // 5 % of the way from window width (400) to button width (56): half of the 28 card radius.
+        assertEquals(14f, fabMorphCornerRadius(382.8f, 800f, window, density), 0.01f)
+        // 10 % of the way: the full card radius.
+        assertEquals(28f, fabMorphCornerRadius(365.6f, 800f, window, density), 0.01f)
+    }
+
+    @Test
+    fun `the card radius eases to the button radius as the container nears button size`() {
+        // Half way: 16 + 12 * 0.5 / 0.9.
+        assertEquals(22.667f, fabMorphCornerRadius(228f, 500f, window, density), 0.01f)
     }
 
     @Test
