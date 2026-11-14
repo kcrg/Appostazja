@@ -16,6 +16,23 @@ class MapProjectionTest {
     }
 
     @Test
+    fun `with a top content padding the camera target sits in the middle of the padded area`() {
+        // A status bar padding of 100 px moves the map center 50 px down, as GoogleMap.setPadding does.
+        val padded = MapProjection(
+            52.0, 21.0, zoom = 10f, bearingDegrees = 0f, viewWidthPx = 1000f, viewHeightPx = 2000f, density = 1f,
+            paddingPx = MapPaddingPx(left = 0f, top = 100f, right = 0f, bottom = 0f),
+        )
+
+        val (x, y) = padded.toScreen(52.0, 21.0)
+        val (_, yNearby) = padded.toScreen(52.1, 21.0)
+        val (_, yNearbyUnpadded) = projection().toScreen(52.1, 21.0)
+
+        assertEquals(500f, x, 0.01f)
+        assertEquals(1050f, y, 0.01f)
+        assertEquals(50f, yNearby - yNearbyUnpadded, 0.01f)
+    }
+
+    @Test
     fun `one degree of longitude spans the expected pixels and north is up`() {
         val world = 256.0 * 1024 // zoom 10, density 1
         val (east, _) = projection().toScreen(52.0, 22.0)

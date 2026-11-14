@@ -7,7 +7,7 @@ import kotlin.math.pow
 import kotlin.math.sin
 
 /**
- * Web Mercator projection matching Google Maps (256 dp world at zoom 0, camera target at the view center,
+ * Web Mercator projection matching Google Maps (256 dp world at zoom 0, camera target at the center of the view minus the map content padding,
  * bearing clockwise from north, no tilt). Lets the transition overlay place sprites without calling
  * `GoogleMap.projection`, which is a synchronous call into the map renderer.
  */
@@ -19,6 +19,8 @@ internal class MapProjection(
     private val viewWidthPx: Float,
     private val viewHeightPx: Float,
     density: Float,
+    /** GoogleMap contentPadding in px; the map centers its camera target inside the padded area. */
+    private val paddingPx: MapPaddingPx = MapPaddingPx.None,
 ) {
     private val worldPx = 256.0 * density * 2.0.pow(zoom.toDouble())
     private val targetX = mercatorX(targetLongitude)
@@ -35,7 +37,9 @@ internal class MapProjection(
         val dy = mercatorY(latitude) - targetY
         val x = dx * cosBearing + dy * sinBearing
         val y = -dx * sinBearing + dy * cosBearing
-        return (viewWidthPx / 2 + x).toFloat() to (viewHeightPx / 2 + y).toFloat()
+        val centerX = paddingPx.left + (viewWidthPx - paddingPx.left - paddingPx.right) / 2
+        val centerY = paddingPx.top + (viewHeightPx - paddingPx.top - paddingPx.bottom) / 2
+        return (centerX + x).toFloat() to (centerY + y).toFloat()
     }
 
     private fun mercatorX(longitude: Double) = (longitude + 180.0) / 360.0 * worldPx
@@ -43,5 +47,11 @@ internal class MapProjection(
     private fun mercatorY(latitude: Double): Double {
         val sinLat = sin(latitude.coerceIn(-85.05112878, 85.05112878) * PI / 180.0)
         return (0.5 - ln((1 + sinLat) / (1 - sinLat)) / (4 * PI)) * worldPx
+    }
+}
+
+internal data class MapPaddingPx(val left: Float, val top: Float, val right: Float, val bottom: Float) {
+    companion object {
+        val None = MapPaddingPx(0f, 0f, 0f, 0f)
     }
 }

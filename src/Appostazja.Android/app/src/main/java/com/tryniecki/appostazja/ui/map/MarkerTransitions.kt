@@ -4,6 +4,8 @@ import android.view.animation.OvershootInterpolator
 import android.view.animation.PathInterpolator
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.PaddingValues
+import androidx.compose.ui.platform.LocalLayoutDirection
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
@@ -190,6 +192,8 @@ private val overshoot = OvershootInterpolator(1.6f)
 internal fun MarkerTransitionOverlay(
     transitions: MarkerTransitions,
     cameraState: CameraPositionState,
+    /** Must be the same contentPadding the GoogleMap uses, or sprites land off their markers. */
+    mapPadding: PaddingValues,
     modifier: Modifier = Modifier,
 ) {
     LaunchedEffect(transitions.running) {
@@ -199,6 +203,7 @@ internal fun MarkerTransitionOverlay(
         snapshotFlow { cameraState.isMoving }.collect { moving -> if (moving) transitions.landAll() }
     }
 
+    val layoutDirection = LocalLayoutDirection.current
     Canvas(modifier.fillMaxSize()) {
         val now = transitions.frameNanos
         if (!transitions.running) return@Canvas
@@ -207,6 +212,12 @@ internal fun MarkerTransitionOverlay(
         val projection = MapProjection(
             camera.target.latitude, camera.target.longitude, camera.zoom, camera.bearing,
             size.width, size.height, density,
+            MapPaddingPx(
+                mapPadding.calculateLeftPadding(layoutDirection).toPx(),
+                mapPadding.calculateTopPadding().toPx(),
+                mapPadding.calculateRightPadding(layoutDirection).toPx(),
+                mapPadding.calculateBottomPadding().toPx(),
+            ),
         )
         // Exits on top: pins fly out from under the cluster they leave.
         transitions.forEachSprite { if (it.kind != MarkerTransitions.Kind.Exit) drawSprite(it, now, projection) }

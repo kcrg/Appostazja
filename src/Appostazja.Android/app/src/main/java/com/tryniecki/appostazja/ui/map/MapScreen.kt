@@ -185,11 +185,13 @@ private fun MapScreen(
     BoxWithConstraints(Modifier.fillMaxSize()) {
         // The diagonal covers map rotation; the extra half preloads neighbours so short pans reveal no gaps.
         val clusterViewport = ceil(hypot(maxWidth.value, maxHeight.value) * 1.5f).toInt()
+        // Keeps the compass and Google logo clear of the status bar; the overlay must project with it too.
+        val mapPadding = WindowInsets.statusBars.asPaddingValues()
         GoogleMap(
             modifier = Modifier.fillMaxSize(),
             cameraPositionState = cameraState,
             mapColorScheme = mapColors,
-            contentPadding = WindowInsets.statusBars.asPaddingValues(),
+            contentPadding = mapPadding,
             uiSettings = MapUiSettings(
                 compassEnabled = true,
                 zoomControlsEnabled = false,
@@ -217,7 +219,7 @@ private fun MapScreen(
                 },
             )
         }
-        MarkerTransitionOverlay(markerTransitions, cameraState)
+        MarkerTransitionOverlay(markerTransitions, cameraState, mapPadding)
 
         // Only the status card itself takes space: a full-size AnimatedContent would hand its minimum size to
         // the Surface (propagateMinConstraints) and stretch the card over the whole map.
