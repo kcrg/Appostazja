@@ -47,7 +47,7 @@ android {
             buildConfigField("String", "APPOSTAZJA_API_BASE_URL", "\"$apiBaseUrl\"")
         }
         release {
-            val apiBaseUrl = configuredApiBaseUrl ?: "https://appostazja-api.invalid"
+            val apiBaseUrl = configuredApiBaseUrl ?: "https://api.appostazja.tryniecki.eu"
             buildConfigField("String", "APPOSTAZJA_API_BASE_URL", "\"$apiBaseUrl\"")
             optimization {
                 enable = true
