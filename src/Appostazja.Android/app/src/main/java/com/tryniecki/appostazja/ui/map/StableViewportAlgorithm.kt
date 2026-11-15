@@ -21,7 +21,9 @@ internal class StableViewportAlgorithm<T : ClusterItem>(
     private var viewWidthDp: Int,
     private var viewHeightDp: Int,
 ) : AbstractAlgorithm<T>(), ScreenBasedAlgorithm<T> {
-    private val clustering = PreCachingAlgorithmDecorator(NonHierarchicalDistanceBasedAlgorithm<T>())
+    private val clustering = PreCachingAlgorithmDecorator(
+        NonHierarchicalDistanceBasedAlgorithm<T>().apply { maxDistanceBetweenClusteredItems = CLUSTER_DISTANCE_DP },
+    )
 
     @Volatile
     private var center = LatLng(0.0, 0.0)
@@ -62,3 +64,6 @@ internal class StableViewportAlgorithm<T : ClusterItem>(
             clustering.maxDistanceBetweenClusteredItems = value
         }
 }
+
+/** How close, in dp on screen, pins have to be to join a cluster. The library's 100 dp left too many pins at once. */
+private const val CLUSTER_DISTANCE_DP = 140
