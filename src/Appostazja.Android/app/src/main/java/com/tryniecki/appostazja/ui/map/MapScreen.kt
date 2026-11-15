@@ -229,7 +229,7 @@ private fun MapScreen(
     BoxWithConstraints(Modifier.fillMaxSize()) {
         // The diagonal covers map rotation; the extra half preloads neighbours so short pans reveal no gaps.
         val clusterViewport = ceil(hypot(maxWidth.value, maxHeight.value) * 1.5f).toInt()
-        // Keeps the compass and Google logo clear of the status bar; the overlay must project with it too.
+        // Keeps the Google logo clear of the status bar; the overlay must project with it too.
         val mapPadding = WindowInsets.statusBars.asPaddingValues()
         GoogleMap(
             modifier = Modifier.fillMaxSize(),
@@ -237,7 +237,10 @@ private fun MapScreen(
             mapColorScheme = mapColors,
             contentPadding = mapPadding,
             uiSettings = MapUiSettings(
-                compassEnabled = true,
+                // No built-in map controls: the map is moved with gestures only.
+                compassEnabled = false,
+                indoorLevelPickerEnabled = false,
+                myLocationButtonEnabled = false,
                 zoomControlsEnabled = false,
                 mapToolbarEnabled = false,
                 tiltGesturesEnabled = false,
