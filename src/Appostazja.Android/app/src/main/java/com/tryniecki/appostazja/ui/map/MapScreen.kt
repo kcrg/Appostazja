@@ -25,6 +25,7 @@ import androidx.compose.ui.semantics.contentDescription
 import com.tryniecki.appostazja.ui.formatApiDate
 import com.tryniecki.appostazja.ui.formatRating
 import com.tryniecki.appostazja.ui.declaration.ParishField
+import androidx.compose.foundation.layout.statusBarsPadding
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.foundation.layout.Arrangement
@@ -121,6 +122,7 @@ import com.tryniecki.appostazja.data.StreetViewPreview
 import com.tryniecki.appostazja.data.StreetViewRepository
 import com.tryniecki.appostazja.ui.components.ExpressiveLoadingIndicator
 import com.tryniecki.appostazja.ui.components.SheetMotion
+import com.tryniecki.appostazja.ui.components.SheetContentInsets
 import com.tryniecki.appostazja.ui.theme.RatingBad
 import com.tryniecki.appostazja.ui.theme.RatingGood
 import com.tryniecki.appostazja.ui.theme.RatingNeutral
@@ -296,7 +298,11 @@ private fun MapScreen(
 
     // Sheets slide in with a tween: any spring overshoots visibly on a tall sheet.
     if (nearbyPlaces.isNotEmpty()) SheetMotion {
-        ModalBottomSheet(onDismissRequest = { nearbyPlaces = emptyList() }) {
+        ModalBottomSheet(
+            onDismissRequest = { nearbyPlaces = emptyList() },
+            modifier = Modifier.statusBarsPadding(),
+            contentWindowInsets = { SheetContentInsets },
+        ) {
             LazyColumn(contentPadding = PaddingValues(bottom = 16.dp)) {
                 item(key = "title", contentType = "title") {
                     Text(
@@ -330,6 +336,8 @@ private fun MapScreen(
         SheetMotion {
             ModalBottomSheet(
                 onDismissRequest = { selectedPlace = null },
+                modifier = Modifier.statusBarsPadding(),
+                contentWindowInsets = { SheetContentInsets },
                 sheetState = sheetState,
             ) {
                 ChurchDetailsSheet(

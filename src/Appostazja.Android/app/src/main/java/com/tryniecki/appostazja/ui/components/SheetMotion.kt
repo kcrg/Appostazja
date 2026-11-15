@@ -6,6 +6,10 @@ import androidx.compose.animation.core.FiniteAnimationSpec
 import androidx.compose.animation.core.TwoWayConverter
 import androidx.compose.animation.core.VectorizedFiniteAnimationSpec
 import androidx.compose.animation.core.tween
+import androidx.compose.foundation.layout.WindowInsets
+import androidx.compose.foundation.layout.WindowInsetsSides
+import androidx.compose.foundation.layout.only
+import androidx.compose.foundation.layout.safeDrawing
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.MotionScheme
 import androidx.compose.runtime.Composable
@@ -72,3 +76,12 @@ internal class SkipWhenSettled<T>(private val spec: FiniteAnimationSpec<T>) : Fi
 internal fun isSettled(initialValue: Any?, targetValue: Any?): Boolean =
     if (initialValue is Float && targetValue is Float) abs(initialValue - targetValue) < 0.5f
     else initialValue == targetValue
+
+/**
+ * Insets for the content of a sheet that can grow to the full screen height; such a sheet also takes
+ * `Modifier.statusBarsPadding()` so it stops below the status bar. The default content insets include the
+ * top inset minus how far the sheet is from the top, so dragging a full-height sheet changed its height
+ * with every pixel, the sheet re-measured, its position jumped and the whole sheet jittered up and down.
+ */
+internal val SheetContentInsets: WindowInsets
+    @Composable get() = WindowInsets.safeDrawing.only(WindowInsetsSides.Bottom)
