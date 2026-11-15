@@ -1,5 +1,10 @@
 package com.tryniecki.appostazja.ui.declaration
 
+import androidx.compose.material3.IconButton
+import androidx.compose.ui.text.input.KeyboardType
+import androidx.compose.runtime.saveable.rememberSaveable
+import androidx.compose.ui.focus.focusRequester
+import androidx.compose.ui.focus.FocusRequester
 import androidx.compose.material3.FilterChip
 import androidx.compose.material3.Checkbox
 import androidx.compose.foundation.selection.toggleable
@@ -98,6 +103,7 @@ fun DeclarationRoute(
     onOpenPreview: (declarationId: String) -> Unit,
     onOpenHistory: () -> Unit,
     parishHandoff: ParishHandoff,
+    onPickParish: (ParishField) -> Unit,
 ) {
     val viewModel: DeclarationViewModel = viewModel(factory = DeclarationViewModel.factory(draftStore, parishHandoff))
     val state by viewModel.uiState.collectAsStateWithLifecycle()
@@ -150,18 +156,26 @@ fun DeclarationRoute(
         onDispose { viewModel.flushDraft() }
     }
 
+    val actions = remember(viewModel) {
+        DeclarationFormActions(
+            onFullNameChange = viewModel::updateFullName,
+            onHomeAddressChange = viewModel::updateHomeAddress,
+            onBaptismDateChange = viewModel::updateBaptismDate,
+            onBaptismDateUnknownChange = viewModel::updateBaptismDateUnknown,
+            onBaptismYearChange = viewModel::updateBaptismYear,
+            onBaptismParishChange = viewModel::updateBaptismParish,
+            onResidenceParishChange = viewModel::updateResidenceParish,
+            onResidenceSameAsBaptismChange = viewModel::updateResidenceSameAsBaptism,
+            onMotivationPreset = viewModel::applyMotivationPreset,
+            onMotivationChange = viewModel::updateMotivation,
+            onPickParish = onPickParish,
+        )
+    }
     DeclarationScreen(
         state = state,
         isGenerating = isGenerating,
         snackbarHostState = snackbarHostState,
-        onFullNameChange = viewModel::updateFullName,
-        onHomeAddressChange = viewModel::updateHomeAddress,
-        onBaptismDateChange = viewModel::updateBaptismDate,
-        onBaptismParishChange = viewModel::updateBaptismParish,
-        onResidenceParishChange = viewModel::updateResidenceParish,
-        onResidenceSameAsBaptismChange = viewModel::updateResidenceSameAsBaptism,
-        onMotivationPreset = viewModel::applyMotivationPreset,
-        onMotivationChange = viewModel::updateMotivation,
+        actions = actions,
         onClear = viewModel::clear,
         // Test builds only: three taps on "Twoje dane" fill the form with sample data.
         onFillSample = if (BuildConfig.BUILD_TYPE != "release") viewModel::fillSample else null,
@@ -170,20 +184,29 @@ fun DeclarationRoute(
     )
 }
 
+/** Everything the fields of the form report back. */
+internal class DeclarationFormActions(
+    val onFullNameChange: (String) -> Unit,
+    val onHomeAddressChange: (String) -> Unit,
+    val onBaptismDateChange: (LocalDate) -> Unit,
+    val onBaptismDateUnknownChange: (Boolean) -> Unit,
+    val onBaptismYearChange: (String) -> Unit,
+    val onBaptismParishChange: (String) -> Unit,
+    val onResidenceParishChange: (String) -> Unit,
+    val onResidenceSameAsBaptismChange: (Boolean) -> Unit,
+    val onMotivationPreset: (String, Collection<String>) -> Unit,
+    val onMotivationChange: (String) -> Unit,
+    /** Opens the church search; the church picked there fills this field. */
+    val onPickParish: (ParishField) -> Unit,
+)
+
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 private fun DeclarationScreen(
     state: DeclarationUiState,
     isGenerating: Boolean,
     snackbarHostState: SnackbarHostState,
-    onFullNameChange: (String) -> Unit,
-    onHomeAddressChange: (String) -> Unit,
-    onBaptismDateChange: (LocalDate) -> Unit,
-    onBaptismParishChange: (String) -> Unit,
-    onResidenceParishChange: (String) -> Unit,
-    onResidenceSameAsBaptismChange: (Boolean) -> Unit,
-    onMotivationPreset: (String, Collection<String>) -> Unit,
-    onMotivationChange: (String) -> Unit,
+    actions: DeclarationFormActions,
     onClear: () -> Unit,
     onFillSample: (() -> Unit)?,
     onGenerate: () -> Unit,
@@ -191,6 +214,9 @@ private fun DeclarationScreen(
 ) {
     val motion = MaterialTheme.motionScheme
     val scrollBehavior = TopAppBarDefaults.pinnedScrollBehavior()
+    // After a tap on "Generuj PDF" with something missing, the missing fields are marked until filled in.
+    var showMissing by rememberSaveable { mutableStateOf(false) }
+    val focusRequesters = remember { FormField.entries.associateWith { FocusRequester() } }
     Scaffold(
         modifier = Modifier.nestedScroll(scrollBehavior.nestedScrollConnection),
         topBar = {
@@ -198,7 +224,13 @@ private fun DeclarationScreen(
                 title = { Text(stringResource(R.string.declaration_title)) },
                 scrollBehavior = scrollBehavior,
                 actions = {
-                    TextButton(onClick = onClear, enabled = state.isLoaded && !isGenerating) {
+                    TextButton(
+                        onClick = {
+                            showMissing = false
+                            onClear()
+                        },
+                        enabled = state.isLoaded && !isGenerating,
+                    ) {
                         Text(stringResource(R.string.declaration_clear))
                     }
                 },
@@ -219,9 +251,19 @@ private fun DeclarationScreen(
         },
         bottomBar = {
             Surface(color = MaterialTheme.colorScheme.surfaceContainer) {
+                // Stays enabled with fields missing: a tap shows what is left instead of doing nothing.
                 Button(
-                    onClick = onGenerate,
-                    enabled = state.canGenerate && !isGenerating,
+                    onClick = {
+                        val missing = state.missingFields().firstOrNull()
+                        if (missing == null) {
+                            onGenerate()
+                        } else {
+                            showMissing = true
+                            // Focusing a field scrolls it into view (and opens the keyboard for text).
+                            runCatching { focusRequesters.getValue(missing).requestFocus() }
+                        }
+                    },
+                    enabled = state.isLoaded && !isGenerating,
                     modifier = Modifier
                         .fillMaxWidth()
                         .padding(horizontal = 20.dp, vertical = 12.dp),
@@ -260,14 +302,9 @@ private fun DeclarationScreen(
             } else {
                 DeclarationForm(
                     state = state,
-                    onFullNameChange = onFullNameChange,
-                    onHomeAddressChange = onHomeAddressChange,
-                    onBaptismDateChange = onBaptismDateChange,
-                    onBaptismParishChange = onBaptismParishChange,
-                    onResidenceParishChange = onResidenceParishChange,
-                    onResidenceSameAsBaptismChange = onResidenceSameAsBaptismChange,
-                    onMotivationPreset = onMotivationPreset,
-                    onMotivationChange = onMotivationChange,
+                    actions = actions,
+                    missing = if (showMissing) state.missingFields().toSet() else emptySet(),
+                    focusRequesters = focusRequesters,
                     onFillSample = onFillSample,
                 )
             }
@@ -279,18 +316,18 @@ private fun DeclarationScreen(
 @Composable
 private fun DeclarationForm(
     state: DeclarationUiState,
-    onFullNameChange: (String) -> Unit,
-    onHomeAddressChange: (String) -> Unit,
-    onBaptismDateChange: (LocalDate) -> Unit,
-    onBaptismParishChange: (String) -> Unit,
-    onResidenceParishChange: (String) -> Unit,
-    onResidenceSameAsBaptismChange: (Boolean) -> Unit,
-    onMotivationPreset: (String, Collection<String>) -> Unit,
-    onMotivationChange: (String) -> Unit,
+    actions: DeclarationFormActions,
+    missing: Set<FormField>,
+    focusRequesters: Map<FormField, FocusRequester>,
     onFillSample: (() -> Unit)?,
 ) {
     var showDatePicker by remember { mutableStateOf(false) }
     val scrollState = rememberScrollState()
+    val required = stringResource(R.string.declaration_field_required)
+    fun Modifier.focusFor(field: FormField) = focusRequester(focusRequesters.getValue(field))
+    // A missing field says why under it.
+    fun errorText(field: FormField, message: String = required): (@Composable () -> Unit)? =
+        if (field in missing) ({ Text(message) }) else null
 
     Column(
         modifier = Modifier
@@ -307,10 +344,12 @@ private fun DeclarationForm(
         ) {
             OutlinedTextField(
                 value = state.fullName,
-                onValueChange = onFullNameChange,
+                onValueChange = actions.onFullNameChange,
                 label = { Text(stringResource(R.string.declaration_full_name)) },
-                modifier = Modifier.fillMaxWidth(),
+                modifier = Modifier.fillMaxWidth().focusFor(FormField.FULL_NAME),
                 singleLine = true,
+                isError = FormField.FULL_NAME in missing,
+                supportingText = errorText(FormField.FULL_NAME),
                 keyboardOptions = KeyboardOptions(
                     capitalization = KeyboardCapitalization.Words,
                     imeAction = ImeAction.Next,
@@ -318,9 +357,11 @@ private fun DeclarationForm(
             )
             OutlinedTextField(
                 value = state.homeAddress,
-                onValueChange = onHomeAddressChange,
+                onValueChange = actions.onHomeAddressChange,
                 label = { Text(stringResource(R.string.declaration_home_address)) },
-                modifier = Modifier.fillMaxWidth(),
+                modifier = Modifier.fillMaxWidth().focusFor(FormField.HOME_ADDRESS),
+                isError = FormField.HOME_ADDRESS in missing,
+                supportingText = errorText(FormField.HOME_ADDRESS),
                 keyboardOptions = KeyboardOptions(
                     capitalization = KeyboardCapitalization.Sentences,
                     imeAction = ImeAction.Next,
@@ -329,75 +370,80 @@ private fun DeclarationForm(
         }
 
         FormSection(title = stringResource(R.string.declaration_baptism_data)) {
-            Box {
+            if (state.baptismDateUnknown) {
+                val invalidYear = stringResource(R.string.declaration_baptism_year_invalid)
+                val yearSupport = stringResource(R.string.declaration_baptism_year_support)
                 OutlinedTextField(
-                    value = state.baptismDate.format(DateTimeFormatter.ofPattern("dd.MM.yyyy")),
-                    onValueChange = {},
-                    readOnly = true,
-                    label = { Text(stringResource(R.string.declaration_baptism_date)) },
-                    trailingIcon = {
-                        Icon(
-                            painter = painterResource(com.composables.icons.tabler.outline.R.drawable.tabler_ic_calendar_outline),
-                            contentDescription = null,
-                        )
-                    },
-                    modifier = Modifier.fillMaxWidth(),
+                    value = state.baptismYear,
+                    onValueChange = actions.onBaptismYearChange,
+                    label = { Text(stringResource(R.string.declaration_baptism_year)) },
+                    modifier = Modifier.fillMaxWidth().focusFor(FormField.BAPTISM_DATE),
                     singleLine = true,
+                    isError = FormField.BAPTISM_DATE in missing,
+                    supportingText = errorText(FormField.BAPTISM_DATE, invalidYear) ?: { Text(yearSupport) },
+                    keyboardOptions = KeyboardOptions(
+                        keyboardType = KeyboardType.Number,
+                        imeAction = ImeAction.Next,
+                    ),
                 )
-                // A read-only field swallows taps; this layer opens the picker from anywhere on it.
-                Box(
-                    Modifier
-                        .matchParentSize()
-                        .clip(MaterialTheme.shapes.extraSmall)
-                        .clickable(role = Role.Button) { showDatePicker = true },
-                )
+            } else {
+                Box {
+                    OutlinedTextField(
+                        value = state.baptismDate.format(DateTimeFormatter.ofPattern("dd.MM.yyyy")),
+                        onValueChange = {},
+                        readOnly = true,
+                        label = { Text(stringResource(R.string.declaration_baptism_date)) },
+                        trailingIcon = {
+                            Icon(
+                                painter = painterResource(com.composables.icons.tabler.outline.R.drawable.tabler_ic_calendar_outline),
+                                contentDescription = null,
+                            )
+                        },
+                        modifier = Modifier.fillMaxWidth().focusFor(FormField.BAPTISM_DATE),
+                        singleLine = true,
+                    )
+                    // A read-only field swallows taps; this layer opens the picker from anywhere on it.
+                    Box(
+                        Modifier
+                            .matchParentSize()
+                            .clip(MaterialTheme.shapes.extraSmall)
+                            .clickable(role = Role.Button) { showDatePicker = true },
+                    )
+                }
             }
-            OutlinedTextField(
+            CheckboxRow(
+                checked = state.baptismDateUnknown,
+                onCheckedChange = actions.onBaptismDateUnknownChange,
+                title = stringResource(R.string.declaration_baptism_date_unknown),
+                support = stringResource(R.string.declaration_baptism_date_unknown_support),
+            )
+            ParishTextField(
                 value = state.baptismParish,
-                onValueChange = onBaptismParishChange,
-                label = { Text(stringResource(R.string.declaration_baptism_parish)) },
-                modifier = Modifier.fillMaxWidth(),
-                keyboardOptions = KeyboardOptions(
-                    capitalization = KeyboardCapitalization.Sentences,
-                    imeAction = ImeAction.Next,
-                ),
+                onValueChange = actions.onBaptismParishChange,
+                label = stringResource(R.string.declaration_baptism_parish),
+                onPick = { actions.onPickParish(ParishField.BAPTISM) },
+                modifier = Modifier.focusFor(FormField.BAPTISM_PARISH),
+                isError = FormField.BAPTISM_PARISH in missing,
+                supportingText = errorText(FormField.BAPTISM_PARISH),
             )
         }
 
         FormSection(title = stringResource(R.string.declaration_submission)) {
-            Row(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .clip(MaterialTheme.shapes.medium)
-                    .toggleable(
-                        value = state.residenceSameAsBaptism,
-                        role = Role.Checkbox,
-                        onValueChange = onResidenceSameAsBaptismChange,
-                    )
-                    .padding(vertical = 4.dp),
-                verticalAlignment = Alignment.CenterVertically,
-            ) {
-                // The row handles the click, so the box itself is only an indicator.
-                Checkbox(checked = state.residenceSameAsBaptism, onCheckedChange = null, modifier = Modifier.padding(12.dp))
-                Column(Modifier.weight(1f)) {
-                    Text(stringResource(R.string.declaration_same_parish), style = MaterialTheme.typography.bodyLarge)
-                    Text(
-                        stringResource(R.string.declaration_same_parish_support),
-                        style = MaterialTheme.typography.bodySmall,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant,
-                    )
-                }
-            }
+            CheckboxRow(
+                checked = state.residenceSameAsBaptism,
+                onCheckedChange = actions.onResidenceSameAsBaptismChange,
+                title = stringResource(R.string.declaration_same_parish),
+                support = stringResource(R.string.declaration_same_parish_support),
+            )
             AnimatedVisibility(visible = !state.residenceSameAsBaptism) {
-                OutlinedTextField(
+                ParishTextField(
                     value = state.residenceParish,
-                    onValueChange = onResidenceParishChange,
-                    label = { Text(stringResource(R.string.declaration_residence_parish)) },
-                    modifier = Modifier.fillMaxWidth(),
-                    keyboardOptions = KeyboardOptions(
-                        capitalization = KeyboardCapitalization.Sentences,
-                        imeAction = ImeAction.Next,
-                    ),
+                    onValueChange = actions.onResidenceParishChange,
+                    label = stringResource(R.string.declaration_residence_parish),
+                    onPick = { actions.onPickParish(ParishField.RESIDENCE) },
+                    modifier = Modifier.focusFor(FormField.RESIDENCE_PARISH),
+                    isError = FormField.RESIDENCE_PARISH in missing,
+                    supportingText = errorText(FormField.RESIDENCE_PARISH),
                 )
             }
         }
@@ -409,19 +455,21 @@ private fun DeclarationForm(
                 presets.forEach { (label, text) ->
                     FilterChip(
                         selected = state.motivation.trim() == text,
-                        onClick = { onMotivationPreset(text, presetTexts) },
+                        onClick = { actions.onMotivationPreset(text, presetTexts) },
                         label = { Text(label) },
                     )
                 }
             }
+            val motivationSupport = stringResource(R.string.declaration_motivation_support)
             OutlinedTextField(
                 value = state.motivation,
-                onValueChange = onMotivationChange,
+                onValueChange = actions.onMotivationChange,
                 label = { Text(stringResource(R.string.declaration_motivation_hint)) },
-                modifier = Modifier.fillMaxWidth(),
+                modifier = Modifier.fillMaxWidth().focusFor(FormField.MOTIVATION),
                 minLines = 5,
                 maxLines = 10,
-                supportingText = { Text(stringResource(R.string.declaration_motivation_support)) },
+                isError = FormField.MOTIVATION in missing,
+                supportingText = errorText(FormField.MOTIVATION) ?: { Text(motivationSupport) },
                 keyboardOptions = KeyboardOptions(capitalization = KeyboardCapitalization.Sentences),
             )
         }
@@ -456,12 +504,65 @@ private fun DeclarationForm(
             onDismiss = { showDatePicker = false },
             onSelected = {
                 showDatePicker = false
-                onBaptismDateChange(it)
+                actions.onBaptismDateChange(it)
             },
         )
     }
 }
 
+
+/** A checkbox with a title and a line of explanation; the whole row toggles it. */
+@Composable
+private fun CheckboxRow(checked: Boolean, onCheckedChange: (Boolean) -> Unit, title: String, support: String) {
+    Row(
+        modifier = Modifier
+            .fillMaxWidth()
+            .clip(MaterialTheme.shapes.medium)
+            .toggleable(value = checked, role = Role.Checkbox, onValueChange = onCheckedChange)
+            .padding(vertical = 4.dp),
+        verticalAlignment = Alignment.CenterVertically,
+    ) {
+        // The row handles the click, so the box itself is only an indicator.
+        Checkbox(checked = checked, onCheckedChange = null, modifier = Modifier.padding(12.dp))
+        Column(Modifier.weight(1f)) {
+            Text(title, style = MaterialTheme.typography.bodyLarge)
+            Text(support, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+        }
+    }
+}
+
+/** A parish field with a button that finds the church in the search instead of typing it. */
+@Composable
+private fun ParishTextField(
+    value: String,
+    onValueChange: (String) -> Unit,
+    label: String,
+    onPick: () -> Unit,
+    modifier: Modifier,
+    isError: Boolean,
+    supportingText: (@Composable () -> Unit)?,
+) {
+    OutlinedTextField(
+        value = value,
+        onValueChange = onValueChange,
+        label = { Text(label) },
+        modifier = modifier.fillMaxWidth(),
+        isError = isError,
+        supportingText = supportingText,
+        trailingIcon = {
+            IconButton(onClick = onPick) {
+                Icon(
+                    painter = painterResource(com.composables.icons.tabler.outline.R.drawable.tabler_ic_search_outline),
+                    contentDescription = stringResource(R.string.declaration_pick_parish),
+                )
+            }
+        },
+        keyboardOptions = KeyboardOptions(
+            capitalization = KeyboardCapitalization.Sentences,
+            imeAction = ImeAction.Next,
+        ),
+    )
+}
 @Composable
 private fun FormSection(title: String, titleModifier: Modifier = Modifier, content: @Composable () -> Unit) {
     Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {

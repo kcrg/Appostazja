@@ -4,7 +4,6 @@ import android.graphics.Paint
 import android.graphics.Typeface
 import android.graphics.pdf.PdfDocument
 import java.io.OutputStream
-import java.time.format.DateTimeFormatter
 import kotlin.math.max
 
 class ApostasyPdfGenerator {
@@ -13,7 +12,7 @@ class ApostasyPdfGenerator {
         val document = PdfDocument()
         try {
             val writer = Writer(document)
-            writer.right(declaration.declarationDate.format(DATE), 10f)
+            writer.right(letterDateLine(declaration.homeAddress, declaration.declarationDate), 10f)
             writer.space(10f)
             writer.left(declaration.fullName, 11f)
             writer.left(declaration.homeAddress, 11f)
@@ -36,7 +35,7 @@ class ApostasyPdfGenerator {
                 11f,
             )
             writer.space(12f)
-            writer.left("Data chrztu: ${declaration.baptismDate.format(DATE)}", 11f)
+            writer.left(baptismDateLine(declaration.baptismDate), 11f)
             writer.paragraph("Parafia chrztu: ${declaration.baptismParish}", 11f)
             writer.space(14f)
 
@@ -67,7 +66,11 @@ class ApostasyPdfGenerator {
         require(value.baptismParish.isNotBlank() && value.baptismParish.length <= 300)
         require(value.residenceParish.isNotBlank() && value.residenceParish.length <= 300)
         require(value.motivation.isNotBlank() && value.motivation.length <= 2_000)
-        require(!value.baptismDate.isAfter(value.declarationDate))
+        when (val date = value.baptismDate) {
+            is BaptismDate.Exact -> require(!date.date.isAfter(value.declarationDate))
+            is BaptismDate.Year -> require(date.year in MIN_BAPTISM_YEAR..value.declarationDate.year)
+            BaptismDate.Unknown -> Unit
+        }
     }
 
     private class Writer(private val document: PdfDocument) {
@@ -200,6 +203,6 @@ class ApostasyPdfGenerator {
         const val PAGE_HEIGHT = 842f
         const val MARGIN = 57f
         const val CONTENT_BOTTOM = PAGE_HEIGHT - 72f
-        val DATE: DateTimeFormatter = DateTimeFormatter.ofPattern("dd.MM.yyyy")
+
     }
 }

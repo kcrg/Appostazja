@@ -4,6 +4,8 @@ import androidx.lifecycle.ViewModel
 import androidx.lifecycle.ViewModelProvider
 import androidx.lifecycle.viewModelScope
 import com.tryniecki.appostazja.pdf.ApostasyDeclaration
+import com.tryniecki.appostazja.pdf.BaptismDate
+import com.tryniecki.appostazja.pdf.MIN_BAPTISM_YEAR
 import com.tryniecki.appostazja.security.DeclarationDraft
 import com.tryniecki.appostazja.security.SecureDraftStore
 import java.time.LocalDate
@@ -29,20 +31,41 @@ internal data class DeclarationUiState(
     val residenceSameAsBaptism: Boolean = false,
     val homeAddress: String = "",
     val motivation: String = "",
+    /** The exact date is not known; [baptismYear] may still give the year. */
+    val baptismDateUnknown: Boolean = false,
+    /** Digits typed for the year when the exact date is not known; blank leaves the date to be written by hand. */
+    val baptismYear: String = "",
 ) {
     /** Where the declaration is submitted. */
     val effectiveResidenceParish: String
         get() = if (residenceSameAsBaptism) baptismParish else residenceParish
 
+    /** Null while the year typed for an unknown date is not a plausible year. */
+    fun baptismDateOrNull(today: LocalDate = LocalDate.now()): BaptismDate? = when {
+        !baptismDateUnknown -> BaptismDate.Exact(baptismDate).takeIf { !baptismDate.isAfter(today) }
+        baptismYear.isBlank() -> BaptismDate.Unknown
+        else -> baptismYear.toIntOrNull()
+            ?.takeIf { it in MIN_BAPTISM_YEAR..today.year }
+            ?.let(BaptismDate::Year)
+    }
+
+    /** What still has to be filled in, in the order of the form. */
+    fun missingFields(today: LocalDate = LocalDate.now()): List<FormField> = buildList {
+        if (fullName.isBlank()) add(FormField.FULL_NAME)
+        if (homeAddress.isBlank()) add(FormField.HOME_ADDRESS)
+        if (baptismDateOrNull(today) == null) add(FormField.BAPTISM_DATE)
+        if (baptismParish.isBlank()) add(FormField.BAPTISM_PARISH)
+        // With the same parish ticked the residence field is hidden; the baptism parish above covers it.
+        if (!residenceSameAsBaptism && residenceParish.isBlank()) add(FormField.RESIDENCE_PARISH)
+        if (motivation.isBlank()) add(FormField.MOTIVATION)
+    }
+
     val canGenerate: Boolean
-        get() = isLoaded &&
-            fullName.isNotBlank() &&
-            homeAddress.isNotBlank() &&
-            baptismParish.isNotBlank() &&
-            effectiveResidenceParish.isNotBlank() &&
-            motivation.isNotBlank() &&
-            !baptismDate.isAfter(LocalDate.now())
+        get() = isLoaded && missingFields().isEmpty()
 }
+
+/** The fields of the form that can be left unfilled, in the order they appear. */
+internal enum class FormField { FULL_NAME, HOME_ADDRESS, BAPTISM_DATE, BAPTISM_PARISH, RESIDENCE_PARISH, MOTIVATION }
 
 /** A church from the map written into the form, with what the field held before so it can be undone. */
 internal data class AppliedParish(val pick: ParishPick, val previous: String)
@@ -91,6 +114,8 @@ internal class DeclarationViewModel(
     fun updateBaptismDate(value: LocalDate) = mutate {
         copy(baptismDate = value.coerceAtMost(LocalDate.now()))
     }
+    fun updateBaptismDateUnknown(value: Boolean) = mutate { copy(baptismDateUnknown = value) }
+    fun updateBaptismYear(value: String) = mutate { copy(baptismYear = value.filter(Char::isDigit).take(4)) }
     fun updateBaptismParish(value: String) = mutate { copy(baptismParish = value.take(300)) }
     fun updateResidenceParish(value: String) = mutate { copy(residenceParish = value.take(300)) }
     fun updateResidenceSameAsBaptism(value: Boolean) = mutate { copy(residenceSameAsBaptism = value) }
@@ -131,7 +156,7 @@ internal class DeclarationViewModel(
         return ApostasyDeclaration(
             fullName = state.fullName.trim(),
             homeAddress = state.homeAddress.trim(),
-            baptismDate = state.baptismDate,
+            baptismDate = state.baptismDateOrNull() ?: return null,
             baptismParish = state.baptismParish.trim(),
             residenceParish = state.effectiveResidenceParish.trim(),
             motivation = state.motivation.trim(),
@@ -186,6 +211,8 @@ private fun DeclarationDraft.toUiState() = DeclarationUiState(
     residenceSameAsBaptism = residenceSameAsBaptism,
     homeAddress = homeAddress,
     motivation = motivation,
+    baptismDateUnknown = baptismDateUnknown,
+    baptismYear = baptismYear,
 )
 
 private fun DeclarationUiState.toDraft() = DeclarationDraft(
@@ -196,4 +223,6 @@ private fun DeclarationUiState.toDraft() = DeclarationDraft(
     residenceSameAsBaptism = residenceSameAsBaptism,
     homeAddress = homeAddress,
     motivation = motivation,
+    baptismDateUnknown = baptismDateUnknown,
+    baptismYear = baptismYear,
 )

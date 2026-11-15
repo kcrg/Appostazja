@@ -11,4 +11,6 @@ data class DeclarationDraft(
     val residenceSameAsBaptism: Boolean = false,
     val homeAddress: String = "",
     val motivation: String = "",
+    val baptismDateUnknown: Boolean = false,
+    val baptismYear: String = "",
 )

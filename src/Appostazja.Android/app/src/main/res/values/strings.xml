@@ -109,6 +109,13 @@
     <string name="declaration_motivation_hint">Krótko opisz swoją świadomą i dobrowolną decyzję</string>
     <string name="declaration_same_parish">Składam w parafii chrztu</string>
     <string name="declaration_same_parish_support">Zaznacz, gdy parafia chrztu jest też parafią Twojego miejsca zamieszkania.</string>
+    <string name="declaration_baptism_date_unknown">Nie znam dokładnej daty chrztu</string>
+    <string name="declaration_baptism_date_unknown_support">W piśmie zostanie miejsce na wpisanie daty odręcznie albo sam rok, jeśli go znasz.</string>
+    <string name="declaration_baptism_year">Rok chrztu (opcjonalnie)</string>
+    <string name="declaration_baptism_year_support">Puste pole zostawi w piśmie miejsce na odręczny wpis.</string>
+    <string name="declaration_baptism_year_invalid">Podaj rok, np. 1998</string>
+    <string name="declaration_field_required">Uzupełnij to pole</string>
+    <string name="declaration_pick_parish">Wyszukaj kościół</string>
     <string name="motivation_presets">Gotowe uzasadnienia</string>
     <string name="motivation_preset_no_faith_label">Brak wiary</string>
     <string name="motivation_preset_no_faith">Jestem osobą niewierzącą i nie chcę formalnie należeć do Kościoła katolickiego.</string>

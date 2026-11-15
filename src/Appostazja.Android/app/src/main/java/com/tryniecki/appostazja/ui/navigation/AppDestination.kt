@@ -13,6 +13,8 @@ sealed interface AppRoute {
     @Serializable data object Declaration : AppRoute
     @Serializable data object DeclarationHistory : AppRoute
     @Serializable data class DeclarationPreview(val declarationId: String) : AppRoute
+    /** The church search, opened from a parish field of the declaration; [field] is a [ParishField] name. */
+    @Serializable data class ParishSearch(val field: String) : AppRoute
     @Serializable data object More : AppRoute
     @Serializable data object News : AppRoute
     @Serializable data class NewsArticle(val articleId: String) : AppRoute

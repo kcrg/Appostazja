@@ -50,6 +50,7 @@ import androidx.navigation.compose.currentBackStackEntryAsState
 import androidx.navigation.compose.rememberNavController
 import com.tryniecki.appostazja.AppContainer
 import com.tryniecki.appostazja.ui.declaration.DeclarationRoute
+import com.tryniecki.appostazja.ui.declaration.ParishField
 import com.tryniecki.appostazja.ui.declaration.DeclarationHistoryRoute
 import com.tryniecki.appostazja.ui.declaration.DeclarationPreviewRoute
 import androidx.navigation.toRoute
@@ -256,6 +257,7 @@ fun AppostazjaApp(
                     onOpenPreview = { navController.navigate(AppRoute.DeclarationPreview(it)) },
                     onOpenHistory = { navController.navigate(AppRoute.DeclarationHistory) },
                     parishHandoff = container.parishHandoff,
+                    onPickParish = { navController.navigate(AppRoute.ParishSearch(it.name)) },
                 )
             }
             screen<AppRoute.DeclarationHistory> {
@@ -270,6 +272,22 @@ fun AppostazjaApp(
                     archive = container.declarationArchive,
                     declarationId = entry.toRoute<AppRoute.DeclarationPreview>().declarationId,
                     onBack = navController::popBackStack,
+                )
+            }
+            screen<AppRoute.ParishSearch> { entry ->
+                val field = ParishField.valueOf(entry.toRoute<AppRoute.ParishSearch>().field)
+                // Its own search state, kept apart from the map search.
+                val parishSearch: PlaceSearchViewModel = viewModel(
+                    factory = PlaceSearchViewModel.factory(container.mapRepository, container.recentSearches),
+                )
+                PlaceSearchRoute(
+                    viewModel = parishSearch,
+                    onPlaceClick = { place ->
+                        // The form takes the church from the handoff and offers an undo, as for a pick on the map.
+                        container.parishHandoff.send(place, field)
+                        navController.popBackStack()
+                    },
+                    onClose = navController::popBackStack,
                 )
             }
             screen<AppRoute.More> {
@@ -329,7 +347,8 @@ private fun NavDestination?.topLevelDestination(): AppDestination = when {
     this?.hasRoute<AppRoute.Stats>() == true -> AppDestination.STATS
     this?.hasRoute<AppRoute.Declaration>() == true ||
         this?.hasRoute<AppRoute.DeclarationHistory>() == true ||
-        this?.hasRoute<AppRoute.DeclarationPreview>() == true -> AppDestination.DECLARATION
+        this?.hasRoute<AppRoute.DeclarationPreview>() == true ||
+        this?.hasRoute<AppRoute.ParishSearch>() == true -> AppDestination.DECLARATION
     this?.hasRoute<AppRoute.More>() == true ||
         this?.hasRoute<AppRoute.News>() == true ||
         this?.hasRoute<AppRoute.NewsArticle>() == true -> AppDestination.MORE
