@@ -54,6 +54,7 @@ import androidx.pdf.compose.PdfViewer
 import androidx.pdf.compose.rememberPdfViewerState
 import com.tryniecki.appostazja.R
 import com.tryniecki.appostazja.pdf.ArchivedDeclaration
+import com.tryniecki.appostazja.pdf.DocumentKind
 import com.tryniecki.appostazja.pdf.DeclarationArchive
 import com.tryniecki.appostazja.ui.components.EmptyState
 import com.tryniecki.appostazja.ui.components.ExpressiveLoadingIndicator
@@ -82,7 +83,10 @@ fun DeclarationHistoryRoute(
         value = archive.list()
     }
     var pendingDelete by remember { mutableStateOf<ArchivedDeclaration?>(null) }
-    val fileName = stringResource(R.string.declaration_file_name)
+    val declarationFileName = stringResource(R.string.declaration_file_name)
+    val requestFileName = stringResource(R.string.request_file_name)
+    fun fileName(kind: DocumentKind) =
+        if (kind == DocumentKind.CERTIFICATE_REQUEST) requestFileName else declarationFileName
     val shareTitle = stringResource(R.string.declaration_share)
 
     val scrollBehavior = TopAppBarDefaults.pinnedScrollBehavior()
@@ -131,12 +135,13 @@ fun DeclarationHistoryRoute(
                                 tint = MaterialTheme.colorScheme.onSurfaceVariant,
                             )
                         },
+                        overlineContent = { Text(stringResource(declaration.kind.label)) },
                         supportingContent = { Text(stringResource(R.string.declaration_history_tap_to_preview)) },
                         trailingContent = {
                             androidx.compose.foundation.layout.Row {
                                 IconButton(onClick = {
                                     scope.launch {
-                                        shareDeclaration(context, archive.plainCopy(declaration.id, fileName), shareTitle)
+                                        shareDeclaration(context, archive.plainCopy(declaration.id, fileName(declaration.kind)), shareTitle)
                                     }
                                 }) {
                                     Icon(painterResource(Tabler.drawable.tabler_ic_share_outline), contentDescription = shareTitle)
@@ -203,7 +208,10 @@ fun DeclarationPreviewRoute(
     val scope = rememberCoroutineScope()
     val locale = LocalLocale.current.platformLocale
     val snackbarHostState = remember { SnackbarHostState() }
-    val fileName = stringResource(R.string.declaration_file_name)
+    val declarationFileName = stringResource(R.string.declaration_file_name)
+    val requestFileName = stringResource(R.string.request_file_name)
+    fun fileName(kind: DocumentKind?) =
+        if (kind == DocumentKind.CERTIFICATE_REQUEST) requestFileName else declarationFileName
     val shareTitle = stringResource(R.string.declaration_share)
     val savedMessage = stringResource(R.string.declaration_saved)
     val errorMessage = stringResource(R.string.declaration_save_error)
@@ -214,7 +222,7 @@ fun DeclarationPreviewRoute(
     var failed by remember { mutableStateOf(false) }
     val document by produceState<PdfDocument?>(initialValue = null, declarationId) {
         val opened = runCatching {
-            val copy = archive.plainCopy(declarationId, fileName)
+            val copy = archive.plainCopy(declarationId, fileName(archive.find(declarationId)?.kind))
             SandboxedPdfLoader(context, Dispatchers.IO).openDocument(Uri.fromFile(copy))
         }.onFailure { failed = true }.getOrNull()
         value = opened
@@ -237,20 +245,22 @@ fun DeclarationPreviewRoute(
     Scaffold(
         topBar = {
             TopAppBar(
-                title = { Text(stringResource(R.string.declaration_title)) },
+                title = { Text(stringResource(declaration?.kind?.label ?: R.string.declaration_title)) },
                 subtitle = {
                     declaration?.let { Text(stringResource(R.string.declaration_generated_at, formatGeneratedAt(it.createdAt, locale))) }
                 },
                 navigationIcon = { BackButton(onBack) },
                 actions = {
-                    IconButton(onClick = { saveCopy.launch(fileName) }) {
+                    IconButton(onClick = { saveCopy.launch(fileName(declaration?.kind)) }) {
                         Icon(
                             painterResource(Tabler.drawable.tabler_ic_download_outline),
                             contentDescription = stringResource(R.string.declaration_save_copy),
                         )
                     }
                     IconButton(onClick = {
-                        scope.launch { shareDeclaration(context, archive.plainCopy(declarationId, fileName), shareTitle) }
+                        scope.launch {
+                            shareDeclaration(context, archive.plainCopy(declarationId, fileName(declaration?.kind)), shareTitle)
+                        }
                     }) {
                         Icon(painterResource(Tabler.drawable.tabler_ic_share_outline), contentDescription = shareTitle)
                     }
@@ -307,3 +317,10 @@ private fun shareDeclaration(context: Context, file: java.io.File, title: String
 
 /** Shared between the form's FAB and the history screen it morphs into. */
 internal const val DECLARATION_HISTORY_MORPH_KEY = "declaration-history"
+
+/** How a document is named in the history and on its preview. */
+internal val DocumentKind.label: Int
+    get() = when (this) {
+        DocumentKind.DECLARATION -> R.string.document_kind_declaration
+        DocumentKind.CERTIFICATE_REQUEST -> R.string.document_kind_request
+    }

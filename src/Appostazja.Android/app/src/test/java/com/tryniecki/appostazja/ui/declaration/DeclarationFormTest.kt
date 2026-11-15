@@ -1,6 +1,8 @@
 package com.tryniecki.appostazja.ui.declaration
 
 import com.tryniecki.appostazja.pdf.BaptismDate
+import com.tryniecki.appostazja.pdf.CertificateDelivery
+import com.tryniecki.appostazja.security.DeclarationDraft
 import java.time.LocalDate
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
@@ -28,33 +30,81 @@ class DeclarationFormTest {
     }
 
     @Test
-    fun `with the same parish ticked the declaration goes to the parish of baptism`() {
-        val form = filled().copy(baptismParish = "Parafia św. Anny", residenceParish = "", residenceSameAsBaptism = true)
+    fun `living in the parish of baptism the declaration goes there and needs no certificate`() {
+        val form = filled().copy(residenceParish = "", livesInBaptismParish = true, hasBaptismCertificate = null)
 
         assertEquals("Parafia św. Anny", form.effectiveResidenceParish)
         assertTrue(form.canGenerate)
-        assertFalse(form.copy(residenceSameAsBaptism = false).canGenerate)
-        assertFalse(form.copy(baptismParish = " ").canGenerate)
+        assertFalse(form.needsBaptismCertificate)
+        // Living elsewhere the residence parish is asked for, and whether a certificate is at hand.
+        val elsewhere = form.copy(livesInBaptismParish = false)
+        assertEquals(listOf(FormField.SITUATION, FormField.RESIDENCE_PARISH), elsewhere.missingFields())
+        assertTrue(elsewhere.needsBaptismCertificate)
     }
 
     @Test
-    fun `unticking the same parish brings back what was typed for the residence`() {
-        val form = filled().copy(residenceParish = "Parafia NMP", residenceSameAsBaptism = true)
+    fun `the situation must be answered before anything else`() {
+        val form = filled().copy(livesInBaptismParish = null)
 
-        assertEquals("Parafia NMP", form.copy(residenceSameAsBaptism = false).effectiveResidenceParish)
+        assertEquals(listOf(FormField.SITUATION), form.missingFields())
+        assertEquals(DeclarationStep.SITUATION, form.initialStep())
+        // Not having a certificate yet is an answer; the declaration can still be prepared.
+        assertTrue(filled().copy(hasBaptismCertificate = false).canGenerate)
     }
 
     @Test
-    fun `missing fields are listed in the order of the form`() {
+    fun `a restored draft opens on the first step with something missing, or on the last one`() {
+        assertEquals(DeclarationStep.MOTIVATION, filled().initialStep())
+        assertEquals(DeclarationStep.PERSONAL, filled().copy(homeAddress = "", motivation = "").initialStep())
+        assertEquals(DeclarationStep.BAPTISM, filled().copy(residenceParish = "").initialStep())
+    }
+
+    @Test
+    fun `missing fields are listed in the order of the wizard`() {
         val form = filled().copy(fullName = " ", baptismParish = "", motivation = "")
 
         assertEquals(listOf(FormField.FULL_NAME, FormField.BAPTISM_PARISH, FormField.MOTIVATION), form.missingFields())
-        // A hidden residence field is not asked for.
+        // Living in the parish of baptism, the residence field is not asked for.
         assertEquals(
             listOf(FormField.FULL_NAME, FormField.BAPTISM_PARISH, FormField.MOTIVATION),
-            form.copy(residenceParish = "", residenceSameAsBaptism = true).missingFields(),
+            form.copy(residenceParish = "", livesInBaptismParish = true).missingFields(),
         )
         assertEquals(FormField.RESIDENCE_PARISH, filled().copy(residenceParish = "").missingFields().single())
+    }
+
+    @Test
+    fun `the certificate request needs only who asks, the parish and a sensible date`() {
+        val request = DeclarationUiState(
+            isLoaded = true,
+            fullName = "Jan Kowalski",
+            homeAddress = "ul. Długa 1, 00-950 Warszawa",
+            baptismParish = "Parafia św. Anny",
+            baptismDateUnknown = true,
+        )
+
+        assertEquals(emptyList<FormField>(), request.requestMissingFields())
+        assertEquals(
+            listOf(FormField.BAPTISM_PARISH, FormField.HOME_ADDRESS, FormField.BAPTISM_DATE),
+            request.copy(baptismParish = "", homeAddress = "", baptismYear = "19").requestMissingFields(),
+        )
+    }
+
+    @Test
+    fun `a draft keeps every answer and an old draft with the same parish ticked keeps it`() {
+        val form = filled().copy(
+            hasBaptismCertificate = false,
+            requestAnnotatedCertificate = true,
+            birthDate = LocalDate.of(1995, 4, 2),
+            fatherName = "Adam",
+            certificateDelivery = CertificateDelivery.IN_PERSON,
+            step = DeclarationStep.BAPTISM,
+        )
+
+        // The step is where the user was, not part of the draft.
+        assertEquals(form.copy(step = DeclarationStep.SITUATION), form.toDraft().toUiState())
+        val old = DeclarationDraft(residenceSameAsBaptism = true)
+        assertEquals(true, old.toUiState().livesInBaptismParish)
+        assertNull(DeclarationDraft().toUiState().livesInBaptismParish)
     }
 
     @Test
@@ -82,6 +132,8 @@ class DeclarationFormTest {
         homeAddress = "ul. Przykładowa 1, Warszawa",
         baptismParish = "Parafia św. Anny",
         residenceParish = "Parafia NMP",
+        livesInBaptismParish = false,
+        hasBaptismCertificate = true,
         motivation = presets[0],
     )
 }

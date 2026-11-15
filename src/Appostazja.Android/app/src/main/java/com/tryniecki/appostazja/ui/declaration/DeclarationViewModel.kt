@@ -4,8 +4,8 @@ import androidx.lifecycle.ViewModel
 import androidx.lifecycle.ViewModelProvider
 import androidx.lifecycle.viewModelScope
 import com.tryniecki.appostazja.pdf.ApostasyDeclaration
-import com.tryniecki.appostazja.pdf.BaptismDate
-import com.tryniecki.appostazja.pdf.MIN_BAPTISM_YEAR
+import com.tryniecki.appostazja.pdf.BaptismCertificateRequest
+import com.tryniecki.appostazja.pdf.CertificateDelivery
 import com.tryniecki.appostazja.security.DeclarationDraft
 import com.tryniecki.appostazja.security.SecureDraftStore
 import java.time.LocalDate
@@ -18,62 +18,13 @@ import kotlinx.coroutines.flow.filterNotNull
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
 
-/** Where the baptism date starts before anything is picked: a plausible date, so the picker opens near it. */
-internal val DEFAULT_BAPTISM_DATE: LocalDate = LocalDate.of(2000, 1, 20)
-
-internal data class DeclarationUiState(
-    val isLoaded: Boolean = false,
-    val fullName: String = "",
-    val baptismDate: LocalDate = DEFAULT_BAPTISM_DATE,
-    val baptismParish: String = "",
-    val residenceParish: String = "",
-    /** The declaration is submitted to the parish of baptism; the residence field is not used then. */
-    val residenceSameAsBaptism: Boolean = false,
-    val homeAddress: String = "",
-    val motivation: String = "",
-    /** The exact date is not known; [baptismYear] may still give the year. */
-    val baptismDateUnknown: Boolean = false,
-    /** Digits typed for the year when the exact date is not known; blank leaves the date to be written by hand. */
-    val baptismYear: String = "",
-) {
-    /** Where the declaration is submitted. */
-    val effectiveResidenceParish: String
-        get() = if (residenceSameAsBaptism) baptismParish else residenceParish
-
-    /** Null while the year typed for an unknown date is not a plausible year. */
-    fun baptismDateOrNull(today: LocalDate = LocalDate.now()): BaptismDate? = when {
-        !baptismDateUnknown -> BaptismDate.Exact(baptismDate).takeIf { !baptismDate.isAfter(today) }
-        baptismYear.isBlank() -> BaptismDate.Unknown
-        else -> baptismYear.toIntOrNull()
-            ?.takeIf { it in MIN_BAPTISM_YEAR..today.year }
-            ?.let(BaptismDate::Year)
-    }
-
-    /** What still has to be filled in, in the order of the form. */
-    fun missingFields(today: LocalDate = LocalDate.now()): List<FormField> = buildList {
-        if (fullName.isBlank()) add(FormField.FULL_NAME)
-        if (homeAddress.isBlank()) add(FormField.HOME_ADDRESS)
-        if (baptismDateOrNull(today) == null) add(FormField.BAPTISM_DATE)
-        if (baptismParish.isBlank()) add(FormField.BAPTISM_PARISH)
-        // With the same parish ticked the residence field is hidden; the baptism parish above covers it.
-        if (!residenceSameAsBaptism && residenceParish.isBlank()) add(FormField.RESIDENCE_PARISH)
-        if (motivation.isBlank()) add(FormField.MOTIVATION)
-    }
-
-    val canGenerate: Boolean
-        get() = isLoaded && missingFields().isEmpty()
-}
-
-/** The fields of the form that can be left unfilled, in the order they appear. */
-internal enum class FormField { FULL_NAME, HOME_ADDRESS, BAPTISM_DATE, BAPTISM_PARISH, RESIDENCE_PARISH, MOTIVATION }
-
 /** A church from the map written into the form, with what the field held before so it can be undone. */
 internal data class AppliedParish(val pick: ParishPick, val previous: String)
 
 internal class DeclarationViewModel(
     private val store: SecureDraftStore,
     private val handoff: ParishHandoff,
-) : ViewModel() {
+) : ViewModel(), DeclarationFormActions {
     private val _uiState = MutableStateFlow(DeclarationUiState())
     val uiState: StateFlow<DeclarationUiState> = _uiState.asStateFlow()
     private val _appliedParish = MutableStateFlow<AppliedParish?>(null)
@@ -82,8 +33,8 @@ internal class DeclarationViewModel(
 
     init {
         viewModelScope.launch {
-            val restored = store.load()
-            _uiState.value = restored?.toUiState() ?: DeclarationUiState(isLoaded = true)
+            val restored = store.load()?.toUiState() ?: DeclarationUiState(isLoaded = true)
+            _uiState.value = restored.copy(step = restored.initialStep())
             // Only after the draft is restored, or the restored draft would overwrite the picked church.
             handoff.pending.filterNotNull().collect { pick ->
                 if (handoff.take(pick)) applyParish(pick)
@@ -109,31 +60,63 @@ internal class DeclarationViewModel(
         _appliedParish.compareAndSet(applied, null)
     }
 
-    fun updateFullName(value: String) = mutate { copy(fullName = value.take(200)) }
-    fun updateHomeAddress(value: String) = mutate { copy(homeAddress = value.take(300)) }
-    fun updateBaptismDate(value: LocalDate) = mutate {
-        copy(baptismDate = value.coerceAtMost(LocalDate.now()))
-    }
-    fun updateBaptismDateUnknown(value: Boolean) = mutate { copy(baptismDateUnknown = value) }
-    fun updateBaptismYear(value: String) = mutate { copy(baptismYear = value.filter(Char::isDigit).take(4)) }
-    fun updateBaptismParish(value: String) = mutate { copy(baptismParish = value.take(300)) }
-    fun updateResidenceParish(value: String) = mutate { copy(residenceParish = value.take(300)) }
-    fun updateResidenceSameAsBaptism(value: Boolean) = mutate { copy(residenceSameAsBaptism = value) }
-    fun updateMotivation(value: String) = mutate { copy(motivation = value.take(MOTIVATION_MAX_LENGTH)) }
-    /** [preset] is the chosen ready-made reason, [presets] all of them, as the screen shows them. */
-    fun applyMotivationPreset(preset: String, presets: Collection<String>) = mutate {
-        copy(motivation = withMotivationPreset(motivation, preset, presets).take(MOTIVATION_MAX_LENGTH))
+    // Moving through the wizard; not saved, as the draft restores to the right step by itself.
+    override fun goTo(step: DeclarationStep) = navigate { copy(step = step, flow = DocumentFlow.DECLARATION) }
+    override fun openCertificateRequest() = navigate { copy(flow = DocumentFlow.CERTIFICATE_REQUEST) }
+
+    /** One step back, or out of the certificate request; false when already at the start. */
+    fun back(): Boolean {
+        val state = _uiState.value
+        when {
+            state.flow == DocumentFlow.CERTIFICATE_REQUEST -> navigate { copy(flow = DocumentFlow.DECLARATION) }
+            state.step.ordinal > 0 -> navigate { copy(step = DeclarationStep.entries[step.ordinal - 1]) }
+            else -> return false
+        }
+        return true
     }
 
-    /** Sample data for testing the form and the PDF; offered only in test builds. */
+    override fun answerLivesInBaptismParish(value: Boolean) = mutate { copy(livesInBaptismParish = value) }
+    override fun answerHasBaptismCertificate(value: Boolean) = mutate { copy(hasBaptismCertificate = value) }
+    override fun updateFullName(value: String) = mutate { copy(fullName = value.take(200)) }
+    override fun updateHomeAddress(value: String) = mutate { copy(homeAddress = value.take(300)) }
+    override fun updateBaptismDate(value: LocalDate) = mutate {
+        copy(baptismDate = value.coerceAtMost(LocalDate.now()))
+    }
+    override fun updateBaptismDateUnknown(value: Boolean) = mutate { copy(baptismDateUnknown = value) }
+    override fun updateBaptismYear(value: String) = mutate { copy(baptismYear = value.filter(Char::isDigit).take(4)) }
+    override fun updateBaptismParish(value: String) = mutate { copy(baptismParish = value.take(PARISH_MAX_LENGTH)) }
+    override fun updateResidenceParish(value: String) = mutate { copy(residenceParish = value.take(PARISH_MAX_LENGTH)) }
+    override fun updateMotivation(value: String) = mutate { copy(motivation = value.take(MOTIVATION_MAX_LENGTH)) }
+    /** [preset] is the chosen ready-made reason, [presets] all of them, as the screen shows them. */
+    override fun applyMotivationPreset(preset: String, presets: Collection<String>) = mutate {
+        copy(motivation = withMotivationPreset(motivation, preset, presets).take(MOTIVATION_MAX_LENGTH))
+    }
+    override fun updateRequestAnnotatedCertificate(value: Boolean) = mutate { copy(requestAnnotatedCertificate = value) }
+    override fun updateBirthDate(value: LocalDate?) = mutate { copy(birthDate = value?.coerceAtMost(LocalDate.now())) }
+    override fun updateBirthPlace(value: String) = mutate { copy(birthPlace = value.take(SHORT_FIELD_MAX_LENGTH)) }
+    override fun updateFatherName(value: String) = mutate { copy(fatherName = value.take(SHORT_FIELD_MAX_LENGTH)) }
+    override fun updateMotherName(value: String) = mutate { copy(motherName = value.take(SHORT_FIELD_MAX_LENGTH)) }
+    override fun updateCertificateDelivery(value: CertificateDelivery) = mutate { copy(certificateDelivery = value) }
+    override fun updateContact(value: String) = mutate { copy(contact = value.take(SHORT_FIELD_MAX_LENGTH)) }
+
+    /** Sample data for testing the form and the PDF; offered only in test builds. Opens the last step. */
     fun fillSample() = mutate {
         copy(
+            livesInBaptismParish = false,
+            hasBaptismCertificate = true,
             fullName = "Jan Kowalski",
             homeAddress = "ul. Przykładowa 12/3, 00-001 Warszawa",
             baptismDate = LocalDate.of(1995, 5, 14),
+            baptismDateUnknown = false,
             baptismParish = "Parafia Rzymskokatolicka pw. św. Anny w Warszawie",
             residenceParish = "Parafia Rzymskokatolicka pw. Najświętszego Zbawiciela w Warszawie",
             motivation = "Nie identyfikuję się z Kościołem katolickim i nie podzielam jego nauczania.",
+            birthDate = LocalDate.of(1995, 4, 2),
+            birthPlace = "Warszawa",
+            fatherName = "Adam",
+            motherName = "Anna Nowak",
+            step = DeclarationStep.MOTIVATION,
+            flow = DocumentFlow.DECLARATION,
         )
     }
 
@@ -150,18 +133,42 @@ internal class DeclarationViewModel(
         viewModelScope.launch { runCatching { store.save(snapshot) } }
     }
 
-    fun buildDeclaration(): ApostasyDeclaration? {
+    fun buildDeclaration(today: LocalDate = LocalDate.now()): ApostasyDeclaration? {
         val state = _uiState.value
-        if (!state.canGenerate) return null
+        if (!state.isLoaded || state.missingFields(today).isNotEmpty()) return null
         return ApostasyDeclaration(
             fullName = state.fullName.trim(),
             homeAddress = state.homeAddress.trim(),
-            baptismDate = state.baptismDateOrNull() ?: return null,
+            baptismDate = state.baptismDateOrNull(today) ?: return null,
             baptismParish = state.baptismParish.trim(),
             residenceParish = state.effectiveResidenceParish.trim(),
             motivation = state.motivation.trim(),
-            declarationDate = LocalDate.now(),
+            declarationDate = today,
+            baptisedElsewhere = state.needsBaptismCertificate,
+            requestAnnotatedCertificate = state.requestAnnotatedCertificate,
         )
+    }
+
+    fun buildCertificateRequest(today: LocalDate = LocalDate.now()): BaptismCertificateRequest? {
+        val state = _uiState.value
+        if (!state.isLoaded || state.requestMissingFields(today).isNotEmpty()) return null
+        return BaptismCertificateRequest(
+            fullName = state.fullName.trim(),
+            homeAddress = state.homeAddress.trim(),
+            baptismParish = state.baptismParish.trim(),
+            baptismDate = state.baptismDateOrNull(today) ?: return null,
+            birthDate = state.birthDate,
+            birthPlace = state.birthPlace,
+            fatherName = state.fatherName,
+            motherName = state.motherName,
+            delivery = state.certificateDelivery,
+            contact = state.contact,
+            requestDate = today,
+        )
+    }
+
+    private fun navigate(transform: DeclarationUiState.() -> DeclarationUiState) {
+        if (_uiState.value.isLoaded) _uiState.update { it.transform() }
     }
 
     private fun mutate(transform: DeclarationUiState.() -> DeclarationUiState) {
@@ -180,6 +187,8 @@ internal class DeclarationViewModel(
     }
 
     companion object {
+        private const val SHORT_FIELD_MAX_LENGTH = 200
+
         fun factory(store: SecureDraftStore, handoff: ParishHandoff): ViewModelProvider.Factory =
             object : ViewModelProvider.Factory {
                 @Suppress("UNCHECKED_CAST")
@@ -197,10 +206,10 @@ private fun DeclarationUiState.parish(field: ParishField) = when (field) {
 private fun DeclarationUiState.withParish(field: ParishField, value: String) = when (field) {
     ParishField.BAPTISM -> copy(baptismParish = value.take(PARISH_MAX_LENGTH))
     // A church picked for the residence is a different one than the baptism parish.
-    ParishField.RESIDENCE -> copy(residenceParish = value.take(PARISH_MAX_LENGTH), residenceSameAsBaptism = false)
+    ParishField.RESIDENCE -> copy(residenceParish = value.take(PARISH_MAX_LENGTH), livesInBaptismParish = false)
 }
 
-private fun DeclarationDraft.toUiState() = DeclarationUiState(
+internal fun DeclarationDraft.toUiState() = DeclarationUiState(
     isLoaded = true,
     fullName = fullName,
     baptismDate = runCatching { LocalDate.ofEpochDay(baptismEpochDay) }
@@ -208,21 +217,40 @@ private fun DeclarationDraft.toUiState() = DeclarationUiState(
         .coerceAtMost(LocalDate.now()),
     baptismParish = baptismParish,
     residenceParish = residenceParish,
-    residenceSameAsBaptism = residenceSameAsBaptism,
+    // Drafts from before the wizard only knew the "same parish" checkbox.
+    livesInBaptismParish = livesInBaptismParish ?: true.takeIf { residenceSameAsBaptism },
+    hasBaptismCertificate = hasBaptismCertificate,
     homeAddress = homeAddress,
     motivation = motivation,
     baptismDateUnknown = baptismDateUnknown,
     baptismYear = baptismYear,
+    requestAnnotatedCertificate = requestAnnotatedCertificate,
+    birthDate = birthEpochDay?.let { runCatching { LocalDate.ofEpochDay(it) }.getOrNull() },
+    birthPlace = birthPlace,
+    fatherName = fatherName,
+    motherName = motherName,
+    certificateDelivery = runCatching { CertificateDelivery.valueOf(certificateDelivery) }
+        .getOrDefault(CertificateDelivery.POST),
+    contact = contact,
 )
 
-private fun DeclarationUiState.toDraft() = DeclarationDraft(
+internal fun DeclarationUiState.toDraft() = DeclarationDraft(
     fullName = fullName,
     baptismEpochDay = baptismDate.toEpochDay(),
     baptismParish = baptismParish,
     residenceParish = residenceParish,
-    residenceSameAsBaptism = residenceSameAsBaptism,
+    residenceSameAsBaptism = livesInBaptismParish == true,
+    livesInBaptismParish = livesInBaptismParish,
+    hasBaptismCertificate = hasBaptismCertificate,
     homeAddress = homeAddress,
     motivation = motivation,
     baptismDateUnknown = baptismDateUnknown,
     baptismYear = baptismYear,
+    requestAnnotatedCertificate = requestAnnotatedCertificate,
+    birthEpochDay = birthDate?.toEpochDay(),
+    birthPlace = birthPlace,
+    fatherName = fatherName,
+    motherName = motherName,
+    certificateDelivery = certificateDelivery.name,
+    contact = contact,
 )

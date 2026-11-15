@@ -131,8 +131,8 @@ class BaselineProfileGenerator {
     ) {
         startActivityAndWait()
         openTab("Deklaracja")
-        // Three quick taps on the first section title fill the form with sample data in test builds.
-        val section = checkNotNull(device.wait(Until.findObject(By.text("Twoje dane")), ScreenTimeoutMillis)) {
+        // Three quick taps on the step title fill the form with sample data in test builds and open the last step.
+        val section = checkNotNull(device.wait(Until.findObject(By.text("Twoja sytuacja")), ScreenTimeoutMillis)) {
             "Declaration form not found."
         }
         repeat(3) { section.click() }

@@ -1,99 +1,88 @@
 package com.tryniecki.appostazja.ui.declaration
 
-import androidx.compose.material3.IconButton
-import androidx.compose.ui.text.input.KeyboardType
-import androidx.compose.runtime.saveable.rememberSaveable
-import androidx.compose.ui.focus.focusRequester
-import androidx.compose.ui.focus.FocusRequester
-import androidx.compose.material3.FilterChip
-import androidx.compose.material3.Checkbox
-import androidx.compose.foundation.selection.toggleable
-import androidx.compose.foundation.layout.FlowRow
-import androidx.compose.animation.AnimatedVisibility
+import android.content.ActivityNotFoundException
+import android.content.ClipData
+import android.content.ClipboardManager
+import android.content.Context
+import android.content.Intent
+import android.widget.Toast
 import androidx.compose.animation.AnimatedContent
 import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
+import androidx.compose.animation.slideInHorizontally
+import androidx.compose.animation.slideOutHorizontally
 import androidx.compose.animation.togetherWith
-import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
-import androidx.compose.foundation.layout.Box
-import androidx.compose.ui.draw.clip
-import androidx.compose.ui.semantics.Role
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.consumeWindowInsets
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
-import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
-import androidx.compose.foundation.rememberScrollState
-import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.Button
-import androidx.compose.material3.DatePicker
-import androidx.compose.material3.DatePickerDialog
 import androidx.compose.material3.ExperimentalMaterial3Api
+import androidx.compose.material3.FloatingActionButton
 import androidx.compose.material3.Icon
+import androidx.compose.material3.IconButton
+import androidx.compose.material3.LinearProgressIndicator
 import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.OutlinedTextField
+import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.Scaffold
+import androidx.compose.material3.SnackbarDuration
 import androidx.compose.material3.SnackbarHost
 import androidx.compose.material3.SnackbarHostState
-import androidx.compose.material3.SnackbarDuration
 import androidx.compose.material3.SnackbarResult
-import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.material3.TopAppBar
 import androidx.compose.material3.TopAppBarDefaults
-import androidx.compose.ui.input.nestedscroll.nestedScroll
-import androidx.compose.foundation.layout.consumeWindowInsets
-import androidx.compose.foundation.layout.imePadding
-import androidx.compose.material3.rememberDatePickerState
 import androidx.compose.runtime.Composable
-import androidx.compose.runtime.mutableIntStateOf
-import androidx.compose.runtime.mutableLongStateOf
-import androidx.compose.foundation.gestures.detectTapGestures
-import androidx.compose.ui.input.pointer.pointerInput
-import androidx.compose.ui.hapticfeedback.HapticFeedbackType
-import androidx.compose.ui.platform.LocalHapticFeedback
-import com.tryniecki.appostazja.BuildConfig
 import androidx.compose.runtime.DisposableEffect
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
+import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
+import androidx.compose.runtime.withFrameNanos
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.focus.FocusRequester
+import androidx.compose.ui.input.nestedscroll.nestedScroll
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalResources
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.res.stringResource
-import androidx.compose.ui.text.input.ImeAction
-import androidx.compose.ui.text.input.KeyboardCapitalization
-import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.ui.unit.dp
+import androidx.core.net.toUri
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.viewmodel.compose.viewModel
+import androidx.navigationevent.NavigationEventInfo
+import androidx.navigationevent.compose.NavigationBackHandler
+import androidx.navigationevent.compose.rememberNavigationEventState
+import com.tryniecki.appostazja.BuildConfig
 import com.tryniecki.appostazja.R
-import com.tryniecki.appostazja.pdf.ApostasyDeclaration
 import com.tryniecki.appostazja.pdf.ApostasyPdfGenerator
+import com.tryniecki.appostazja.pdf.BaptismCertificateRequest
 import com.tryniecki.appostazja.pdf.DeclarationArchive
-import java.io.ByteArrayOutputStream
-import androidx.compose.material3.FloatingActionButton
+import com.tryniecki.appostazja.pdf.DocumentKind
+import com.tryniecki.appostazja.pdf.certificateRequestEmail
+import com.tryniecki.appostazja.pdf.certificateRequestText
 import com.tryniecki.appostazja.security.SecureDraftStore
 import com.tryniecki.appostazja.ui.components.ExpressiveLoadingIndicator
 import com.tryniecki.appostazja.ui.components.FabMorphRole
 import com.tryniecki.appostazja.ui.components.fabMorph
 import com.tryniecki.appostazja.ui.components.fabMorphShape
-import java.time.Instant
-import java.time.LocalDate
-import java.time.ZoneOffset
-import java.time.format.DateTimeFormatter
+import java.io.ByteArrayOutputStream
+import java.io.OutputStream
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
+import com.composables.icons.tabler.outline.R as Tabler
 
 @Composable
 fun DeclarationRoute(
@@ -108,11 +97,12 @@ fun DeclarationRoute(
     val viewModel: DeclarationViewModel = viewModel(factory = DeclarationViewModel.factory(draftStore, parishHandoff))
     val state by viewModel.uiState.collectAsStateWithLifecycle()
     val appliedParish by viewModel.appliedParish.collectAsStateWithLifecycle()
+    val context = LocalContext.current
     val resources = LocalResources.current
     val scope = rememberCoroutineScope()
     val snackbarHostState = remember { SnackbarHostState() }
 
-    // A church sent from the map: say which field it filled, with an undo in case it was the wrong one.
+    // A church sent from the map or the search: say which field it filled, with an undo.
     appliedParish?.let { applied ->
         LaunchedEffect(applied) {
             val message = resources.getString(
@@ -136,14 +126,12 @@ fun DeclarationRoute(
 
     val errorMessage = stringResource(R.string.declaration_save_error)
     // Generated PDFs go to the encrypted archive first and open in the in-app preview, which saves or shares them.
-    fun generate(declaration: ApostasyDeclaration) {
+    fun generate(kind: DocumentKind, write: (OutputStream) -> Unit) {
         scope.launch {
             isGenerating = true
             val result = runCatching {
-                val pdf = withContext(Dispatchers.IO) {
-                    ByteArrayOutputStream().also { pdfGenerator.generate(declaration, it) }.toByteArray()
-                }
-                archive.save(pdf)
+                val pdf = withContext(Dispatchers.IO) { ByteArrayOutputStream().also(write).toByteArray() }
+                archive.save(pdf, kind)
             }
             isGenerating = false
             result
@@ -156,49 +144,55 @@ fun DeclarationRoute(
         onDispose { viewModel.flushDraft() }
     }
 
-    val actions = remember(viewModel) {
-        DeclarationFormActions(
-            onFullNameChange = viewModel::updateFullName,
-            onHomeAddressChange = viewModel::updateHomeAddress,
-            onBaptismDateChange = viewModel::updateBaptismDate,
-            onBaptismDateUnknownChange = viewModel::updateBaptismDateUnknown,
-            onBaptismYearChange = viewModel::updateBaptismYear,
-            onBaptismParishChange = viewModel::updateBaptismParish,
-            onResidenceParishChange = viewModel::updateResidenceParish,
-            onResidenceSameAsBaptismChange = viewModel::updateResidenceSameAsBaptism,
-            onMotivationPreset = viewModel::applyMotivationPreset,
-            onMotivationChange = viewModel::updateMotivation,
-            onPickParish = onPickParish,
-        )
-    }
+    // Back walks the wizard before it leaves the screen.
+    NavigationBackHandler(
+        state = rememberNavigationEventState(NavigationEventInfo.None),
+        isBackEnabled = state.isLoaded &&
+            (state.flow == DocumentFlow.CERTIFICATE_REQUEST || state.step.ordinal > 0),
+        onBackCompleted = { viewModel.back() },
+    )
+
     DeclarationScreen(
         state = state,
         isGenerating = isGenerating,
         snackbarHostState = snackbarHostState,
-        actions = actions,
+        actions = viewModel,
+        onPickParish = onPickParish,
+        onBack = { viewModel.back() },
         onClear = viewModel::clear,
-        // Test builds only: three taps on "Twoje dane" fill the form with sample data.
+        // Test builds only: three taps on a step title fill the form with sample data.
         onFillSample = if (BuildConfig.BUILD_TYPE != "release") viewModel::fillSample else null,
-        onGenerate = { viewModel.buildDeclaration()?.let(::generate) },
+        onGenerateDeclaration = {
+            viewModel.buildDeclaration()?.let { declaration ->
+                generate(DocumentKind.DECLARATION) { pdfGenerator.generate(declaration, it) }
+            }
+        },
+        onGenerateRequest = {
+            viewModel.buildCertificateRequest()?.let { request ->
+                generate(DocumentKind.CERTIFICATE_REQUEST) { pdfGenerator.generate(request, it) }
+            }
+        },
+        onEmailRequest = { viewModel.buildCertificateRequest()?.let { emailRequest(context, it) } },
         onOpenHistory = onOpenHistory,
     )
 }
 
-/** Everything the fields of the form report back. */
-internal class DeclarationFormActions(
-    val onFullNameChange: (String) -> Unit,
-    val onHomeAddressChange: (String) -> Unit,
-    val onBaptismDateChange: (LocalDate) -> Unit,
-    val onBaptismDateUnknownChange: (Boolean) -> Unit,
-    val onBaptismYearChange: (String) -> Unit,
-    val onBaptismParishChange: (String) -> Unit,
-    val onResidenceParishChange: (String) -> Unit,
-    val onResidenceSameAsBaptismChange: (Boolean) -> Unit,
-    val onMotivationPreset: (String, Collection<String>) -> Unit,
-    val onMotivationChange: (String) -> Unit,
-    /** Opens the church search; the church picked there fills this field. */
-    val onPickParish: (ParishField) -> Unit,
-)
+/** Opens a mail app with the request written out; the parish address is the user's to fill in. */
+private fun emailRequest(context: Context, request: BaptismCertificateRequest) {
+    val text = certificateRequestText(request)
+    val body = certificateRequestEmail(text, request.fullName)
+    val intent = Intent(Intent.ACTION_SENDTO, "mailto:".toUri())
+        .putExtra(Intent.EXTRA_SUBJECT, text.subject)
+        .putExtra(Intent.EXTRA_TEXT, body)
+    try {
+        context.startActivity(intent)
+    } catch (_: ActivityNotFoundException) {
+        // No mail app: the text is still useful in a web mail or a contact form.
+        context.getSystemService(ClipboardManager::class.java)
+            ?.setPrimaryClip(ClipData.newPlainText(text.subject, body))
+        Toast.makeText(context, R.string.request_email_copied, Toast.LENGTH_LONG).show()
+    }
+}
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -207,26 +201,62 @@ private fun DeclarationScreen(
     isGenerating: Boolean,
     snackbarHostState: SnackbarHostState,
     actions: DeclarationFormActions,
+    onPickParish: (ParishField) -> Unit,
+    onBack: () -> Unit,
     onClear: () -> Unit,
     onFillSample: (() -> Unit)?,
-    onGenerate: () -> Unit,
+    onGenerateDeclaration: () -> Unit,
+    onGenerateRequest: () -> Unit,
+    onEmailRequest: () -> Unit,
     onOpenHistory: () -> Unit,
 ) {
     val motion = MaterialTheme.motionScheme
     val scrollBehavior = TopAppBarDefaults.pinnedScrollBehavior()
-    // After a tap on "Generuj PDF" with something missing, the missing fields are marked until filled in.
-    var showMissing by rememberSaveable { mutableStateOf(false) }
+    val inRequest = state.flow == DocumentFlow.CERTIFICATE_REQUEST
+    val page = if (inRequest) REQUEST_PAGE else state.step.name
+    // Missing fields are marked only on the page where the user tried to go on, until they are filled in.
+    var errorsOn by rememberSaveable { mutableStateOf<String?>(null) }
     val focusRequesters = remember { FormField.entries.associateWith { FocusRequester() } }
+    // Focus goes to a missing field once its page is on screen; it may have to be opened first.
+    var pendingFocus by remember { mutableStateOf<FormField?>(null) }
+    LaunchedEffect(pendingFocus, page) {
+        val field = pendingFocus ?: return@LaunchedEffect
+        withFrameNanos { }
+        runCatching { focusRequesters.getValue(field).requestFocus() }
+        pendingFocus = null
+    }
+    fun showMissing(field: FormField, onPage: String) {
+        errorsOn = onPage
+        pendingFocus = field
+    }
+
     Scaffold(
         modifier = Modifier.nestedScroll(scrollBehavior.nestedScrollConnection),
         topBar = {
             TopAppBar(
-                title = { Text(stringResource(R.string.declaration_title)) },
+                title = {
+                    Text(stringResource(if (inRequest) R.string.request_title_short else R.string.declaration_title))
+                },
+                subtitle = {
+                    if (!inRequest) {
+                        Text(stringResource(R.string.wizard_step_of, state.step.ordinal + 1, DeclarationStep.entries.size))
+                    }
+                },
+                navigationIcon = {
+                    if (inRequest) {
+                        IconButton(onClick = onBack) {
+                            Icon(
+                                painterResource(Tabler.drawable.tabler_ic_arrow_left_outline),
+                                contentDescription = stringResource(R.string.action_back),
+                            )
+                        }
+                    }
+                },
                 scrollBehavior = scrollBehavior,
                 actions = {
                     TextButton(
                         onClick = {
-                            showMissing = false
+                            errorsOn = null
                             onClear()
                         },
                         enabled = state.isLoaded && !isGenerating,
@@ -238,394 +268,152 @@ private fun DeclarationScreen(
         },
         snackbarHost = { SnackbarHost(snackbarHostState) },
         floatingActionButton = {
-            FloatingActionButton(
-                onClick = onOpenHistory,
-                shape = fabMorphShape(),
-                modifier = Modifier.fabMorph(DECLARATION_HISTORY_MORPH_KEY, FabMorphRole.Fab),
-            ) {
-                Icon(
-                    painter = painterResource(com.composables.icons.tabler.outline.R.drawable.tabler_ic_history_outline),
-                    contentDescription = stringResource(R.string.declaration_history_title),
-                )
+            if (!inRequest) {
+                FloatingActionButton(
+                    onClick = onOpenHistory,
+                    shape = fabMorphShape(),
+                    modifier = Modifier.fabMorph(DECLARATION_HISTORY_MORPH_KEY, FabMorphRole.Fab),
+                ) {
+                    Icon(
+                        painter = painterResource(Tabler.drawable.tabler_ic_history_outline),
+                        contentDescription = stringResource(R.string.declaration_history_title),
+                    )
+                }
             }
         },
         bottomBar = {
             Surface(color = MaterialTheme.colorScheme.surfaceContainer) {
-                // Stays enabled with fields missing: a tap shows what is left instead of doing nothing.
-                Button(
-                    onClick = {
-                        val missing = state.missingFields().firstOrNull()
-                        if (missing == null) {
-                            onGenerate()
-                        } else {
-                            showMissing = true
-                            // Focusing a field scrolls it into view (and opens the keyboard for text).
-                            runCatching { focusRequesters.getValue(missing).requestFocus() }
-                        }
-                    },
-                    enabled = state.isLoaded && !isGenerating,
+                Row(
                     modifier = Modifier
                         .fillMaxWidth()
                         .padding(horizontal = 20.dp, vertical = 12.dp),
+                    horizontalArrangement = Arrangement.spacedBy(12.dp),
                 ) {
-                    if (isGenerating) {
-                        ExpressiveLoadingIndicator(Modifier.size(24.dp))
-                    } else {
-                        Icon(
-                            painter = painterResource(com.composables.icons.tabler.outline.R.drawable.tabler_ic_file_type_pdf_outline),
-                            contentDescription = null,
-                        )
-                        Spacer(Modifier.size(8.dp))
-                        Text(stringResource(R.string.declaration_generate))
+                    val enabled = state.isLoaded && !isGenerating
+                    when {
+                        inRequest -> {
+                            fun attempt(action: () -> Unit) {
+                                val missing = state.requestMissingFields().firstOrNull()
+                                if (missing == null) action() else showMissing(missing, REQUEST_PAGE)
+                            }
+                            OutlinedButton(onClick = { attempt(onEmailRequest) }, enabled = enabled, modifier = Modifier.weight(1f)) {
+                                Text(stringResource(R.string.request_send_email))
+                            }
+                            GenerateButton(isGenerating, enabled, Modifier.weight(1f)) { attempt(onGenerateRequest) }
+                        }
+                        else -> {
+                            if (state.step.ordinal > 0) {
+                                OutlinedButton(onClick = onBack, enabled = enabled, modifier = Modifier.weight(1f)) {
+                                    Text(stringResource(R.string.action_back))
+                                }
+                            }
+                            val last = state.step == DeclarationStep.entries.last()
+                            if (last) {
+                                // Stays enabled with fields missing: a tap shows what is left instead of doing nothing.
+                                GenerateButton(isGenerating, enabled, Modifier.weight(1f)) {
+                                    val missing = state.missingFields().firstOrNull()
+                                    if (missing == null) {
+                                        onGenerateDeclaration()
+                                    } else {
+                                        actions.goTo(missing.step)
+                                        showMissing(missing, missing.step.name)
+                                    }
+                                }
+                            } else {
+                                Button(
+                                    onClick = {
+                                        val missing = state.missingFields().firstOrNull { it.step == state.step }
+                                        if (missing == null) {
+                                            errorsOn = null
+                                            actions.goTo(DeclarationStep.entries[state.step.ordinal + 1])
+                                        } else {
+                                            showMissing(missing, state.step.name)
+                                        }
+                                    },
+                                    enabled = enabled,
+                                    modifier = Modifier.weight(1f),
+                                ) {
+                                    Text(stringResource(R.string.action_next))
+                                }
+                            }
+                        }
                     }
                 }
             }
         },
     ) { innerPadding ->
-        AnimatedContent(
-            targetState = state.isLoaded,
-            modifier = Modifier
+        Column(
+            Modifier
                 .fillMaxSize()
                 .padding(innerPadding)
                 .consumeWindowInsets(innerPadding),
-            transitionSpec = { fadeIn(motion.defaultEffectsSpec()) togetherWith fadeOut(motion.fastEffectsSpec()) },
-            label = "declaration-load",
-        ) { loaded ->
-            if (!loaded) {
-                Column(
-                    modifier = Modifier.fillMaxSize(),
-                    horizontalAlignment = Alignment.CenterHorizontally,
-                    verticalArrangement = Arrangement.Center,
-                ) {
-                    ExpressiveLoadingIndicator(Modifier.size(40.dp))
-                }
-            } else {
-                DeclarationForm(
-                    state = state,
-                    actions = actions,
-                    missing = if (showMissing) state.missingFields().toSet() else emptySet(),
-                    focusRequesters = focusRequesters,
-                    onFillSample = onFillSample,
-                )
-            }
-        }
-    }
-}
-
-@OptIn(ExperimentalMaterial3Api::class)
-@Composable
-private fun DeclarationForm(
-    state: DeclarationUiState,
-    actions: DeclarationFormActions,
-    missing: Set<FormField>,
-    focusRequesters: Map<FormField, FocusRequester>,
-    onFillSample: (() -> Unit)?,
-) {
-    var showDatePicker by remember { mutableStateOf(false) }
-    val scrollState = rememberScrollState()
-    val required = stringResource(R.string.declaration_field_required)
-    fun Modifier.focusFor(field: FormField) = focusRequester(focusRequesters.getValue(field))
-    // A missing field says why under it.
-    fun errorText(field: FormField, message: String = required): (@Composable () -> Unit)? =
-        if (field in missing) ({ Text(message) }) else null
-
-    Column(
-        modifier = Modifier
-            .fillMaxSize()
-            // Keeps the focused field above the keyboard; the window does not resize edge-to-edge.
-            .imePadding()
-            .verticalScroll(scrollState)
-            .padding(horizontal = 16.dp, vertical = 12.dp),
-        verticalArrangement = Arrangement.spacedBy(22.dp),
-    ) {
-        FormSection(
-            title = stringResource(R.string.declaration_your_data),
-            titleModifier = onFillSample?.let { Modifier.onTripleTap(it) } ?: Modifier,
         ) {
-            OutlinedTextField(
-                value = state.fullName,
-                onValueChange = actions.onFullNameChange,
-                label = { Text(stringResource(R.string.declaration_full_name)) },
-                modifier = Modifier.fillMaxWidth().focusFor(FormField.FULL_NAME),
-                singleLine = true,
-                isError = FormField.FULL_NAME in missing,
-                supportingText = errorText(FormField.FULL_NAME),
-                keyboardOptions = KeyboardOptions(
-                    capitalization = KeyboardCapitalization.Words,
-                    imeAction = ImeAction.Next,
-                ),
-            )
-            OutlinedTextField(
-                value = state.homeAddress,
-                onValueChange = actions.onHomeAddressChange,
-                label = { Text(stringResource(R.string.declaration_home_address)) },
-                modifier = Modifier.fillMaxWidth().focusFor(FormField.HOME_ADDRESS),
-                isError = FormField.HOME_ADDRESS in missing,
-                supportingText = errorText(FormField.HOME_ADDRESS),
-                keyboardOptions = KeyboardOptions(
-                    capitalization = KeyboardCapitalization.Sentences,
-                    imeAction = ImeAction.Next,
-                ),
-            )
-        }
-
-        FormSection(title = stringResource(R.string.declaration_baptism_data)) {
-            if (state.baptismDateUnknown) {
-                val invalidYear = stringResource(R.string.declaration_baptism_year_invalid)
-                val yearSupport = stringResource(R.string.declaration_baptism_year_support)
-                OutlinedTextField(
-                    value = state.baptismYear,
-                    onValueChange = actions.onBaptismYearChange,
-                    label = { Text(stringResource(R.string.declaration_baptism_year)) },
-                    modifier = Modifier.fillMaxWidth().focusFor(FormField.BAPTISM_DATE),
-                    singleLine = true,
-                    isError = FormField.BAPTISM_DATE in missing,
-                    supportingText = errorText(FormField.BAPTISM_DATE, invalidYear) ?: { Text(yearSupport) },
-                    keyboardOptions = KeyboardOptions(
-                        keyboardType = KeyboardType.Number,
-                        imeAction = ImeAction.Next,
-                    ),
-                )
-            } else {
-                Box {
-                    OutlinedTextField(
-                        value = state.baptismDate.format(DateTimeFormatter.ofPattern("dd.MM.yyyy")),
-                        onValueChange = {},
-                        readOnly = true,
-                        label = { Text(stringResource(R.string.declaration_baptism_date)) },
-                        trailingIcon = {
-                            Icon(
-                                painter = painterResource(com.composables.icons.tabler.outline.R.drawable.tabler_ic_calendar_outline),
-                                contentDescription = null,
-                            )
-                        },
-                        modifier = Modifier.fillMaxWidth().focusFor(FormField.BAPTISM_DATE),
-                        singleLine = true,
-                    )
-                    // A read-only field swallows taps; this layer opens the picker from anywhere on it.
-                    Box(
-                        Modifier
-                            .matchParentSize()
-                            .clip(MaterialTheme.shapes.extraSmall)
-                            .clickable(role = Role.Button) { showDatePicker = true },
-                    )
-                }
-            }
-            CheckboxRow(
-                checked = state.baptismDateUnknown,
-                onCheckedChange = actions.onBaptismDateUnknownChange,
-                title = stringResource(R.string.declaration_baptism_date_unknown),
-                support = stringResource(R.string.declaration_baptism_date_unknown_support),
-            )
-            ParishTextField(
-                value = state.baptismParish,
-                onValueChange = actions.onBaptismParishChange,
-                label = stringResource(R.string.declaration_baptism_parish),
-                onPick = { actions.onPickParish(ParishField.BAPTISM) },
-                modifier = Modifier.focusFor(FormField.BAPTISM_PARISH),
-                isError = FormField.BAPTISM_PARISH in missing,
-                supportingText = errorText(FormField.BAPTISM_PARISH),
-            )
-        }
-
-        FormSection(title = stringResource(R.string.declaration_submission)) {
-            CheckboxRow(
-                checked = state.residenceSameAsBaptism,
-                onCheckedChange = actions.onResidenceSameAsBaptismChange,
-                title = stringResource(R.string.declaration_same_parish),
-                support = stringResource(R.string.declaration_same_parish_support),
-            )
-            AnimatedVisibility(visible = !state.residenceSameAsBaptism) {
-                ParishTextField(
-                    value = state.residenceParish,
-                    onValueChange = actions.onResidenceParishChange,
-                    label = stringResource(R.string.declaration_residence_parish),
-                    onPick = { actions.onPickParish(ParishField.RESIDENCE) },
-                    modifier = Modifier.focusFor(FormField.RESIDENCE_PARISH),
-                    isError = FormField.RESIDENCE_PARISH in missing,
-                    supportingText = errorText(FormField.RESIDENCE_PARISH),
+            if (!inRequest && state.isLoaded) {
+                LinearProgressIndicator(
+                    progress = { (state.step.ordinal + 1f) / DeclarationStep.entries.size },
+                    modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp),
                 )
             }
-        }
-
-        FormSection(title = stringResource(R.string.declaration_motivation)) {
-            val presets = MotivationPreset.entries.map { stringResource(it.label) to stringResource(it.text) }
-            val presetTexts = presets.map { it.second }
-            FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                presets.forEach { (label, text) ->
-                    FilterChip(
-                        selected = state.motivation.trim() == text,
-                        onClick = { actions.onMotivationPreset(text, presetTexts) },
-                        label = { Text(label) },
-                    )
-                }
-            }
-            val motivationSupport = stringResource(R.string.declaration_motivation_support)
-            OutlinedTextField(
-                value = state.motivation,
-                onValueChange = actions.onMotivationChange,
-                label = { Text(stringResource(R.string.declaration_motivation_hint)) },
-                modifier = Modifier.fillMaxWidth().focusFor(FormField.MOTIVATION),
-                minLines = 5,
-                maxLines = 10,
-                isError = FormField.MOTIVATION in missing,
-                supportingText = errorText(FormField.MOTIVATION) ?: { Text(motivationSupport) },
-                keyboardOptions = KeyboardOptions(capitalization = KeyboardCapitalization.Sentences),
-            )
-        }
-
-        Surface(
-            shape = MaterialTheme.shapes.medium,
-            color = MaterialTheme.colorScheme.secondaryContainer,
-        ) {
-            Row(
-                modifier = Modifier.padding(16.dp),
-                horizontalArrangement = Arrangement.spacedBy(12.dp),
-                verticalAlignment = Alignment.Top,
-            ) {
-                Icon(
-                    painter = painterResource(com.composables.icons.tabler.outline.R.drawable.tabler_ic_info_circle_outline),
-                    contentDescription = null,
-                    tint = MaterialTheme.colorScheme.onSecondaryContainer,
-                )
-                Text(
-                    stringResource(R.string.declaration_info),
-                    style = MaterialTheme.typography.bodyMedium,
-                    color = MaterialTheme.colorScheme.onSecondaryContainer,
-                )
-            }
-        }
-        Spacer(Modifier.height(8.dp))
-    }
-
-    if (showDatePicker) {
-        BaptismDatePicker(
-            initialDate = state.baptismDate,
-            onDismiss = { showDatePicker = false },
-            onSelected = {
-                showDatePicker = false
-                actions.onBaptismDateChange(it)
-            },
-        )
-    }
-}
-
-
-/** A checkbox with a title and a line of explanation; the whole row toggles it. */
-@Composable
-private fun CheckboxRow(checked: Boolean, onCheckedChange: (Boolean) -> Unit, title: String, support: String) {
-    Row(
-        modifier = Modifier
-            .fillMaxWidth()
-            .clip(MaterialTheme.shapes.medium)
-            .toggleable(value = checked, role = Role.Checkbox, onValueChange = onCheckedChange)
-            .padding(vertical = 4.dp),
-        verticalAlignment = Alignment.CenterVertically,
-    ) {
-        // The row handles the click, so the box itself is only an indicator.
-        Checkbox(checked = checked, onCheckedChange = null, modifier = Modifier.padding(12.dp))
-        Column(Modifier.weight(1f)) {
-            Text(title, style = MaterialTheme.typography.bodyLarge)
-            Text(support, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
-        }
-    }
-}
-
-/** A parish field with a button that finds the church in the search instead of typing it. */
-@Composable
-private fun ParishTextField(
-    value: String,
-    onValueChange: (String) -> Unit,
-    label: String,
-    onPick: () -> Unit,
-    modifier: Modifier,
-    isError: Boolean,
-    supportingText: (@Composable () -> Unit)?,
-) {
-    OutlinedTextField(
-        value = value,
-        onValueChange = onValueChange,
-        label = { Text(label) },
-        modifier = modifier.fillMaxWidth(),
-        isError = isError,
-        supportingText = supportingText,
-        trailingIcon = {
-            IconButton(onClick = onPick) {
-                Icon(
-                    painter = painterResource(com.composables.icons.tabler.outline.R.drawable.tabler_ic_search_outline),
-                    contentDescription = stringResource(R.string.declaration_pick_parish),
-                )
-            }
-        },
-        keyboardOptions = KeyboardOptions(
-            capitalization = KeyboardCapitalization.Sentences,
-            imeAction = ImeAction.Next,
-        ),
-    )
-}
-@Composable
-private fun FormSection(title: String, titleModifier: Modifier = Modifier, content: @Composable () -> Unit) {
-    Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
-        Text(
-            title,
-            modifier = titleModifier,
-            style = MaterialTheme.typography.titleMedium,
-            color = MaterialTheme.colorScheme.primary,
-        )
-        content()
-    }
-}
-
-/** Runs [action] after three quick taps, with a confirming haptic; no ripple, as it is a hidden test shortcut. */
-@Composable
-private fun Modifier.onTripleTap(action: () -> Unit): Modifier {
-    val haptics = LocalHapticFeedback.current
-    var taps by remember { mutableIntStateOf(0) }
-    var lastTapMillis by remember { mutableLongStateOf(0L) }
-    return pointerInput(action) {
-        detectTapGestures {
-            val now = System.currentTimeMillis()
-            taps = if (now - lastTapMillis < TRIPLE_TAP_WINDOW_MS) taps + 1 else 1
-            lastTapMillis = now
-            if (taps == 3) {
-                taps = 0
-                haptics.performHapticFeedback(HapticFeedbackType.Confirm)
-                action()
-            }
-        }
-    }
-}
-
-private const val TRIPLE_TAP_WINDOW_MS = 500L
-
-@OptIn(ExperimentalMaterial3Api::class)
-@Composable
-private fun BaptismDatePicker(
-    initialDate: LocalDate,
-    onDismiss: () -> Unit,
-    onSelected: (LocalDate) -> Unit,
-) {
-    val today = LocalDate.now()
-    val state = rememberDatePickerState(
-        initialSelectedDateMillis = initialDate.atStartOfDay(ZoneOffset.UTC).toInstant().toEpochMilli(),
-    )
-    DatePickerDialog(
-        onDismissRequest = onDismiss,
-        confirmButton = {
-            TextButton(
-                onClick = {
-                    state.selectedDateMillis?.let { millis ->
-                        val selected = Instant.ofEpochMilli(millis).atZone(ZoneOffset.UTC).toLocalDate()
-                        if (!selected.isAfter(today)) onSelected(selected)
+            AnimatedContent(
+                targetState = if (state.isLoaded) page else null,
+                modifier = Modifier.fillMaxSize(),
+                transitionSpec = {
+                    val from = initialState?.let(::pageOrder)
+                    val to = targetState?.let(::pageOrder)
+                    if (from == null || to == null) {
+                        fadeIn(motion.defaultEffectsSpec()) togetherWith fadeOut(motion.fastEffectsSpec())
+                    } else {
+                        // Forward slides in from the end, back from the start, like the screens of a tab.
+                        val direction = if (to > from) 1 else -1
+                        (slideInHorizontally(motion.defaultSpatialSpec()) { direction * it / 5 } +
+                            fadeIn(motion.defaultEffectsSpec())) togetherWith
+                            (slideOutHorizontally(motion.defaultSpatialSpec()) { -direction * it / 5 } +
+                                fadeOut(motion.fastEffectsSpec()))
                     }
                 },
-                enabled = state.selectedDateMillis?.let { millis ->
-                    !Instant.ofEpochMilli(millis).atZone(ZoneOffset.UTC).toLocalDate().isAfter(today)
-                } == true,
-            ) { Text(stringResource(android.R.string.ok)) }
-        },
-        dismissButton = { TextButton(onClick = onDismiss) { Text(stringResource(android.R.string.cancel)) } },
-    ) {
-        DatePicker(state = state)
+                label = "declaration-page",
+            ) { shown ->
+                if (shown == null) {
+                    Column(
+                        modifier = Modifier.fillMaxSize(),
+                        horizontalAlignment = Alignment.CenterHorizontally,
+                        verticalArrangement = Arrangement.Center,
+                    ) {
+                        ExpressiveLoadingIndicator(Modifier.size(40.dp))
+                    }
+                } else {
+                    val missing = when {
+                        errorsOn != shown -> emptySet()
+                        shown == REQUEST_PAGE -> state.requestMissingFields().toSet()
+                        else -> state.missingFields().toSet()
+                    }
+                    val stepContext = StepContext(actions, missing, focusRequesters, onPickParish, onFillSample)
+                    if (shown == REQUEST_PAGE) {
+                        CertificateRequestContent(state, stepContext)
+                    } else {
+                        DeclarationStepContent(state, DeclarationStep.valueOf(shown), stepContext)
+                    }
+                }
+            }
+        }
     }
 }
+
+@Composable
+private fun GenerateButton(isGenerating: Boolean, enabled: Boolean, modifier: Modifier, onClick: () -> Unit) {
+    Button(onClick = onClick, enabled = enabled, modifier = modifier) {
+        if (isGenerating) {
+            ExpressiveLoadingIndicator(Modifier.size(24.dp))
+        } else {
+            Icon(painterResource(Tabler.drawable.tabler_ic_file_type_pdf_outline), contentDescription = null)
+            Spacer(Modifier.size(8.dp))
+            Text(stringResource(R.string.declaration_generate))
+        }
+    }
+}
+
+private const val REQUEST_PAGE = "REQUEST"
+
+/** The order pages slide in; the certificate request comes after the step it was opened from. */
+private fun pageOrder(page: String): Int =
+    if (page == REQUEST_PAGE) DeclarationStep.entries.size else DeclarationStep.valueOf(page).ordinal

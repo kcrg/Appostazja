@@ -86,6 +86,22 @@ class DeclarationArchiveTest {
     }
 
     @Test
+    fun `a certificate request is kept apart from declarations and opens like one`() = runBlocking {
+        val declaration = archive.save(pdf)
+        val request = archive.save("%PDF request".toByteArray(), DocumentKind.CERTIFICATE_REQUEST)
+
+        assertEquals(
+            listOf(DocumentKind.CERTIFICATE_REQUEST, DocumentKind.DECLARATION),
+            archive.list().map { it.kind },
+        )
+        assertEquals(DocumentKind.CERTIFICATE_REQUEST, archive.find(request.id)?.kind)
+        assertArrayEquals("%PDF request".toByteArray(), archive.plainCopy(request.id, "prosba.pdf").readBytes())
+
+        archive.delete(request.id)
+        assertEquals(listOf(declaration), archive.list())
+    }
+
+    @Test
     fun `unrelated files in the archive directory are ignored`() = runBlocking {
         archive.save(pdf)
         File(stored, "notes.txt").writeText("x")

@@ -15,8 +15,18 @@ import javax.crypto.KeyGenerator
 import javax.crypto.SecretKey
 import javax.crypto.spec.GCMParameterSpec
 
-/** A declaration PDF generated earlier, identified by when it was created. */
-data class ArchivedDeclaration(val id: String, val createdAt: Instant)
+/** The kinds of documents the app generates. */
+enum class DocumentKind(internal val suffix: String) {
+    DECLARATION(".pdf.enc"),
+    CERTIFICATE_REQUEST(".request.pdf.enc"),
+}
+
+/** A PDF generated earlier, identified by when it was created. */
+data class ArchivedDeclaration(
+    val id: String,
+    val createdAt: Instant,
+    val kind: DocumentKind = DocumentKind.DECLARATION,
+)
 
 /** Encrypts archived PDFs at rest; the Keystore implementation is swapped for a fake in JVM tests. */
 interface BytesCipher {
@@ -43,24 +53,27 @@ class DeclarationArchive(
         cipher = KeystoreCipher(),
     )
 
-    suspend fun save(pdf: ByteArray): ArchivedDeclaration = withContext(Dispatchers.IO) {
+    suspend fun save(
+        pdf: ByteArray,
+        kind: DocumentKind = DocumentKind.DECLARATION,
+    ): ArchivedDeclaration = withContext(Dispatchers.IO) {
         directory.mkdirs()
         // Millisecond ids; two saves within the same millisecond take the next free one.
         var millis = clock().toEpochMilli()
-        while (fileFor(millis.toString()).exists()) millis++
+        while (existingFile(millis.toString()) != null) millis++
         val id = millis.toString()
-        val target = fileFor(id)
-        val partial = File(directory, "$id$SUFFIX.partial")
+        val target = File(directory, "$id${kind.suffix}")
+        val partial = File(directory, "$id${kind.suffix}.partial")
         partial.writeBytes(cipher.encrypt(pdf))
         check(partial.renameTo(target)) { "Cannot store declaration $id." }
-        ArchivedDeclaration(id, Instant.ofEpochMilli(millis))
+        ArchivedDeclaration(id, Instant.ofEpochMilli(millis), kind)
     }
 
     /** Newest first. Files that are not archived declarations are ignored. */
     suspend fun list(): List<ArchivedDeclaration> = withContext(Dispatchers.IO) {
         pruneStaleCopies()
         directory.listFiles().orEmpty()
-            .mapNotNull { file -> parseId(file.name)?.let { ArchivedDeclaration(it.toString(), Instant.ofEpochMilli(it)) } }
+            .mapNotNull { file -> parse(file.name) }
             .sortedByDescending { it.createdAt }
     }
 
@@ -79,7 +92,7 @@ class DeclarationArchive(
     }
 
     suspend fun delete(id: String) = withContext(Dispatchers.IO) {
-        fileFor(id).delete()
+        existingFile(id)?.delete()
         File(plainDirectory, id).deleteRecursively()
     }
 
@@ -92,16 +105,23 @@ class DeclarationArchive(
 
     private fun read(id: String): ByteArray = cipher.decrypt(fileFor(id).readBytes())
 
-    private fun fileFor(id: String): File {
+    private fun fileFor(id: String): File =
+        existingFile(id) ?: throw java.io.FileNotFoundException("No archived document $id.")
+
+    private fun existingFile(id: String): File? {
         require(id.all(Char::isDigit) && id.isNotEmpty()) { "Invalid declaration id." }
-        return File(directory, "$id$SUFFIX")
+        return DocumentKind.entries.map { File(directory, "$id${it.suffix}") }.firstOrNull(File::exists)
     }
 
-    private fun parseId(fileName: String): Long? =
-        fileName.removeSuffix(SUFFIX).takeIf { fileName.endsWith(SUFFIX) }?.toLongOrNull()
+    private fun parse(fileName: String): ArchivedDeclaration? {
+        // The longest suffix first: ".request.pdf.enc" also ends with ".pdf.enc".
+        val kind = DocumentKind.entries.sortedByDescending { it.suffix.length }
+            .firstOrNull { fileName.endsWith(it.suffix) } ?: return null
+        val millis = fileName.removeSuffix(kind.suffix).toLongOrNull() ?: return null
+        return ArchivedDeclaration(millis.toString(), Instant.ofEpochMilli(millis), kind)
+    }
 
     companion object {
-        private const val SUFFIX = ".pdf.enc"
         val PLAIN_COPY_LIFETIME: java.time.Duration = java.time.Duration.ofHours(1)
     }
 }
