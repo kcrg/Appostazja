@@ -1,5 +1,8 @@
 package com.tryniecki.appostazja.ui.map
 
+import kotlin.math.abs
+import androidx.compose.runtime.snapshotFlow
+import com.google.maps.android.compose.CameraPositionState
 import android.content.ActivityNotFoundException
 import android.content.Context
 import android.content.Intent
@@ -252,6 +255,7 @@ private fun MapScreen(
                 items = state.places,
                 viewport = clusterViewport,
                 transitions = markerTransitions,
+                cameraState = cameraState,
                 onClusterClick = { cluster ->
                     val first = cluster.items.first().position
                     if (cameraState.position.zoom >= 19f || cluster.items.all { it.position == first }) {
@@ -365,6 +369,7 @@ private fun ChurchClustering(
     items: List<ChurchClusterItem>,
     viewport: Int,
     transitions: MarkerTransitions,
+    cameraState: CameraPositionState,
     onClusterClick: (Cluster<ChurchClusterItem>) -> Boolean,
     onClusterItemClick: (ChurchClusterItem) -> Boolean,
 ) {
@@ -405,10 +410,42 @@ private fun ChurchClustering(
             manager.onCameraIdle()
         }
     }
+    // The cluster manager reclusters when the camera stops. During a long pinch that showed only the markers
+    // from before it, and on release everything changed at once: more than the transitions can animate, so the
+    // rest popped in. Reclustering every half zoom level or third of a screen keeps each change small.
+    LaunchedEffect(manager, ready) {
+        if (!ready) return@LaunchedEffect
+        var lastZoom = Float.NaN
+        var lastTarget: LatLng? = null
+        snapshotFlow { cameraState.position }.collect { position ->
+            if (!cameraState.isMoving) {
+                // The manager's own idle listener reclusters here.
+                lastZoom = position.zoom
+                lastTarget = position.target
+                return@collect
+            }
+            val bounds = cameraState.projection?.visibleRegion?.latLngBounds ?: return@collect
+            val target = lastTarget
+            val zoomed = lastZoom.isNaN() || abs(position.zoom - lastZoom) >= RECLUSTER_ZOOM_STEP
+            val panned = target == null ||
+                abs(position.target.latitude - target.latitude) >
+                (bounds.northeast.latitude - bounds.southwest.latitude) * RECLUSTER_PAN_FRACTION ||
+                abs(position.target.longitude - target.longitude) >
+                abs(bounds.northeast.longitude - bounds.southwest.longitude) * RECLUSTER_PAN_FRACTION
+            if (zoomed || panned) {
+                lastZoom = position.zoom
+                lastTarget = position.target
+                manager.onCameraIdle()
+            }
+        }
+    }
     if (ready && items.isNotEmpty()) {
         Clustering(items = items, clusterManager = manager)
     }
 }
+
+private const val RECLUSTER_ZOOM_STEP = 0.5f
+private const val RECLUSTER_PAN_FRACTION = 1.0 / 3
 
 @Composable
 private fun LoadingPill() {
