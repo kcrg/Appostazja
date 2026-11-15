@@ -62,26 +62,28 @@ private const val GITHUB_URL = "https://github.com/kcrg/Appostazja"
 @Composable
 fun MoreScreen(
     themeMode: ThemeMode,
+    cachedDatasetStatus: DatasetStatusDto?,
     loadDatasetStatus: suspend () -> DatasetStatusDto,
+    cachedNews: List<NewsArticle>?,
     loadNews: suspend () -> List<NewsArticle>,
     readNewsIds: Set<String>,
     onOpenArticle: (NewsArticle) -> Unit,
     onOpenNews: () -> Unit,
     onThemeModeChange: (ThemeMode) -> Unit,
 ) {
-    val (newsState, retryNews) = rememberNewsState(loadNews)
+    val (newsState, retryNews) = rememberNewsState(cachedNews, loadNews)
     val openCustomTab = rememberOpenCustomTab()
     val context = LocalContext.current
     val email = stringResource(R.string.more_contact_email)
     val dataSourceUrl = stringResource(R.string.map_data_source_url)
     val reportFormUrl = stringResource(R.string.report_form_url)
-    val datasetStatus by produceState<DatasetStatusDto?>(initialValue = null) {
+    val datasetStatus by produceState(initialValue = cachedDatasetStatus) {
         value = try {
             loadDatasetStatus()
         } catch (cancelled: CancellationException) {
             throw cancelled
         } catch (_: Exception) {
-            null // The source description is still useful without the update date.
+            value // The source description is still useful without the update date.
         }
     }
     val dataSourceBody = datasetStatus?.let { dataSourceDescription(it, LocalLocale.current.platformLocale) }

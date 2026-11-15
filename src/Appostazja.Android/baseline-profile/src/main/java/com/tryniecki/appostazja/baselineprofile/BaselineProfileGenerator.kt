@@ -91,6 +91,73 @@ class BaselineProfileGenerator {
         device.waitForIdle()
     }
 
+    @Test
+    fun readNews() = profile.collect(
+        packageName = PackageName,
+        maxIterations = 6,
+        stableIterations = 2,
+    ) {
+        startActivityAndWait()
+        val width = device.displayWidth
+        val height = device.displayHeight
+
+        openTab("Więcej")
+        // The card shows the latest articles once the feed is in; each one opens the article screen.
+        val all = checkNotNull(device.wait(Until.findObject(By.text("Wszystkie aktualności")), ScreenTimeoutMillis)) {
+            "News card not found."
+        }
+        checkNotNull(device.wait(Until.findObject(ArticleDate), FeedTimeoutMillis)) { "News feed did not load." }
+        device.findObject(ArticleDate).click()
+        device.waitForIdle()
+        device.swipe(width / 2, height * 3 / 4, width / 2, height / 4, 20)
+        device.waitForIdle()
+        device.pressBack()
+        device.waitForIdle()
+
+        checkNotNull(device.wait(Until.findObject(By.text("Wszystkie aktualności")), ScreenTimeoutMillis) ?: all).click()
+        checkNotNull(device.wait(Until.findObject(ArticleDate), ScreenTimeoutMillis)) { "News list is empty." }.click()
+        device.waitForIdle()
+        device.pressBack()
+        device.waitForIdle()
+        device.pressBack()
+        device.waitForIdle()
+    }
+
+    @Test
+    fun generateDeclaration() = profile.collect(
+        packageName = PackageName,
+        maxIterations = 4,
+        stableIterations = 2,
+    ) {
+        startActivityAndWait()
+        openTab("Deklaracja")
+        // Three quick taps on the first section title fill the form with sample data in test builds.
+        val section = checkNotNull(device.wait(Until.findObject(By.text("Twoje dane")), ScreenTimeoutMillis)) {
+            "Declaration form not found."
+        }
+        repeat(3) { section.click() }
+        checkNotNull(device.wait(Until.findObject(By.text("Jan Kowalski")), ScreenTimeoutMillis)) {
+            "Sample data was not filled in."
+        }
+        device.findObject(By.text("Generuj PDF")).click()
+        checkNotNull(device.wait(Until.findObject(By.desc("Widok PDF")), PdfTimeoutMillis)) { "PDF preview did not open." }
+        device.waitForIdle()
+        device.pressBack()
+        device.waitForIdle()
+
+        // The same declaration again, from the history.
+        device.findObject(By.desc("Wygenerowane deklaracje")).click()
+        checkNotNull(device.wait(Until.findObject(By.text("Dotknij, aby wyświetlić podgląd")), ScreenTimeoutMillis)) {
+            "History is empty."
+        }.click()
+        device.wait(Until.findObject(By.desc("Widok PDF")), PdfTimeoutMillis)
+        device.waitForIdle()
+        device.pressBack()
+        device.waitForIdle()
+        device.pressBack()
+        device.waitForIdle()
+    }
+
     private fun androidx.benchmark.macro.MacrobenchmarkScope.openTab(label: String) {
         checkNotNull(device.wait(Until.findObject(By.text(label)), ScreenTimeoutMillis)) { "Tab $label not found." }
             .click()
@@ -101,6 +168,10 @@ class BaselineProfileGenerator {
         const val PackageName = "com.tryniecki.appostazja"
         const val MapTimeoutMillis = 20_000L
         const val ScreenTimeoutMillis = 10_000L
+        const val FeedTimeoutMillis = 15_000L
+        const val PdfTimeoutMillis = 15_000L
         val Cluster = By.desc(Pattern.compile("\\d+ parafi.*"))
+        /** An article teaser, found by its date, e.g. "21 października 2026". */
+        val ArticleDate = By.text(Pattern.compile("\\d{1,2} \\p{L}+ \\d{4}"))
     }
 }

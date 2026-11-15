@@ -1,6 +1,7 @@
 package com.tryniecki.appostazja.data
 
 import com.tryniecki.appostazja.api.client.AppostazjaApi
+import com.tryniecki.appostazja.api.model.DatasetStatusDto
 import com.tryniecki.appostazja.api.model.PlaceDto
 import com.tryniecki.appostazja.api.model.PlaceReportsDto
 import com.tryniecki.appostazja.api.model.ReportDto
@@ -92,7 +93,24 @@ class MapRepository(
         emit(fresh)
     }
 
-    suspend fun getDatasetStatus() = api.getDatasetStatus()
+    /**
+     * When the server last checked the source. The More screen asks every time it is shown, also when coming back
+     * to it from an article, so the answer is kept for a few minutes and the screen can start from it.
+     */
+    suspend fun getDatasetStatus(): DatasetStatusDto {
+        datasetStatus?.takeIf { clock() - it.fetchedAtMillis < DATASET_STATUS_TTL_MILLIS }?.let { return it.status }
+        val status = api.getDatasetStatus()
+        datasetStatus = TimedStatus(status, clock())
+        return status
+    }
+
+    /** The last answer of [getDatasetStatus], however old, for showing something before asking again. */
+    val cachedDatasetStatus: DatasetStatusDto? get() = datasetStatus?.status
+
+    @Volatile
+    private var datasetStatus: TimedStatus? = null
+
+    private class TimedStatus(val status: DatasetStatusDto, val fetchedAtMillis: Long)
 
     suspend fun searchPlaces(query: String, sort: String, withReportsOnly: Boolean, offset: Int, limit: Int) =
         api.searchPlaces(query.ifBlank { null }, sort, withReportsOnly, offset, limit)
@@ -111,6 +129,7 @@ class MapRepository(
         const val PLACES_KEY = "places"
         const val STATS_KEY = "stats"
         const val HTTP_NOT_MODIFIED = 304
+        const val DATASET_STATUS_TTL_MILLIS = 5 * 60 * 1000L
         val CacheJson = Json { ignoreUnknownKeys = true }
     }
 }

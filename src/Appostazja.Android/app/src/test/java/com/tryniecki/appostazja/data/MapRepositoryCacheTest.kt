@@ -145,6 +145,37 @@ class MapRepositoryCacheTest {
         assertNull(api.lastStatsEtag)
     }
 
+    @Test
+    fun `the dataset status is asked again only after a few minutes, and a failure is not remembered`() = runBlocking {
+        var now = 0L
+        val repository = MapRepository(api, database.cacheDao(), clock = { now })
+        assertNull(repository.cachedDatasetStatus)
+
+        api.datasetStatus = { throw IOException("offline") }
+        assertThrows(IOException::class.java) { runBlocking { repository.getDatasetStatus() } }
+        assertNull(repository.cachedDatasetStatus)
+
+        api.datasetStatus = { status("2026-11-15T10:00:00Z") }
+        repository.getDatasetStatus()
+        now += 4 * 60_000
+        assertEquals("2026-11-15T10:00:00Z", repository.getDatasetStatus().lastCheckedAtUtc)
+        assertEquals(2, api.datasetStatusCalls)
+
+        api.datasetStatus = { status("2026-11-15T10:06:00Z") }
+        now += 2 * 60_000
+        assertEquals("2026-11-15T10:06:00Z", repository.getDatasetStatus().lastCheckedAtUtc)
+        assertEquals("2026-11-15T10:06:00Z", repository.cachedDatasetStatus?.lastCheckedAtUtc)
+        assertEquals(3, api.datasetStatusCalls)
+    }
+
+    private fun status(lastChecked: String) = DatasetStatusDto(
+        sourceUrl = "https://mapaapostazji.pl/",
+        placeCount = 2,
+        lastCheckedAtUtc = lastChecked,
+        isFresh = true,
+        freshForHours = 24,
+    )
+
     private class FakeApi : AppostazjaApi {
         var places: () -> Response<List<PlaceDto>> = { throw IOException("not configured") }
         var reports: () -> Response<PlaceReportsDto> = { throw IOException("not configured") }
@@ -187,7 +218,13 @@ class MapRepositoryCacheTest {
         override suspend fun getStreetView(id: String): Response<com.tryniecki.appostazja.api.model.StreetViewDto> =
             throw UnsupportedOperationException()
 
-        override suspend fun getDatasetStatus(): DatasetStatusDto = throw UnsupportedOperationException()
+        var datasetStatus: () -> DatasetStatusDto = { throw IOException("not configured") }
+        var datasetStatusCalls = 0
+
+        override suspend fun getDatasetStatus(): DatasetStatusDto {
+            datasetStatusCalls++
+            return datasetStatus()
+        }
     }
 
     private companion object {

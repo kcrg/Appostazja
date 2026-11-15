@@ -275,7 +275,9 @@ fun AppostazjaApp(
             screen<AppRoute.More> {
                 MoreScreen(
                     themeMode = themeMode,
+                    cachedDatasetStatus = container.mapRepository.cachedDatasetStatus,
                     loadDatasetStatus = container.mapRepository::getDatasetStatus,
+                    cachedNews = container.newsRepository.cachedArticles,
                     loadNews = container.newsRepository::articles,
                     readNewsIds = container.readArticles.ids.collectAsStateWithLifecycle().value,
                     onOpenArticle = { navController.navigate(AppRoute.NewsArticle(it.id)) },
@@ -285,6 +287,7 @@ fun AppostazjaApp(
             }
             screen<AppRoute.News> {
                 NewsListScreen(
+                    cached = container.newsRepository.cachedArticles,
                     load = container.newsRepository::articles,
                     readIds = container.readArticles.ids.collectAsStateWithLifecycle().value,
                     onOpenArticle = { navController.navigate(AppRoute.NewsArticle(it.id)) },
@@ -294,6 +297,7 @@ fun AppostazjaApp(
             screen<AppRoute.NewsArticle> { entry ->
                 NewsArticleScreen(
                     articleId = entry.toRoute<AppRoute.NewsArticle>().articleId,
+                    cached = container.newsRepository.cachedArticle(entry.toRoute<AppRoute.NewsArticle>().articleId),
                     load = container.newsRepository::article,
                     onRead = container.readArticles::markRead,
                     onBack = navController::popBackStack,

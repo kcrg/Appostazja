@@ -54,6 +54,7 @@ class NewsRepository internal constructor(
     )
 
     private val mutex = Mutex()
+    @Volatile
     private var loaded: List<NewsArticle>? = null
     private var loadedAt: Instant = Instant.MIN
 
@@ -70,6 +71,11 @@ class NewsRepository internal constructor(
     }
 
     suspend fun article(id: String): NewsArticle? = articles().firstOrNull { it.id == id }
+
+    /** The articles last loaded, however old, for a screen to start from before [articles] answers. */
+    val cachedArticles: List<NewsArticle>? get() = loaded
+
+    fun cachedArticle(id: String): NewsArticle? = loaded?.firstOrNull { it.id == id }
 
     private fun download(): List<NewsArticle> {
         val fresh = try {

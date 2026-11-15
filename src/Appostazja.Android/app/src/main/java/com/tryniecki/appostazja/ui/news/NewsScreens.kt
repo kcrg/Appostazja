@@ -96,18 +96,25 @@ sealed interface NewsState {
     data object Failed : NewsState
 }
 
-/** Loads the news once, and again whenever [retry] is called. */
+/**
+ * Loads the news once, and again whenever the returned retry is called. Starts from [cached] when there is
+ * something in memory: the screen is composed once with the articles instead of first with a loading indicator,
+ * and a failed refresh keeps showing them.
+ */
 @Composable
-fun rememberNewsState(load: suspend () -> List<NewsArticle>): Pair<NewsState, () -> Unit> {
+fun rememberNewsState(
+    cached: List<NewsArticle>?,
+    load: suspend () -> List<NewsArticle>,
+): Pair<NewsState, () -> Unit> {
     var attempt by rememberSaveable { mutableIntStateOf(0) }
-    val state by produceState<NewsState>(NewsState.Loading, attempt) {
-        value = NewsState.Loading
+    val state by produceState(cached?.let(NewsState::Loaded) ?: NewsState.Loading, attempt) {
+        if (value !is NewsState.Loaded) value = NewsState.Loading
         value = try {
             NewsState.Loaded(load())
         } catch (cancelled: CancellationException) {
             throw cancelled
         } catch (_: Exception) {
-            NewsState.Failed
+            value as? NewsState.Loaded ?: NewsState.Failed
         }
     }
     return state to { attempt++ }
@@ -191,12 +198,13 @@ private val NOTCH_FILLET = 4.dp
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun NewsListScreen(
+    cached: List<NewsArticle>?,
     load: suspend () -> List<NewsArticle>,
     readIds: Set<String>,
     onOpenArticle: (NewsArticle) -> Unit,
     onBack: () -> Unit,
 ) {
-    val (state, retry) = rememberNewsState(load)
+    val (state, retry) = rememberNewsState(cached, load)
     val scrollBehavior = TopAppBarDefaults.pinnedScrollBehavior()
     Scaffold(
         modifier = Modifier.nestedScroll(scrollBehavior.nestedScrollConnection),
@@ -252,11 +260,12 @@ fun NewsListScreen(
 @Composable
 fun NewsArticleScreen(
     articleId: String,
+    cached: NewsArticle?,
     load: suspend (String) -> NewsArticle?,
     onRead: (String) -> Unit,
     onBack: () -> Unit,
 ) {
-    val (state, retry) = rememberNewsState { listOfNotNull(load(articleId)) }
+    val (state, retry) = rememberNewsState(cached?.let(::listOf)) { listOfNotNull(load(articleId)) }
     val article = (state as? NewsState.Loaded)?.articles?.firstOrNull()
     // Read once it is on screen; a failed load leaves it unread.
     LaunchedEffect(article?.id) { article?.let { onRead(it.id) } }
