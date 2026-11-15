@@ -16,10 +16,13 @@ import kotlinx.coroutines.flow.filterNotNull
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
 
+/** Where the baptism date starts before anything is picked: a plausible date, so the picker opens near it. */
+internal val DEFAULT_BAPTISM_DATE: LocalDate = LocalDate.of(2000, 1, 20)
+
 internal data class DeclarationUiState(
     val isLoaded: Boolean = false,
     val fullName: String = "",
-    val baptismDate: LocalDate = LocalDate.now(),
+    val baptismDate: LocalDate = DEFAULT_BAPTISM_DATE,
     val baptismParish: String = "",
     val residenceParish: String = "",
     val homeAddress: String = "",
@@ -164,7 +167,7 @@ private fun DeclarationDraft.toUiState() = DeclarationUiState(
     isLoaded = true,
     fullName = fullName,
     baptismDate = runCatching { LocalDate.ofEpochDay(baptismEpochDay) }
-        .getOrDefault(LocalDate.now())
+        .getOrDefault(DEFAULT_BAPTISM_DATE)
         .coerceAtMost(LocalDate.now()),
     baptismParish = baptismParish,
     residenceParish = residenceParish,
