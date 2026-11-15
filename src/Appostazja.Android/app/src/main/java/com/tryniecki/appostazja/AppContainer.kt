@@ -5,6 +5,7 @@ import com.tryniecki.appostazja.api.client.AppostazjaApiClientFactory
 import com.tryniecki.appostazja.data.MapRepository
 import com.tryniecki.appostazja.data.NewsRepository
 import com.tryniecki.appostazja.data.ReadArticles
+import com.tryniecki.appostazja.data.RecentSearches
 import com.tryniecki.appostazja.data.StreetViewRepository
 import com.tryniecki.appostazja.data.local.AppostazjaDatabase
 import com.tryniecki.appostazja.pdf.ApostasyPdfGenerator
@@ -38,6 +39,7 @@ class AppContainer(context: Context) {
         )
     }
     val readArticles by lazy(LazyThreadSafetyMode.SYNCHRONIZED) { ReadArticles(applicationContext) }
+    val recentSearches by lazy(LazyThreadSafetyMode.SYNCHRONIZED) { RecentSearches(applicationContext) }
     val secureDraftStore = SecureDraftStore(applicationContext)
     val pdfGenerator = ApostasyPdfGenerator()
     val declarationArchive by lazy(LazyThreadSafetyMode.SYNCHRONIZED) { DeclarationArchive(applicationContext) }

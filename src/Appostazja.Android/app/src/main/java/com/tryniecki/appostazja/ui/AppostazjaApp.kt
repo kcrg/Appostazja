@@ -93,7 +93,7 @@ fun AppostazjaApp(
     }
     // Outside the NavHost, so they live as long as the activity: the search keeps its query between openings.
     val mapViewModel: MapViewModel = viewModel(factory = MapViewModel.factory(container.mapRepository))
-    val searchViewModel: PlaceSearchViewModel = viewModel(factory = PlaceSearchViewModel.factory(container.mapRepository))
+    val searchViewModel: PlaceSearchViewModel = viewModel(factory = PlaceSearchViewModel.factory(container.mapRepository, container.recentSearches))
     val mapFocus = remember { MapFocus() }
     val motion = navMotionSpecs()
     var mapEntryComposed by remember { mutableStateOf(false) }

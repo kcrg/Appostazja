@@ -65,6 +65,8 @@
     <string name="search_close">Zamknij wyszukiwarkę</string>
     <string name="search_placeholder">Nazwa parafii lub miejscowość</string>
     <string name="search_clear">Wyczyść</string>
+    <string name="search_recent">Ostatnie wyszukiwania</string>
+    <string name="search_recent_remove">Usuń „%1$s” z ostatnich wyszukiwań</string>
     <string name="search_sort_relevance">Trafność</string>
     <string name="search_sort_best">Najlepiej oceniane</string>
     <string name="search_sort_worst">Najgorzej oceniane</string>

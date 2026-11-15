@@ -8,6 +8,7 @@ import androidx.lifecycle.viewModelScope
 import com.tryniecki.appostazja.R
 import com.tryniecki.appostazja.api.model.PlaceDto
 import com.tryniecki.appostazja.data.MapRepository
+import com.tryniecki.appostazja.data.RecentSearches
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.delay
@@ -43,7 +44,10 @@ internal data class PlaceSearchUiState(
  * Holds the search form and pages through `GET /places/search`. All matching, sorting and filtering
  * happen in the API.
  */
-internal class PlaceSearchViewModel(private val repository: MapRepository) : ViewModel() {
+internal class PlaceSearchViewModel(
+    private val repository: MapRepository,
+    private val recentSearches: RecentSearches,
+) : ViewModel() {
     private val _uiState = MutableStateFlow(PlaceSearchUiState())
     val uiState: StateFlow<PlaceSearchUiState> = _uiState.asStateFlow()
     private var searchJob: Job? = null
@@ -75,6 +79,20 @@ internal class PlaceSearchViewModel(private val repository: MapRepository) : Vie
     }
 
     fun retry() = search(debounce = false)
+
+    /** The last searches, shown while the query is empty. */
+    val recent: StateFlow<List<String>> get() = recentSearches.recent
+
+    /** Remembers the current query once it has been used: submitted from the keyboard or a result was picked. */
+    fun rememberQuery() = recentSearches.add(_uiState.value.query)
+
+    fun onRecentClick(phrase: String) {
+        _uiState.update { it.copy(query = phrase) }
+        search(debounce = false)
+        recentSearches.add(phrase)
+    }
+
+    fun removeRecent(phrase: String) = recentSearches.remove(phrase)
 
     fun loadMore() {
         val state = _uiState.value
@@ -129,11 +147,11 @@ internal class PlaceSearchViewModel(private val repository: MapRepository) : Vie
         private const val DEBOUNCE_MS = 300L
         private const val PAGE_SIZE = 30
 
-        fun factory(repository: MapRepository): ViewModelProvider.Factory =
+        fun factory(repository: MapRepository, recentSearches: RecentSearches): ViewModelProvider.Factory =
             object : ViewModelProvider.Factory {
                 @Suppress("UNCHECKED_CAST")
                 override fun <T : ViewModel> create(modelClass: Class<T>): T =
-                    PlaceSearchViewModel(repository) as T
+                    PlaceSearchViewModel(repository, recentSearches) as T
             }
     }
 }

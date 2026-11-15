@@ -76,6 +76,10 @@ internal fun PlaceSearchScreen(
     onWithReportsOnlyChange: (Boolean) -> Unit,
     onLoadMore: () -> Unit,
     onRetry: () -> Unit,
+    recent: List<String>,
+    onRecentClick: (String) -> Unit,
+    onRemoveRecent: (String) -> Unit,
+    onSubmit: () -> Unit,
     onPlaceClick: (PlaceDto) -> Unit,
     onClose: () -> Unit,
     modifier: Modifier = Modifier,
@@ -142,7 +146,10 @@ internal fun PlaceSearchScreen(
                         }
                     },
                     keyboardOptions = KeyboardOptions(imeAction = ImeAction.Search),
-                    keyboardActions = KeyboardActions(onSearch = { focusManager.clearFocus() }),
+                    keyboardActions = KeyboardActions(onSearch = {
+                        onSubmit()
+                        focusManager.clearFocus()
+                    }),
                 )
             }
 
@@ -187,6 +194,26 @@ internal fun PlaceSearchScreen(
                     contentPadding = PaddingValues(bottom = 24.dp),
                     modifier = Modifier.fillMaxSize(),
                 ) {
+                    if (state.query.isBlank() && recent.isNotEmpty()) {
+                        item(key = "recent-title", contentType = "count") {
+                            Text(
+                                stringResource(R.string.search_recent),
+                                style = MaterialTheme.typography.labelLarge,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                modifier = Modifier.padding(horizontal = 20.dp, vertical = 8.dp),
+                            )
+                        }
+                        items(recent, key = { "recent:$it" }, contentType = { "recent" }) { phrase ->
+                            RecentSearchRow(
+                                phrase,
+                                onClick = { onRecentClick(phrase) },
+                                onRemove = { onRemoveRecent(phrase) },
+                            )
+                        }
+                        item(key = "recent-divider", contentType = "recent-divider") {
+                            HorizontalDivider(Modifier.padding(top = 8.dp), color = MaterialTheme.colorScheme.outlineVariant)
+                        }
+                    }
                     item(key = "count", contentType = "count") {
                         Text(
                             pluralStringResource(R.plurals.search_results_count, state.total, state.total),
@@ -266,6 +293,7 @@ internal fun PlaceSearchRoute(
     modifier: Modifier = Modifier,
 ) {
     val state by viewModel.uiState.collectAsStateWithLifecycle()
+    val recent by viewModel.recent.collectAsStateWithLifecycle()
     LaunchedEffect(Unit) { viewModel.ensureLoaded() }
     PlaceSearchScreen(
         state = state,
@@ -274,8 +302,41 @@ internal fun PlaceSearchRoute(
         onWithReportsOnlyChange = viewModel::onWithReportsOnlyChange,
         onLoadMore = viewModel::loadMore,
         onRetry = viewModel::retry,
-        onPlaceClick = onPlaceClick,
+        recent = recent,
+        onRecentClick = viewModel::onRecentClick,
+        onRemoveRecent = viewModel::removeRecent,
+        onSubmit = viewModel::rememberQuery,
+        onPlaceClick = { place ->
+            viewModel.rememberQuery()
+            onPlaceClick(place)
+        },
         onClose = onClose,
         modifier = modifier,
     )
+}
+
+@Composable
+private fun RecentSearchRow(phrase: String, onClick: () -> Unit, onRemove: () -> Unit) {
+    ListItem(
+        onClick = onClick,
+        colors = ListItemDefaults.colors(containerColor = MaterialTheme.colorScheme.surface),
+        leadingContent = {
+            Icon(
+                painterResource(TablerIcons.drawable.tabler_ic_history_outline),
+                contentDescription = null,
+                tint = MaterialTheme.colorScheme.onSurfaceVariant,
+            )
+        },
+        trailingContent = {
+            IconButton(onClick = onRemove) {
+                Icon(
+                    painterResource(TablerIcons.drawable.tabler_ic_x_outline),
+                    contentDescription = stringResource(R.string.search_recent_remove, phrase),
+                )
+            }
+        },
+        verticalAlignment = Alignment.CenterVertically,
+    ) {
+        Text(phrase, maxLines = 1, overflow = TextOverflow.Ellipsis)
+    }
 }
