@@ -7,6 +7,10 @@ import android.content.Intent
 import android.net.Uri
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
+import androidx.compose.material3.ListItemDefaults
+import androidx.compose.foundation.layout.consumeWindowInsets
+import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.padding
@@ -106,7 +110,17 @@ fun DeclarationHistoryRoute(
                     body = stringResource(R.string.declaration_history_empty_body),
                 )
             }
-            else -> LazyColumn(contentPadding = innerPadding) {
+            else -> LazyColumn(
+                modifier = Modifier.fillMaxSize().consumeWindowInsets(innerPadding),
+                // The same margins as the other lists: the items are cards, not edge-to-edge rows.
+                contentPadding = PaddingValues(
+                    start = 16.dp,
+                    end = 16.dp,
+                    top = innerPadding.calculateTopPadding() + 8.dp,
+                    bottom = innerPadding.calculateBottomPadding() + 24.dp,
+                ),
+                verticalArrangement = Arrangement.spacedBy(8.dp),
+            ) {
                 items(items, key = { it.id }) { declaration ->
                     ListItem(
                         onClick = { onOpenPreview(declaration.id) },
@@ -135,6 +149,7 @@ fun DeclarationHistoryRoute(
                                 }
                             }
                         },
+                        colors = ListItemDefaults.colors(containerColor = MaterialTheme.colorScheme.surfaceContainer),
                         modifier = Modifier.animateItem(),
                     ) {
                         Text(formatGeneratedAt(declaration.createdAt, locale))
