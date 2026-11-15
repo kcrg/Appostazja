@@ -25,15 +25,21 @@ internal data class DeclarationUiState(
     val baptismDate: LocalDate = DEFAULT_BAPTISM_DATE,
     val baptismParish: String = "",
     val residenceParish: String = "",
+    /** The declaration is submitted to the parish of baptism; the residence field is not used then. */
+    val residenceSameAsBaptism: Boolean = false,
     val homeAddress: String = "",
     val motivation: String = "",
 ) {
+    /** Where the declaration is submitted. */
+    val effectiveResidenceParish: String
+        get() = if (residenceSameAsBaptism) baptismParish else residenceParish
+
     val canGenerate: Boolean
         get() = isLoaded &&
             fullName.isNotBlank() &&
             homeAddress.isNotBlank() &&
             baptismParish.isNotBlank() &&
-            residenceParish.isNotBlank() &&
+            effectiveResidenceParish.isNotBlank() &&
             motivation.isNotBlank() &&
             !baptismDate.isAfter(LocalDate.now())
 }
@@ -87,7 +93,12 @@ internal class DeclarationViewModel(
     }
     fun updateBaptismParish(value: String) = mutate { copy(baptismParish = value.take(300)) }
     fun updateResidenceParish(value: String) = mutate { copy(residenceParish = value.take(300)) }
-    fun updateMotivation(value: String) = mutate { copy(motivation = value.take(2_000)) }
+    fun updateResidenceSameAsBaptism(value: Boolean) = mutate { copy(residenceSameAsBaptism = value) }
+    fun updateMotivation(value: String) = mutate { copy(motivation = value.take(MOTIVATION_MAX_LENGTH)) }
+    /** [preset] is the chosen ready-made reason, [presets] all of them, as the screen shows them. */
+    fun applyMotivationPreset(preset: String, presets: Collection<String>) = mutate {
+        copy(motivation = withMotivationPreset(motivation, preset, presets).take(MOTIVATION_MAX_LENGTH))
+    }
 
     /** Sample data for testing the form and the PDF; offered only in test builds. */
     fun fillSample() = mutate {
@@ -122,7 +133,7 @@ internal class DeclarationViewModel(
             homeAddress = state.homeAddress.trim(),
             baptismDate = state.baptismDate,
             baptismParish = state.baptismParish.trim(),
-            residenceParish = state.residenceParish.trim(),
+            residenceParish = state.effectiveResidenceParish.trim(),
             motivation = state.motivation.trim(),
             declarationDate = LocalDate.now(),
         )
@@ -160,7 +171,8 @@ private fun DeclarationUiState.parish(field: ParishField) = when (field) {
 
 private fun DeclarationUiState.withParish(field: ParishField, value: String) = when (field) {
     ParishField.BAPTISM -> copy(baptismParish = value.take(PARISH_MAX_LENGTH))
-    ParishField.RESIDENCE -> copy(residenceParish = value.take(PARISH_MAX_LENGTH))
+    // A church picked for the residence is a different one than the baptism parish.
+    ParishField.RESIDENCE -> copy(residenceParish = value.take(PARISH_MAX_LENGTH), residenceSameAsBaptism = false)
 }
 
 private fun DeclarationDraft.toUiState() = DeclarationUiState(
@@ -171,6 +183,7 @@ private fun DeclarationDraft.toUiState() = DeclarationUiState(
         .coerceAtMost(LocalDate.now()),
     baptismParish = baptismParish,
     residenceParish = residenceParish,
+    residenceSameAsBaptism = residenceSameAsBaptism,
     homeAddress = homeAddress,
     motivation = motivation,
 )
@@ -180,6 +193,7 @@ private fun DeclarationUiState.toDraft() = DeclarationDraft(
     baptismEpochDay = baptismDate.toEpochDay(),
     baptismParish = baptismParish,
     residenceParish = residenceParish,
+    residenceSameAsBaptism = residenceSameAsBaptism,
     homeAddress = homeAddress,
     motivation = motivation,
 )

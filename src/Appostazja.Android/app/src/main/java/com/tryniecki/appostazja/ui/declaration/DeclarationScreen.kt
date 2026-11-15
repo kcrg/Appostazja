@@ -1,5 +1,10 @@
 package com.tryniecki.appostazja.ui.declaration
 
+import androidx.compose.material3.FilterChip
+import androidx.compose.material3.Checkbox
+import androidx.compose.foundation.selection.toggleable
+import androidx.compose.foundation.layout.FlowRow
+import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.AnimatedContent
 import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
@@ -154,6 +159,8 @@ fun DeclarationRoute(
         onBaptismDateChange = viewModel::updateBaptismDate,
         onBaptismParishChange = viewModel::updateBaptismParish,
         onResidenceParishChange = viewModel::updateResidenceParish,
+        onResidenceSameAsBaptismChange = viewModel::updateResidenceSameAsBaptism,
+        onMotivationPreset = viewModel::applyMotivationPreset,
         onMotivationChange = viewModel::updateMotivation,
         onClear = viewModel::clear,
         // Test builds only: three taps on "Twoje dane" fill the form with sample data.
@@ -174,6 +181,8 @@ private fun DeclarationScreen(
     onBaptismDateChange: (LocalDate) -> Unit,
     onBaptismParishChange: (String) -> Unit,
     onResidenceParishChange: (String) -> Unit,
+    onResidenceSameAsBaptismChange: (Boolean) -> Unit,
+    onMotivationPreset: (String, Collection<String>) -> Unit,
     onMotivationChange: (String) -> Unit,
     onClear: () -> Unit,
     onFillSample: (() -> Unit)?,
@@ -256,6 +265,8 @@ private fun DeclarationScreen(
                     onBaptismDateChange = onBaptismDateChange,
                     onBaptismParishChange = onBaptismParishChange,
                     onResidenceParishChange = onResidenceParishChange,
+                    onResidenceSameAsBaptismChange = onResidenceSameAsBaptismChange,
+                    onMotivationPreset = onMotivationPreset,
                     onMotivationChange = onMotivationChange,
                     onFillSample = onFillSample,
                 )
@@ -273,6 +284,8 @@ private fun DeclarationForm(
     onBaptismDateChange: (LocalDate) -> Unit,
     onBaptismParishChange: (String) -> Unit,
     onResidenceParishChange: (String) -> Unit,
+    onResidenceSameAsBaptismChange: (Boolean) -> Unit,
+    onMotivationPreset: (String, Collection<String>) -> Unit,
     onMotivationChange: (String) -> Unit,
     onFillSample: (() -> Unit)?,
 ) {
@@ -352,19 +365,55 @@ private fun DeclarationForm(
         }
 
         FormSection(title = stringResource(R.string.declaration_submission)) {
-            OutlinedTextField(
-                value = state.residenceParish,
-                onValueChange = onResidenceParishChange,
-                label = { Text(stringResource(R.string.declaration_residence_parish)) },
-                modifier = Modifier.fillMaxWidth(),
-                keyboardOptions = KeyboardOptions(
-                    capitalization = KeyboardCapitalization.Sentences,
-                    imeAction = ImeAction.Next,
-                ),
-            )
+            Row(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .clip(MaterialTheme.shapes.medium)
+                    .toggleable(
+                        value = state.residenceSameAsBaptism,
+                        role = Role.Checkbox,
+                        onValueChange = onResidenceSameAsBaptismChange,
+                    )
+                    .padding(vertical = 4.dp),
+                verticalAlignment = Alignment.CenterVertically,
+            ) {
+                // The row handles the click, so the box itself is only an indicator.
+                Checkbox(checked = state.residenceSameAsBaptism, onCheckedChange = null, modifier = Modifier.padding(12.dp))
+                Column(Modifier.weight(1f)) {
+                    Text(stringResource(R.string.declaration_same_parish), style = MaterialTheme.typography.bodyLarge)
+                    Text(
+                        stringResource(R.string.declaration_same_parish_support),
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    )
+                }
+            }
+            AnimatedVisibility(visible = !state.residenceSameAsBaptism) {
+                OutlinedTextField(
+                    value = state.residenceParish,
+                    onValueChange = onResidenceParishChange,
+                    label = { Text(stringResource(R.string.declaration_residence_parish)) },
+                    modifier = Modifier.fillMaxWidth(),
+                    keyboardOptions = KeyboardOptions(
+                        capitalization = KeyboardCapitalization.Sentences,
+                        imeAction = ImeAction.Next,
+                    ),
+                )
+            }
         }
 
         FormSection(title = stringResource(R.string.declaration_motivation)) {
+            val presets = MotivationPreset.entries.map { stringResource(it.label) to stringResource(it.text) }
+            val presetTexts = presets.map { it.second }
+            FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                presets.forEach { (label, text) ->
+                    FilterChip(
+                        selected = state.motivation.trim() == text,
+                        onClick = { onMotivationPreset(text, presetTexts) },
+                        label = { Text(label) },
+                    )
+                }
+            }
             OutlinedTextField(
                 value = state.motivation,
                 onValueChange = onMotivationChange,

@@ -107,6 +107,15 @@
     <string name="declaration_residence_parish">Parafia właściwa dla miejsca zamieszkania</string>
     <string name="declaration_motivation">Uzasadnienie decyzji</string>
     <string name="declaration_motivation_hint">Krótko opisz swoją świadomą i dobrowolną decyzję</string>
+    <string name="declaration_same_parish">Składam w parafii chrztu</string>
+    <string name="declaration_same_parish_support">Zaznacz, gdy parafia chrztu jest też parafią Twojego miejsca zamieszkania.</string>
+    <string name="motivation_presets">Gotowe uzasadnienia</string>
+    <string name="motivation_preset_no_faith_label">Brak wiary</string>
+    <string name="motivation_preset_no_faith">Jestem osobą niewierzącą i nie chcę formalnie należeć do Kościoła katolickiego.</string>
+    <string name="motivation_preset_teaching_label">Nie podzielam nauczania</string>
+    <string name="motivation_preset_teaching">Nie podzielam wiary ani nauczania Kościoła katolickiego i nie identyfikuję się z tą wspólnotą.</string>
+    <string name="motivation_preset_institution_label">Sprzeciw wobec instytucji</string>
+    <string name="motivation_preset_institution">Nie akceptuję postępowania Kościoła katolickiego jako instytucji i nie chcę być jego członkiem.</string>
     <string name="declaration_motivation_support">Treść trafi bezpośrednio do dokumentu. Przeczytaj ją ponownie przed zapisaniem PDF.</string>
     <string name="declaration_info">Dokument należy wydrukować, podpisać odręcznie i złożyć osobiście proboszczowi parafii miejsca zamieszkania.</string>
     <string name="declaration_generate">Generuj PDF</string>

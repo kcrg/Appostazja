@@ -8,6 +8,7 @@ data class DeclarationDraft(
     val baptismEpochDay: Long = java.time.LocalDate.now().toEpochDay(),
     val baptismParish: String = "",
     val residenceParish: String = "",
+    val residenceSameAsBaptism: Boolean = false,
     val homeAddress: String = "",
     val motivation: String = "",
 )
