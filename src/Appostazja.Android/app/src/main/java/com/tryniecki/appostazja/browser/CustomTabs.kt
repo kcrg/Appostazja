@@ -28,7 +28,11 @@ fun openCustomTab(
     try {
         intent.launchUrl(context, url.toUri())
     } catch (_: ActivityNotFoundException) {
-        uriHandler.openUri(url)
+        // No browser that supports Custom Tabs; with no browser at all the link cannot be opened.
+        try {
+            uriHandler.openUri(url)
+        } catch (_: IllegalArgumentException) {
+        }
     }
 }
 

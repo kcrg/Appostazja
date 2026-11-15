@@ -1,6 +1,10 @@
 package com.tryniecki.appostazja.ui.more
 
 import android.content.ActivityNotFoundException
+import android.content.ClipData
+import android.content.ClipboardManager
+import android.content.Context
+import android.widget.Toast
 import android.content.Intent
 import androidx.core.net.toUri
 import androidx.compose.foundation.layout.Arrangement
@@ -34,7 +38,6 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalLocale
-import androidx.compose.ui.platform.LocalUriHandler
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
@@ -69,7 +72,6 @@ fun MoreScreen(
     val (newsState, retryNews) = rememberNewsState(loadNews)
     val openCustomTab = rememberOpenCustomTab()
     val context = LocalContext.current
-    val uriHandler = LocalUriHandler.current
     val email = stringResource(R.string.more_contact_email)
     val dataSourceUrl = stringResource(R.string.map_data_source_url)
     val reportFormUrl = stringResource(R.string.report_form_url)
@@ -186,7 +188,8 @@ fun MoreScreen(
                         try {
                             context.startActivity(intent)
                         } catch (_: ActivityNotFoundException) {
-                            uriHandler.openUri("mailto:$email")
+                            // No mail app: the address is still one paste away.
+                            copyEmail(context, email)
                         }
                     },
                 )
@@ -262,3 +265,10 @@ private fun LinkRow(
 private fun listItemColors() = ListItemDefaults.colors(
     containerColor = MaterialTheme.colorScheme.surfaceContainer,
 )
+
+/** Copies [email] to the clipboard and says why: there is no app to write it in. */
+private fun copyEmail(context: Context, email: String) {
+    val clipboard = context.getSystemService(ClipboardManager::class.java) ?: return
+    clipboard.setPrimaryClip(ClipData.newPlainText(context.getString(R.string.more_contact), email))
+    Toast.makeText(context, R.string.more_contact_copied, Toast.LENGTH_LONG).show()
+}
