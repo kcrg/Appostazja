@@ -6,22 +6,16 @@ import java.io.OutputStream
 class ApostasyPdfGenerator {
     fun generate(declaration: ApostasyDeclaration, destination: OutputStream) {
         validate(declaration)
-        val document = PdfDocument()
-        try {
-            val writer = PdfWriter(document)
-            writer.right(letterDateLine(declaration.homeAddress, declaration.declarationDate), 10f)
-            writer.space(10f)
-            writer.left(declaration.fullName, 11f)
-            writer.left(declaration.homeAddress, 11f)
-            writer.space(20f)
+        write(destination) { writer ->
+            writer.dateLine(letterDateLine(declaration.homeAddress, declaration.declarationDate))
+            writer.space(18f)
+            writer.sender(declaration.fullName, listOf(declaration.homeAddress))
+            writer.space(26f)
+            writer.addressee("Proboszcz parafii miejsca zamieszkania", declaration.residenceParish)
+            writer.space(44f)
 
-            writer.right("Proboszcz parafii miejsca zamieszkania", 10f)
-            writer.right(declaration.residenceParish, 11f)
-            writer.space(34f)
-
-            writer.center("OŚWIADCZENIE WOLI", 15f, bold = true)
-            writer.center("O WYSTĄPIENIU Z KOŚCIOŁA KATOLICKIEGO", 15f, bold = true)
-            writer.space(24f)
+            writer.title("OŚWIADCZENIE WOLI", "O WYSTĄPIENIU Z KOŚCIOŁA KATOLICKIEGO")
+            writer.space(26f)
 
             writer.paragraph(
                 "Ja, niżej podpisany/a, oświadczam, że w sposób świadomy, dobrowolny i wolny " +
@@ -29,66 +23,65 @@ class ApostasyPdfGenerator {
                     "przewidzianych w Dekrecie Ogólnym Konferencji Episkopatu Polski w sprawie wystąpień " +
                     "z Kościoła oraz powrotu do wspólnoty Kościoła, obowiązującym od 19 lutego 2016 r., " +
                     "oraz o dokonanie stosownej adnotacji w księdze ochrzczonych.",
-                11f,
             )
-            writer.space(12f)
-            writer.left(baptismDateLine(declaration.baptismDate), 11f)
-            writer.paragraph("Parafia chrztu: ${declaration.baptismParish}", 11f)
+            writer.space(14f)
+            writer.fields(
+                listOf(
+                    labelAndValue(baptismDateLine(declaration.baptismDate)),
+                    "Parafia chrztu:" to declaration.baptismParish,
+                ),
+            )
             writer.space(14f)
 
-            writer.paragraph("Motywacja:", 11f, bold = true)
-            writer.paragraph(declaration.motivation, 11f)
+            writer.heading("Motywacja")
+            writer.paragraph(declaration.motivation)
             writer.space(14f)
             writer.paragraph(
                 "Decyzję podejmuję bez przymusu i ze świadomością konsekwencji, jakie pociąga za sobą ten akt. " +
                     "Moja wola zerwania wspólnoty z Kościołem jest jednoznaczna.",
-                11f,
             )
             if (declaration.requestAnnotatedCertificate) {
-                writer.space(10f)
-                writer.paragraph(
-                    "Proszę o wydanie mi świadectwa chrztu z adnotacją o wystąpieniu z Kościoła.",
-                    11f,
-                )
-            }
-            if (declaration.baptisedElsewhere) {
-                writer.space(20f)
-                writer.paragraph("Załącznik: świadectwo chrztu", 10f)
+                writer.space(8f)
+                writer.paragraph("Proszę o wydanie mi świadectwa chrztu z adnotacją o wystąpieniu z Kościoła.")
             }
             writer.signature("czytelny, własnoręczny podpis")
-            writer.finish()
-            document.writeTo(destination)
-        } finally {
-            document.close()
+            if (declaration.baptisedElsewhere) {
+                writer.space(10f)
+                writer.note("Załącznik: świadectwo chrztu")
+            }
         }
     }
 
     fun generate(request: BaptismCertificateRequest, destination: OutputStream) {
         require(request.fullName.isNotBlank() && request.homeAddress.isNotBlank() && request.baptismParish.isNotBlank())
         val text = certificateRequestText(request)
+        write(destination) { writer ->
+            writer.dateLine(letterDateLine(request.homeAddress, request.requestDate))
+            writer.space(18f)
+            writer.sender(request.fullName, listOfNotNull(request.homeAddress, text.contact?.let(::labelAndValue)?.second))
+            writer.space(26f)
+            writer.addressee("Kancelaria parafialna", request.baptismParish)
+            writer.space(44f)
+
+            writer.title("PROŚBA O WYDANIE ŚWIADECTWA CHRZTU")
+            writer.space(26f)
+
+            writer.paragraph(text.request)
+            writer.space(14f)
+            writer.fields(text.details.map(::labelAndValue))
+            writer.space(14f)
+            writer.paragraph(text.delivery)
+            writer.space(8f)
+            writer.paragraph("Z poważaniem")
+            writer.signature("podpis")
+        }
+    }
+
+    private fun write(destination: OutputStream, content: (PdfWriter) -> Unit) {
         val document = PdfDocument()
         try {
             val writer = PdfWriter(document)
-            writer.right(letterDateLine(request.homeAddress, request.requestDate), 10f)
-            writer.space(10f)
-            writer.left(request.fullName, 11f)
-            writer.left(request.homeAddress, 11f)
-            text.contact?.let { writer.left(it, 10f) }
-            writer.space(20f)
-
-            writer.right("Kancelaria parafialna", 10f)
-            writer.right(request.baptismParish, 11f)
-            writer.space(34f)
-
-            writer.center("PROŚBA O WYDANIE ŚWIADECTWA CHRZTU", 15f, bold = true)
-            writer.space(24f)
-
-            writer.paragraph(text.request, 11f)
-            writer.space(12f)
-            text.details.forEach { writer.paragraph(it, 11f) }
-            writer.space(14f)
-            writer.paragraph(text.delivery, 11f)
-            writer.signature("podpis")
+            content(writer)
             writer.finish()
             document.writeTo(destination)
         } finally {
@@ -108,4 +101,10 @@ class ApostasyPdfGenerator {
             BaptismDate.Unknown -> Unit
         }
     }
+}
+
+/** "Data chrztu: 14.05.1995" as a label column and a value column. */
+internal fun labelAndValue(line: String): Pair<String, String> {
+    val split = line.indexOf(": ")
+    return if (split < 0) "" to line else line.substring(0, split + 1) to line.substring(split + 2)
 }
