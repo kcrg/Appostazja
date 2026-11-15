@@ -19,7 +19,6 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.shape.CircleShape
-import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.FilledTonalButton
 import androidx.compose.material3.Icon
@@ -58,7 +57,7 @@ import kotlinx.coroutines.launch
 import kotlin.math.roundToInt
 import com.composables.icons.tabler.outline.R as Tabler
 
-private val PreviewShape = RoundedCornerShape(24.dp)
+
 private const val PreviewAspectRatio = 16f / 10f
 private const val LOADING_PLACEHOLDER_DELAY_MS = 600L
 
@@ -187,7 +186,7 @@ private fun LoadingPreview() {
         modifier = Modifier
             .fillMaxWidth()
             .aspectRatio(PreviewAspectRatio),
-        shape = PreviewShape,
+        shape = MaterialTheme.shapes.medium,
         color = MaterialTheme.colorScheme.surfaceContainerHigh,
     ) {
         Column(
@@ -212,7 +211,7 @@ private fun AvailablePreview(preview: StreetViewPreview.Available, image: ImageB
         modifier = Modifier
             .fillMaxWidth()
             .aspectRatio(PreviewAspectRatio)
-            .clip(PreviewShape)
+            .clip(MaterialTheme.shapes.medium)
             .clickable(onClickLabel = openLabel, role = Role.Button, onClick = onOpen),
     ) {
         Image(
@@ -302,7 +301,7 @@ private fun MessagePreview(
             .fillMaxWidth()
             // Full-size states match the thumbnail and loading card, so the card keeps its size between states.
             .then(if (compact) Modifier else Modifier.minAspectRatio(PreviewAspectRatio)),
-        shape = PreviewShape,
+        shape = MaterialTheme.shapes.medium,
         color = MaterialTheme.colorScheme.surfaceContainerHigh,
     ) {
         if (compact) {

@@ -378,7 +378,7 @@ private fun DeclarationForm(
         }
 
         Surface(
-            shape = MaterialTheme.shapes.large,
+            shape = MaterialTheme.shapes.medium,
             color = MaterialTheme.colorScheme.secondaryContainer,
         ) {
             Row(

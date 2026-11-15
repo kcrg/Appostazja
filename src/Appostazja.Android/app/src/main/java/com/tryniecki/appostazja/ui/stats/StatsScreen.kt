@@ -17,7 +17,6 @@ import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.shape.CircleShape
-import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.ExperimentalMaterial3Api
@@ -265,7 +264,7 @@ private fun TallSegmentedBar(parts: List<Part>, locale: Locale) {
                     Modifier
                         .width(width)
                         .height(28.dp)
-                        .background(part.color, RoundedCornerShape(4.dp)),
+                        .background(part.color, MaterialTheme.shapes.extraSmall),
                     contentAlignment = Alignment.CenterStart,
                 ) {
                     // A block too narrow for its label prints none; the legend and description still carry it.
@@ -341,7 +340,7 @@ internal fun Legend(parts: List<Part>) {
     FlowRow(horizontalArrangement = Arrangement.spacedBy(16.dp), verticalArrangement = Arrangement.spacedBy(4.dp)) {
         parts.forEach { part ->
             Row(verticalAlignment = Alignment.CenterVertically) {
-                Box(Modifier.size(10.dp).background(part.color, RoundedCornerShape(3.dp)))
+                Box(Modifier.size(10.dp).background(part.color, MaterialTheme.shapes.extraSmall))
                 Spacer(Modifier.width(6.dp))
                 Text(part.label, style = MaterialTheme.typography.labelMedium)
             }

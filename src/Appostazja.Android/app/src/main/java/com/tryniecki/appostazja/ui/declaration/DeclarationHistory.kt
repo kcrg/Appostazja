@@ -150,6 +150,17 @@ fun DeclarationHistoryRoute(
                             }
                         },
                         colors = ListItemDefaults.colors(containerColor = MaterialTheme.colorScheme.surfaceContainer),
+                        // A card like the others, which keeps its shape when pressed.
+                        shapes = MaterialTheme.shapes.medium.let { card ->
+                            ListItemDefaults.shapes(
+                                shape = card,
+                                selectedShape = card,
+                                pressedShape = card,
+                                focusedShape = card,
+                                hoveredShape = card,
+                                draggedShape = card,
+                            )
+                        },
                         modifier = Modifier.animateItem(),
                     ) {
                         Text(formatGeneratedAt(declaration.createdAt, locale))
