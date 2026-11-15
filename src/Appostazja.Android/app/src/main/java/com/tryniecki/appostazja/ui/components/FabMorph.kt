@@ -179,5 +179,5 @@ private const val FAB_FADE_OUT = 100
 private val Emphasized = CubicBezierEasing(0.2f, 0f, 0f, 1f)
 private val FAB_SIZE = 56.dp
 private val FAB_CORNER_RADIUS = 16.dp
-private val CARD_CORNER_RADIUS = NavMotion.BackCornerRadius
+private val CARD_CORNER_RADIUS = NavMotion.CardCornerRadius
 private const val CARD_ROUNDING_SPAN = 0.1f
